@@ -17,11 +17,26 @@
 	let suffix = $state('');
 	let dateOfBirth = $state('');
 
+	const formatName = (v: string) =>
+		v
+			.replace(/[^\p{L}\s.'-]/gu, '')
+			.replace(/^\s+/, '')
+			.replace(/\s{2,}/g, ' ')
+			.replace(/(^|[\s'-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+
+	const formatStudentId = (v: string, deleting = false) => {
+		const d = v.replace(/\D/g, '').slice(0, 6);
+		if (d.length > 2) return d.slice(0, 2) + '-' + d.slice(2);
+		if (d.length === 2 && !deleting) return d + '-';
+		return d;
+	};
+
 	// Accepted date-of-birth range for graduate-school applicants.
 	const DOB_MIN = '1940-01-01';
 	const DOB_MAX = '2008-12-31';
 	let confirmPassword = $state('');
 	let studentId = $state('');
+	let studentIdError = $state('');
 	let program = $state('');
 	let studentType = $state('');
 	let lastSchoolYear = $state('');
@@ -77,12 +92,16 @@
 		e.preventDefault();
 		if (!browser) return;
 		error = '';
-		if (!firstName || !lastName || !dateOfBirth || !email || !studentId || !program || !studentType || !lastSchoolYear || !password || !confirmPassword) { error = 'Please fill in all required fields.'; return; }
+		studentIdError = '';
+		if (!firstName || !lastName || !dateOfBirth || !email || !program || !studentType || !lastSchoolYear || !password || !confirmPassword) { error = 'Please fill in all required fields.'; return; }
 		if (dateOfBirth < DOB_MIN || dateOfBirth > DOB_MAX) {
 			error = `Date of birth must be between ${DOB_MIN.slice(0, 4)} and ${DOB_MAX.slice(0, 4)}.`;
 			return;
 		}
-		if (!/^\d{2}-\d{4}$/.test(studentId)) { error = 'Student ID must follow the format 00-0000.'; return; }
+		if (!/^\d{2}-\d{4}$/.test(studentId)) {
+			studentIdError = 'Student ID must follow the format NN-NNNN.';
+			return;
+		}
 		if (password !== confirmPassword) { error = 'Passwords do not match.'; return; }
 		loading = true;
 		try {
@@ -261,37 +280,70 @@
 						<form onsubmit={handleSignup} class="space-y-4" autocomplete="off">
 							<div>
 								<label class="block text-sm font-medium text-gray-700 mb-1.5">First Name</label>
-								
-<input
-									bind:value={firstName}
+								<input
+									value={firstName}
 									type="text"
 									placeholder="Juan"
 									required
 									class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
 									autocomplete="off"
+									oninput={(e) => {
+										firstName = formatName(e.currentTarget.value);
+									}}
+									onpaste={(e) => {
+										const input = e.currentTarget;
+										const start = input.selectionStart ?? input.value.length;
+										const end = input.selectionEnd ?? input.value.length;
+										const next = formatName(input.value.slice(0, start) + (e.clipboardData?.getData('text') ?? '') + input.value.slice(end));
+										e.preventDefault();
+										firstName = next;
+										input.value = next;
+									}}
 								/>
 							</div>
 							<div>
 								<label class="block text-sm font-medium text-gray-700 mb-1.5">Middle Name <span class="text-gray-400 font-normal">(optional)</span></label>
-								
-<input
-									bind:value={middleName}
+								<input
+									value={middleName}
 									type="text"
 									placeholder="Dela"
 									class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
 									autocomplete="off"
+									oninput={(e) => {
+										middleName = formatName(e.currentTarget.value);
+									}}
+									onpaste={(e) => {
+										const input = e.currentTarget;
+										const start = input.selectionStart ?? input.value.length;
+										const end = input.selectionEnd ?? input.value.length;
+										const next = formatName(input.value.slice(0, start) + (e.clipboardData?.getData('text') ?? '') + input.value.slice(end));
+										e.preventDefault();
+										middleName = next;
+										input.value = next;
+									}}
 								/>
 							</div>
 							<div>
 								<label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name</label>
-								
-<input
-									bind:value={lastName}
+								<input
+									value={lastName}
 									type="text"
 									placeholder="Cruz"
 									required
 									class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
 									autocomplete="off"
+									oninput={(e) => {
+										lastName = formatName(e.currentTarget.value);
+									}}
+									onpaste={(e) => {
+										const input = e.currentTarget;
+										const start = input.selectionStart ?? input.value.length;
+										const end = input.selectionEnd ?? input.value.length;
+										const next = formatName(input.value.slice(0, start) + (e.clipboardData?.getData('text') ?? '') + input.value.slice(end));
+										e.preventDefault();
+										lastName = next;
+										input.value = next;
+									}}
 								/>
 							</div>
 							<div>
@@ -319,15 +371,26 @@
 								</div>
 								<div>
 									<label class="block text-sm font-medium text-gray-700 mb-1.5">Student ID</label>
-									
-<input
-										bind:value={studentId}
+									<input
+										value={studentId}
 										type="text"
 										placeholder="00-0000"
-										required
+										maxlength="7"
+										inputmode="numeric"
 										class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
 										autocomplete="off"
+										oninput={(e) => {
+											studentId = formatStudentId(
+												e.currentTarget.value,
+												(e as unknown as InputEvent).inputType?.startsWith('delete')
+											);
+											e.currentTarget.value = studentId;
+											studentIdError = '';
+										}}
 									/>
+									{#if studentIdError}
+										<p class="mt-1 text-xs text-red-600">{studentIdError}</p>
+									{/if}
 								</div>
 							</div>
 							<div>
