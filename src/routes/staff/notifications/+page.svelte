@@ -158,7 +158,7 @@ task:    { icon: 'fa-solid fa-clipboard-list',       color: 'text-purple-600', b
 				{@const meta = typeIconMap[notif.type]}
 				<button
 					onclick={() => viewDetail(notif)}
-					class="w-full text-left bg-white rounded-xl border shadow-sm p-4 hover:shadow-md transition-all flex items-start gap-4
+					class="notification-item w-full text-left bg-white rounded-xl border shadow-sm p-4 hover:shadow-md transition-all flex items-start gap-4
 						{!notif.isRead ? 'border-essu-green/30 bg-green-50/30' : 'border-gray-100'}"
 				>
 					<div class="w-10 h-10 rounded-xl {meta.bg} {meta.color} flex items-center justify-center shrink-0">

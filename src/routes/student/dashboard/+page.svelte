@@ -24,7 +24,7 @@
 
 <div class="space-y-5">
 	<!-- Welcome banner -->
-	<div class="bg-gradient-to-r from-essu-green to-essu-green-mid rounded-2xl p-6 text-white">
+	<div class="student-welcome bg-gradient-to-r from-essu-green to-essu-green-mid rounded-2xl p-6 text-white">
 		<p class="text-white/80 text-sm mb-1">Welcome back,</p>
 		<h2 class="text-2xl font-bold">{data.layoutUser.name}</h2>
 		<p class="text-white/70 text-sm mt-1">
@@ -105,7 +105,7 @@
 					{#each quickActions as action}
 						<a
 							href={action.href}
-							class="{action.color} flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-colors"
+							class="quick-action-link {action.color} flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-colors"
 						>
 							<i class="{action.icon} text-lg"></i>
 							<span class="text-xs font-medium leading-tight">{action.label}</span>

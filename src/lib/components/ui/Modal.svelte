@@ -35,7 +35,7 @@
 {#if open}
 	<!-- Backdrop -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+		class="ui-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
 		transition:fade={{ duration: 150 }}
 		role="dialog"
 		aria-modal="true"
@@ -44,7 +44,7 @@
 	>
 		<!-- Modal panel -->
 		<div
-			class="relative w-full {sizeClass[size]} bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
+			class="ui-modal-panel relative w-full {sizeClass[size]} bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
 			transition:fly={{ y: 20, duration: 200 }}
 		>
 			<!-- Header -->

@@ -35,7 +35,7 @@
 	}: Props = $props();
 </script>
 
-<div class="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex flex-wrap gap-3 items-end">
+<div class="ui-filter-bar bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex flex-wrap gap-3 items-end">
 	<!-- Search -->
 	<div class="relative flex-1 min-w-48">
 		<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>

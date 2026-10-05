@@ -221,10 +221,10 @@
 						<div class="flex items-center justify-between">
 							<span class="text-xs text-gray-400">{new Date(s.date_registered).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
 							<div class="flex items-center gap-1">
-								<button onclick={() => openEdit(s)} class="p-1.5 text-gray-400 hover:text-essu-green transition-colors" title="Edit">
+								<button onclick={() => openEdit(s)} class="p-1.5 text-gray-400 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${fullName(s)}`}>
 									<i class="fa-solid fa-pen text-sm"></i>
 								</button>
-								<button onclick={() => openDelete(s)} class="p-1.5 text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+								<button onclick={() => openDelete(s)} class="p-1.5 text-gray-400 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${fullName(s)}`}>
 									<i class="fa-solid fa-trash text-sm"></i>
 								</button>
 							</div>
@@ -258,7 +258,7 @@
 									<span class="font-mono text-xs text-gray-500">{@html highlight(s.student_id, search.trim())}</span>
 								</td>
 								<td class="px-4 py-3 max-w-[140px]">
-									<span class="truncate block text-gray-700">{@html highlight(s.program, search.trim())}</span>
+									<span class="program-value truncate block text-gray-700" title={s.program ?? ''}>{@html highlight(s.program, search.trim())}</span>
 								</td>
 								<td class="px-4 py-3">
 									{#if s.student_type}
@@ -292,6 +292,7 @@
 											onclick={() => openEdit(s)}
 											class="p-1.5 text-gray-300 hover:text-essu-green transition-colors"
 											title="Edit"
+											aria-label={`Edit ${fullName(s)}`}
 										>
 											<i class="fa-solid fa-pen text-sm"></i>
 										</button>
@@ -299,6 +300,7 @@
 											onclick={() => openDelete(s)}
 											class="p-1.5 text-gray-300 hover:text-red-500 transition-colors"
 											title="Delete"
+											aria-label={`Delete ${fullName(s)}`}
 										>
 											<i class="fa-solid fa-trash text-sm"></i>
 										</button>

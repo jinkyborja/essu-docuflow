@@ -50,7 +50,7 @@
 	{type}
 	disabled={disabled || loading}
 	{onclick}
-	class="{baseClass} {variantClasses[variant]} {sizeClasses[size]} {extraClass}"
+	class="ui-button {baseClass} {variantClasses[variant]} {sizeClasses[size]} {extraClass}"
 >
 	{#if loading}
 		<i class="fa-solid fa-circle-notch fa-spin"></i>

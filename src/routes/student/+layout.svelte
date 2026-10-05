@@ -36,7 +36,7 @@
 	const collapsed = $derived($sidebarCollapsed);
 </script>
 
-<div class="flex min-h-screen bg-gray-50">
+<div class="portal-layout flex min-h-screen bg-gray-50">
 	<Sidebar items={studentNav} role="student" />
 
 	<div
@@ -44,7 +44,7 @@
 	>
 		<TopBar title={pageTitle} />
 
-		<main class="flex-1 mt-16 p-6">
+		<main class="portal-main flex-1 mt-16 p-6">
 			{@render children()}
 		</main>
 	</div>

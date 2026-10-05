@@ -126,7 +126,7 @@
 						{@const reqs = doc.requirements ?? []}
 						<button
 							onclick={() => selectDoc(doc)}
-							class="text-left p-4 border-2 rounded-xl transition-all
+							class="ui-document-option text-left p-4 border-2 rounded-xl transition-all
 								{selectedDoc?.document_id === doc.document_id
 									? 'border-essu-green bg-green-50/60'
 									: 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}"
@@ -180,7 +180,7 @@
 									<span>This requirement must be submitted in person at the Graduate School. You do not need to upload anything for this.</span>
 								</div>
 							{:else}
-								<label class="flex items-start gap-3 px-3 py-2.5 border border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-essu-green/50 hover:bg-essu-green/5 transition-all">
+								<label class="ui-file-dropzone flex items-start gap-3 px-3 py-2.5 border border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-essu-green/50 hover:bg-essu-green/5 transition-all">
 									<i class="fa-solid fa-upload text-gray-400 shrink-0 mt-0.5"></i>
 									<span class="text-sm min-w-0 break-words {files[req.name] ? 'text-essu-green font-medium' : 'text-gray-400'}">
 										{files[req.name] ? files[req.name]!.name : 'Click to upload (PDF or image)'}

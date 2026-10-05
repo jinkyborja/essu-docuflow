@@ -23,7 +23,7 @@
 	const colors = $derived(colorMap[color]);
 </script>
 
-<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
+<div class="ui-stat-card bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
 	<div class="shrink-0 w-12 h-12 rounded-xl {colors.icon} flex items-center justify-center">
 		<i class="{icon} text-xl"></i>
 	</div>

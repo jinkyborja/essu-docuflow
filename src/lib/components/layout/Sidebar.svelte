@@ -48,7 +48,8 @@
 
 <!-- Sidebar — same green background for both roles -->
 <aside
-	class="fixed top-0 left-0 h-full z-40 flex flex-col bg-linear-to-b from-essu-green to-essu-green-mid
+	id="portal-navigation"
+	class="portal-sidebar fixed top-0 left-0 h-full z-40 flex flex-col bg-linear-to-b from-essu-green to-essu-green-mid
 		text-white shadow-xl transition-all duration-300 ease-in-out
 		{collapsed ? 'w-16' : 'w-60'}
 		{mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}"
@@ -56,7 +57,7 @@
 >
 	<!-- Brand -->
 	<div class="flex items-center h-16 px-3 border-b border-white/10 shrink-0">
-		<div class="w-10 h-10 rounded-xl {logoBadge} flex items-center justify-center shrink-0">
+		<div class="portal-brand-mark w-10 h-10 rounded-xl {logoBadge} flex items-center justify-center shrink-0">
 			<i class="fa-solid fa-graduation-cap text-lg"></i>
 		</div>
 		{#if !collapsed}
@@ -72,9 +73,20 @@
 		{#each items as item}
 			{@const active = isActive(item.href)}
 			{@const disabled = item.adminOnly && userRole !== 'Admin'}
+			{#if role === 'staff' && item.href === '/staff/requests'}
+				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Work queue</p>
+			{:else if role === 'staff' && item.href === '/staff/students'}
+				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Administration</p>
+			{:else if role === 'staff' && item.href === '/staff/reports'}
+				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Workspace</p>
+			{:else if role === 'student' && item.href === '/student/documents'}
+				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Requests</p>
+			{:else if role === 'student' && item.href === '/student/notifications'}
+				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Account</p>
+			{/if}
 			{#if disabled}
 				<div
-					class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium opacity-40 cursor-not-allowed select-none"
+					class="portal-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium opacity-40 cursor-not-allowed select-none"
 					title={collapsed ? item.label : 'Admin only'}
 				>
 					<i class="{item.icon} w-5 text-center shrink-0 text-white/50"></i>
@@ -87,7 +99,7 @@
 				<a
 					href={item.href}
 					onclick={closeMobile}
-					class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group
+					class="portal-nav-link relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group
 						{active ? activeItem : 'text-white/70 hover:bg-white/10 hover:text-white'}"
 					aria-current={active ? 'page' : undefined}
 					title={collapsed ? item.label : undefined}

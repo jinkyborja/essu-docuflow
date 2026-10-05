@@ -16,7 +16,7 @@
 
 <div class="space-y-6">
 	<!-- Stats -->
-	<div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+	<div class="ui-stat-grid grid grid-cols-2 xl:grid-cols-4 gap-4">
 		<StatCard label="Total Students"   value={data.counts.students} icon="fa-solid fa-users"         color="blue"   />
 		<StatCard label="Total Requests"   value={data.counts.requests} icon="fa-solid fa-file-lines"    color="teal"   />
 		<StatCard label="Pending Requests" value={data.counts.pending}  icon="fa-solid fa-clock"         color="orange" />

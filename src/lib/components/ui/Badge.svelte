@@ -31,6 +31,6 @@
 	const sizeClass = $derived(size === 'sm' ? 'text-xs px-1.5 py-0.5' : 'text-xs px-2.5 py-1');
 </script>
 
-<span class="inline-flex items-center rounded-full font-medium {sizeClass} {classes}">
+<span class="ui-badge inline-flex items-center rounded-full font-medium {sizeClass} {classes}">
 	{label}
 </span>

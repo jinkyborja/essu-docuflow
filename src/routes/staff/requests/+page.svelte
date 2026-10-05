@@ -57,7 +57,7 @@
 
 <div class="space-y-5">
 	<!-- Stats -->
-	<div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+	<div class="ui-stat-grid grid grid-cols-2 xl:grid-cols-4 gap-4">
 		<StatCard label="Pending" value={statusCounts.pending} icon="fa-solid fa-clock" color="orange" />
 		<StatCard label="Correction Requested" value={statusCounts.correction} icon="fa-solid fa-rotate-left" color="gold" />
 		<StatCard label="Approved" value={statusCounts.approved} icon="fa-solid fa-circle-check" color="green" />
@@ -126,7 +126,7 @@
 								</button>
 								<button onclick={() => deleteConfirmId = null} class="text-xs px-2 py-1.5 text-gray-500 hover:text-gray-700">Cancel</button>
 							{:else}
-								<button onclick={() => deleteConfirmId = req.request_id} class="text-xs px-2.5 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+								<button onclick={() => deleteConfirmId = req.request_id} class="text-xs px-2.5 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors" aria-label={`Delete request ${req.request_id}`}>
 									<i class="fa-solid fa-trash"></i>
 								</button>
 							{/if}
@@ -182,6 +182,7 @@
 											<button
 												onclick={() => deleteConfirmId = req.request_id}
 												class="text-xs px-2.5 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+												aria-label={`Delete request ${req.request_id}`}
 											>
 												<i class="fa-solid fa-trash"></i>
 											</button>

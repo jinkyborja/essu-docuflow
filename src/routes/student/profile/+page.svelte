@@ -209,7 +209,7 @@
 
 <div class="max-w-4xl mx-auto space-y-5">
 	<!-- Profile header -->
-	<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+	<div class="profile-header bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
 		<div class="flex items-center gap-5">
 			<div class="w-20 h-20 rounded-2xl bg-essu-green/10 border border-essu-green/20 flex items-center justify-center text-2xl font-bold text-essu-green shrink-0">
 				{initials}
@@ -231,7 +231,7 @@
 						<i class="fa-solid fa-pen text-xs"></i> Edit
 					</button>
 				</div>
-				<div class="grid grid-cols-2 gap-4 p-5 text-sm">
+				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
 					<div><p class="text-xs text-gray-400">First Name</p><p class="font-medium">{profile.first_name}</p></div>
 					<div><p class="text-xs text-gray-400">Middle Name</p><p class="font-medium">{profile.middle_name || '—'}</p></div>
 					<div><p class="text-xs text-gray-400">Last Name</p>
@@ -250,7 +250,7 @@
 						<i class="fa-solid fa-pen text-xs"></i> Edit
 					</button>
 				</div>
-				<div class="grid grid-cols-2 gap-4 p-5 text-sm">
+				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
 					<div><p class="text-xs text-gray-400">Student ID</p><p class="font-medium">{profile.student_id}</p></div>
 					<div><p class="text-xs text-gray-400">Program</p><p class="font-medium">{profile.program}</p></div>
 					<div class="col-span-2"><p class="text-xs text-gray-400">Student Type</p><p class="font-medium">

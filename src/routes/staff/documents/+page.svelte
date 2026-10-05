@@ -188,10 +188,10 @@
 							</div>
 						</div>
 						<div class="flex items-center gap-1 shrink-0">
-							<button onclick={() => openEdit(doc)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit">
+							<button onclick={() => openEdit(doc)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${doc.name}`}>
 								<i class="fa-solid fa-pen text-sm"></i>
 							</button>
-							<button onclick={() => handleDelete(doc.document_id)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete">
+							<button onclick={() => handleDelete(doc.document_id)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${doc.name}`}>
 								<i class="fa-solid fa-trash text-sm"></i>
 							</button>
 						</div>

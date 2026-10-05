@@ -171,9 +171,9 @@
 						</div>
 						<div class="flex items-center gap-1 shrink-0">
 						<p class="text-xs text-gray-400 mr-1">{new Date(member.date_registered).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-						<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button>
+						<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${member.first_name} ${member.last_name}`}><i class="fa-solid fa-pen text-sm"></i></button>
 						{#if member.user_id !== currentUserId}
-							<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete"><i class="fa-solid fa-trash text-sm"></i></button>
+							<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${member.first_name} ${member.last_name}`}><i class="fa-solid fa-trash text-sm"></i></button>
 						{/if}
 					</div>
 					</div>
@@ -222,9 +222,9 @@
 								</td>
 								<td class="px-4 py-3">
 									<div class="flex items-center gap-1">
-										<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button>
+										<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${member.first_name} ${member.last_name}`}><i class="fa-solid fa-pen text-sm"></i></button>
 										{#if member.user_id !== currentUserId}
-											<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete"><i class="fa-solid fa-trash text-sm"></i></button>
+											<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${member.first_name} ${member.last_name}`}><i class="fa-solid fa-trash text-sm"></i></button>
 										{/if}
 									</div>
 								</td>
