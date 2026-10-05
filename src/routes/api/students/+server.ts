@@ -1,0 +1,142 @@
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import pool from '$lib/server/db';
+import { supabase } from '$lib/server/supabase';
+import { fetchRequestFilePaths } from '$lib/server/requirements';
+import { verifyJwt } from '$lib/server/jwt';
+import { JWT_SECRET } from '$env/static/private';
+
+export const GET: RequestHandler = async ({ cookies }) => {
+	const token = cookies.get('session');
+	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
+
+	let payload: { userId: number; role: string };
+	try {
+		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+	} catch {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
+	if (payload.role === 'Student') return json({ error: 'Forbidden' }, { status: 403 });
+
+	const [rows] = await pool.execute(
+		`SELECT user_id, first_name, middle_name, last_name, suffix, email,
+		        student_id, program, student_type, last_school_year, verified, date_registered
+		 FROM users
+		 WHERE role = 'Student'
+		 ORDER BY last_name ASC`
+	);
+
+	return json(rows);
+};
+
+export const PATCH: RequestHandler = async ({ request, cookies }) => {
+	const token = cookies.get('session');
+	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
+
+	let payload: { userId: number; role: string };
+	try {
+		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+	} catch {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
+	if (payload.role === 'Student') return json({ error: 'Forbidden' }, { status: 403 });
+
+	const body = await request.json();
+	const {
+		user_id, first_name, middle_name, last_name, suffix,
+		email, student_id, program, student_type, last_school_year, verified
+	} = body;
+
+	await pool.execute(
+		`UPDATE users
+		 SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?,
+		     email = ?, student_id = ?, program = ?, student_type = ?,
+		     last_school_year = ?, verified = ?
+		 WHERE user_id = ? AND role = 'Student'`,
+		[first_name, middle_name ?? null, last_name, suffix ?? null,
+		 email, student_id ?? null, program ?? null, student_type ?? null,
+		 last_school_year ?? null, verified ? 1 : 0, user_id]
+	);
+
+	return json({ success: true });
+};
+
+export const DELETE: RequestHandler = async ({ request, cookies }) => {
+	const token = cookies.get('session');
+	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
+
+	let payload: { userId: number; role: string };
+	try {
+		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+	} catch {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
+	// The UI only offers this to admins; enforce it here too.
+	if (payload.role !== 'Admin') return json({ error: 'Admin access required' }, { status: 403 });
+
+	const { user_id } = await request.json();
+	if (!user_id) return json({ error: 'Missing user_id' }, { status: 400 });
+
+	// Confirm the target is actually a student before touching anything.
+	const [targetRows] = await pool.execute(
+		`SELECT user_id FROM users WHERE user_id = ? AND role = 'Student'`,
+		[user_id]
+	);
+	if ((targetRows as unknown[]).length === 0) {
+		return json({ error: 'Student not found' }, { status: 404 });
+	}
+
+	// requests.student_id and request_status_history.request_id both have foreign
+	// keys, so a bare DELETE on users fails for any student who ever made a
+	// request. Remove the dependent rows first, inside a transaction.
+	const conn = await pool.getConnection();
+	try {
+		const [reqRows] = await conn.execute(
+			'SELECT request_id, approved_file_path FROM requests WHERE student_id = ?',
+			[user_id]
+		);
+		const requests = reqRows as Record<string, unknown>[];
+
+		// Collect the student's uploaded files so storage doesn't keep orphans.
+		const requestIds = requests.map((r) => r.request_id as string);
+		const filePaths: string[] = await fetchRequestFilePaths(requestIds);
+		for (const r of requests) {
+			if (r.approved_file_path) filePaths.push(r.approved_file_path as string);
+		}
+
+		await conn.beginTransaction();
+		if (requests.length > 0) {
+			const ids = requests.map((r) => r.request_id as string);
+			const marks = ids.map(() => '?').join(',');
+			await conn.execute(
+				`DELETE FROM request_status_history WHERE request_id IN (${marks})`,
+				ids
+			);
+			// Status changes made by this user on any request (not just their own).
+			await conn.execute('DELETE FROM request_status_history WHERE changed_by = ?', [user_id]);
+			await conn.execute(`DELETE FROM requests WHERE student_id = ?`, [user_id]);
+		} else {
+			await conn.execute('DELETE FROM request_status_history WHERE changed_by = ?', [user_id]);
+		}
+		await conn.execute(`DELETE FROM users WHERE user_id = ? AND role = 'Student'`, [user_id]);
+		await conn.commit();
+
+		// Storage cleanup happens after the commit — a failure here leaves orphaned
+		// files but must not undo a completed deletion.
+		if (filePaths.length > 0) {
+			const { error: storageError } = await supabase.storage.from('requirements').remove(filePaths);
+			if (storageError) console.error('Storage cleanup failed after student delete:', storageError);
+		}
+
+		return json({ success: true, deleted_requests: requests.length });
+	} catch (err) {
+		await conn.rollback();
+		console.error('Student delete failed:', err);
+		return json({ error: 'Could not delete student. Please try again.' }, { status: 500 });
+	} finally {
+		conn.release();
+	}
+};

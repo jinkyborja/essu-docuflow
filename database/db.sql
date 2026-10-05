@@ -1,0 +1,130 @@
+-- =============================================================================
+-- ESSU DocuFlow — Schema
+-- =============================================================================
+
+USE defaultdb;
+
+-- Drop order matters: children before parents (FK constraints).
+DROP TABLE IF EXISTS request_requirements;
+DROP TABLE IF EXISTS document_requirements;
+DROP TABLE IF EXISTS request_status_history;
+DROP TABLE IF EXISTS requests;
+DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS requirements;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS programs;
+DROP TABLE IF EXISTS purposes;
+
+-- 1. Programs ("Units of Education") — referenced by users.program_id
+CREATE TABLE programs (
+    program_id INT PRIMARY KEY AUTO_INCREMENT,
+    code       VARCHAR(20)  NOT NULL UNIQUE,
+    name       VARCHAR(100) NOT NULL,
+    major      VARCHAR(100),
+    is_active  BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- 2. Purposes a document can be requested for
+CREATE TABLE purposes (
+    purpose_id INT PRIMARY KEY AUTO_INCREMENT,
+    label      VARCHAR(50) NOT NULL UNIQUE,
+    is_active  BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- 3. Requirement types, defined once and shared by every document
+CREATE TABLE requirements (
+    requirement_id INT PRIMARY KEY AUTO_INCREMENT,
+    name           VARCHAR(100) NOT NULL UNIQUE,
+    description    VARCHAR(255)
+);
+
+-- 4. Users
+CREATE TABLE users (
+    user_id          INT PRIMARY KEY AUTO_INCREMENT,
+    first_name       VARCHAR(50) NOT NULL,
+    middle_name      VARCHAR(50),
+    last_name        VARCHAR(50) NOT NULL,
+    date_of_birth    DATE,
+    suffix           VARCHAR(10),
+    email            VARCHAR(100) UNIQUE NOT NULL,
+    password_hash    VARCHAR(255) NOT NULL,
+    role             ENUM('Student', 'Staff', 'Admin') NOT NULL DEFAULT 'Student',
+    student_id       VARCHAR(20) UNIQUE,
+    program          VARCHAR(100),   -- legacy free text; program_id is authoritative
+    program_id       INT,
+    student_type     ENUM('Enrolled', 'Supplemental', 'Former', 'Alumni'),
+    last_school_year INT,
+    position         VARCHAR(50),
+    verified         BOOLEAN DEFAULT FALSE,
+    date_registered  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (program_id) REFERENCES programs(program_id)
+);
+
+-- 5. Documents (admin-managed list of requestable documents)
+CREATE TABLE documents (
+    document_id   INT PRIMARY KEY AUTO_INCREMENT,
+    name          VARCHAR(100) NOT NULL,
+    template_path VARCHAR(255),
+    template_name VARCHAR(255),
+    uploaded_by   INT NOT NULL,
+    upload_date   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (uploaded_by) REFERENCES users(user_id)
+);
+
+-- 6. Requests
+CREATE TABLE requests (
+    request_id         VARCHAR(20) PRIMARY KEY,
+    student_id         INT NOT NULL,
+    document_id        INT NOT NULL,
+    purpose            VARCHAR(255),   -- legacy free text; purpose_id is authoritative
+    purpose_id         INT,
+    status             ENUM('Pending', 'Approved', 'Rejected', 'Correction Requested') DEFAULT 'Pending',
+    admin_message      TEXT,
+    approved_file_path VARCHAR(255),
+    approved_file_name VARCHAR(255),
+    date_requested     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    staff_viewed       BOOLEAN NOT NULL DEFAULT FALSE,
+    FOREIGN KEY (student_id) REFERENCES users(user_id),
+    FOREIGN KEY (document_id) REFERENCES documents(document_id),
+    FOREIGN KEY (purpose_id) REFERENCES purposes(purpose_id)
+);
+
+-- 7. Which requirements each document asks for
+CREATE TABLE document_requirements (
+    document_id    INT NOT NULL,
+    requirement_id INT NOT NULL,
+    in_person      BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order     INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (document_id, requirement_id),
+    FOREIGN KEY (document_id)    REFERENCES documents(document_id) ON DELETE CASCADE,
+    FOREIGN KEY (requirement_id) REFERENCES requirements(requirement_id)
+);
+
+-- 8. What a student submitted against each requirement
+CREATE TABLE request_requirements (
+    request_id       VARCHAR(20) NOT NULL,
+    requirement_id   INT NOT NULL,
+    in_person        BOOLEAN NOT NULL DEFAULT FALSE,
+    file_path        VARCHAR(255),
+    file_name        VARCHAR(255),
+    submitted_at     DATETIME,
+    needs_correction BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order       INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (request_id, requirement_id),
+    FOREIGN KEY (request_id)     REFERENCES requests(request_id) ON DELETE CASCADE,
+    FOREIGN KEY (requirement_id) REFERENCES requirements(requirement_id)
+);
+
+-- 9. Request Status History
+CREATE TABLE request_status_history (
+    history_id   INT PRIMARY KEY AUTO_INCREMENT,
+    request_id   VARCHAR(20),
+    old_status   VARCHAR(50),
+    new_status   VARCHAR(50),
+    changed_by   INT,
+    changed_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_read      BOOLEAN NOT NULL DEFAULT FALSE,  -- staff read flag
+    student_read BOOLEAN NOT NULL DEFAULT FALSE,  -- student read flag
+    FOREIGN KEY (request_id) REFERENCES requests(request_id),
+    FOREIGN KEY (changed_by) REFERENCES users(user_id)
+);

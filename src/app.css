@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+@import '@fontsource/poppins/300.css';
+@import '@fontsource/poppins/400.css';
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/poppins/700.css';
+
+@theme {
+	--color-essu-green: #1b5e20;
+	--color-essu-green-mid: #2e7d32;
+	--color-essu-green-light: #388e3c;
+	--color-essu-gold: #e8b923;
+	--color-essu-blue: #0d47a1;
+	--color-essu-blue-mid: #1565c0;
+
+	--color-status-pending: #ed6c02;
+	--color-status-success: #2e7d32;
+	--color-status-danger: #d32f2f;
+	--color-status-info: #0288d1;
+	--color-status-warning: #f59e0b;
+
+	--font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+button, a, [role="button"], select, label[for] {
+	cursor: pointer;
+}
+
+html,
+body {
+	height: 100%;
+	font-family: var(--font-sans);
+}
