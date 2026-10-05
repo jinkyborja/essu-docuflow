@@ -12,7 +12,11 @@
 	const mobileOpen = $derived($sidebarMobileOpen);
 	const currentPath = $derived($page.url.pathname);
 
-	const logoLabel  = role === 'staff' ? 'Staff Portal' : 'Student Portal';
+	const logoLabel = $derived(
+		role === 'staff'
+			? (userRole?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Staff Portal')
+			: 'Student Portal'
+	);
 	const activeItem = 'bg-essu-gold/25 text-essu-gold';
 	const activeIcon = 'text-essu-gold';
 	const activeDot  = 'bg-essu-gold';

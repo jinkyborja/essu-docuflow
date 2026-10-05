@@ -39,7 +39,9 @@
 		'/staff/profile':       'My Profile'
 	};
 
-	const pageTitle = $derived(titleMap[$page.url.pathname] ?? 'Staff Portal');
+	const pageTitle = $derived(
+		titleMap[$page.url.pathname] ?? (data.role?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Staff Portal')
+	);
 	const collapsed = $derived($sidebarCollapsed);
 </script>
 
