@@ -21,7 +21,21 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 		const [rows] = await pool.execute(
 			`SELECT r.request_id, r.document_id, d.name AS document_name, r.purpose,
 			        r.status, r.admin_message, r.approved_file_path, r.approved_file_name,
-			        r.requirements, r.date_requested
+			        CAST(COALESCE((
+			          SELECT JSON_ARRAYAGG(JSON_OBJECT(
+			            'name', rq.name,
+			            'description', rq.description,
+			            'in_person', rr.in_person,
+			            'file_path', rr.file_path,
+			            'file_name', rr.file_name,
+			            'submitted_at', rr.submitted_at,
+			            'needs_correction', rr.needs_correction
+			          ))
+			          FROM request_requirements rr
+			          JOIN requirements rq ON rq.requirement_id = rr.requirement_id
+			          WHERE rr.request_id = r.request_id
+			        ), JSON_ARRAY()) AS CHAR) AS requirements,
+			        r.date_requested
 			 FROM requests r
 			 JOIN documents d ON r.document_id = d.document_id
 			 WHERE r.student_id = ?

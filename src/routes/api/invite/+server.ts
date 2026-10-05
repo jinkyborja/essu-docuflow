@@ -1,11 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { Resend } from 'resend';
 import type { RequestHandler } from './$types';
 import { verifyJwt, signJwt } from '$lib/server/jwt';
-import { MAIL_FROM } from '$lib/server/email';
-import { JWT_SECRET, RESEND_API } from '$env/static/private';
-
-const resend = new Resend(RESEND_API);
+import { sendEmail } from '$lib/server/email';
+import { JWT_SECRET } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const token = cookies.get('session');
@@ -29,8 +26,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	const inviteToken = signJwt({ email, role, purpose: 'staff-invite' }, JWT_SECRET, 7 * 24 * 3600);
 	const acceptUrl = `${new URL(request.url).origin}/accept-invite?token=${inviteToken}`;
 
-	await resend.emails.send({
-		from: MAIL_FROM,
+	await sendEmail({
 		to: email,
 		subject: `You're invited to join ESSU DocuFlow as ${role}`,
 		html: `

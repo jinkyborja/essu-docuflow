@@ -4,11 +4,8 @@ import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
 import { fetchOneRequestRequirements } from '$lib/server/requirements';
 import { verifyJwt } from '$lib/server/jwt';
-import { MAIL_FROM } from '$lib/server/email';
-import { JWT_SECRET, RESEND_API } from '$env/static/private';
-import { Resend } from 'resend';
-
-const resend = new Resend(RESEND_API);
+import { sendEmail } from '$lib/server/email';
+import { JWT_SECRET } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ params, cookies }) => {
 	const token = cookies.get('session');
@@ -203,17 +200,13 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 
 	let emailWarning: string | null = null;
 	if (emailSubject) {
-		const { error: mailError } = await resend.emails.send({
-			from: MAIL_FROM,
-			to: studentEmail,
-			subject: emailSubject,
-			html: emailHtml
-		});
-		if (mailError) {
+		try {
+			await sendEmail({ to: studentEmail, subject: emailSubject, html: emailHtml });
+		} catch (mailError) {
 			// The status change already succeeded — surface the mail failure instead of
 			// silently pretending the student was notified.
 			console.error('Status email failed:', mailError);
-			emailWarning = `Status updated, but the notification email to ${studentEmail} failed: ${mailError.message}`;
+			emailWarning = `Status updated, but the notification email to ${studentEmail} failed: ${mailError instanceof Error ? mailError.message : 'Email delivery failed.'}`;
 		}
 	}
 

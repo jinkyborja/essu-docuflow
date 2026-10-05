@@ -1,13 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { createHash } from 'node:crypto';
-import { Resend } from 'resend';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { signJwt } from '$lib/server/jwt';
-import { MAIL_FROM } from '$lib/server/email';
-import { JWT_SECRET, RESEND_API } from '$env/static/private';
-
-const resend = new Resend(RESEND_API);
+import { sendEmail } from '$lib/server/email';
+import { JWT_SECRET } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const { firstName, middleName, lastName, suffix, dateOfBirth, email, studentId, program, studentType, lastSchoolYear, password } = await request.json();
@@ -54,22 +51,21 @@ export const POST: RequestHandler = async ({ request }) => {
 	const token = signJwt({ email }, JWT_SECRET, 86400);
 	const verifyUrl = `${new URL(request.url).origin}/api/verify?token=${token}`;
 
-	const { error: resendError } = await resend.emails.send({
-		from: MAIL_FROM,
-		to: email,
-		template: {
-			id: 'email-verification',
-			variables: {
-				full_name: fullName,
-				verify_url: verifyUrl
-			}
-		}
-	});
-
-	if (resendError) {
-		console.error('Resend error:', resendError);
+	try {
+		await sendEmail({
+			to: email,
+			subject: 'Verify your ESSU DocuFlow account',
+			html: `
+				<p>Dear ${fullName},</p>
+				<p>Please verify your ESSU DocuFlow account by clicking the link below:</p>
+				<p><a href="${verifyUrl}">Verify your email address</a></p>
+				<p>This link expires in 24 hours.</p>
+				<p>ESSU DocuFlow — Graduate School</p>`
+		});
+	} catch (emailError) {
+		console.error('Email error:', emailError);
 		return json(
-			{ error: `Account created but verification email failed: ${resendError.message}` },
+			{ error: `Account created but verification email failed: ${emailError instanceof Error ? emailError.message : 'Email delivery failed.'}` },
 			{ status: 502 }
 		);
 	}

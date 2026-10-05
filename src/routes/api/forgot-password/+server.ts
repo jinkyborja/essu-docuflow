@@ -1,12 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { Resend } from 'resend';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { signJwt } from '$lib/server/jwt';
-import { MAIL_FROM } from '$lib/server/email';
-import { JWT_SECRET, RESEND_API } from '$env/static/private';
-
-const resend = new Resend(RESEND_API);
+import { sendEmail } from '$lib/server/email';
+import { JWT_SECRET } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const { email } = await request.json();
@@ -25,8 +22,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const resetUrl = `${new URL(request.url).origin}/reset-password?token=${token}`;
 	const fullName = `${user.first_name} ${user.last_name}`;
 
-	await resend.emails.send({
-		from: MAIL_FROM,
+	await sendEmail({
 		to: email,
 		subject: 'Reset your ESSU DocuFlow password',
 		html: `
