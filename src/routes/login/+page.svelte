@@ -123,499 +123,93 @@
 		}
 	}
 </script>
-
-
 <div class="login-page">
 	<div class="login-card">
 		<aside class="login-story" aria-label="ESSU DocuFlow introduction">
-			<div class="login-story-content">
-				<h2>Request your school documents,<br />the easy way.</h2>
-				<ul class="login-features">
-					<li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 16v4h14v-4" /></svg>Request documents online</li>
-					<li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>Track your request status</li>
-					<li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 12h4" /></svg>Get notified when ready</li>
-				</ul>
+			<div class="story-photo" aria-hidden="true"></div>
+			<div class="story-chip"><span class="story-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></span><span><strong>ESSU DocuFlow</strong><small>Student Document Request Portal</small></span></div>
+			<div class="story-copy">
+				<h2>Request your school documents, the easy way.</h2>
+				<ol class="steps" aria-label="How DocuFlow works"><li><span>1</span>Request</li><li><span>2</span>Track</li><li><span>3</span>Receive</li></ol>
 				{#if mode === 'login' || mode === 'signup'}
 					<button class="login-switch-card" type="button" onclick={() => { mode = mode === 'login' ? 'signup' : 'login'; error = ''; }}>
-						<span>{mode === 'login' ? 'New here?' : 'Already have an account?'}</span>
-						<strong>{mode === 'login' ? 'Create account' : 'Sign in'} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></strong>
+						<span>{mode === 'login' ? 'New here?' : 'Already have an account?'}</span><strong>{mode === 'login' ? 'Create account' : 'Sign in'} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></strong>
 					</button>
 				{/if}
 			</div>
 		</aside>
-		<section class="login-form-panel">
-			<div class="login-brand">
-				<div class="login-brand-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
-				<div><h1>ESSU DocuFlow</h1><p>Student Document Request Portal</p></div>
-			</div>
-			<!-- Mode toggle (login/signup only) -->
-			<!-- Mode toggle (login/signup only) -->
-			{#if mode === 'login' || mode === 'signup'}
-				<div class="login-tabs flex border-b border-gray-100">
-					<button
-						onclick={() => { mode = 'login'; error = ''; }}
-						class="flex-1 py-4 text-sm font-semibold transition-colors
-							{mode === 'login' ? 'text-essu-green border-b-2 border-essu-green' : 'text-gray-400 hover:text-gray-600'}"
-					>
-						Sign In
-					</button>
-					<button
-						onclick={() => { mode = 'signup'; error = ''; }}
-						class="flex-1 py-4 text-sm font-semibold transition-colors
-							{mode === 'signup' ? 'text-essu-green border-b-2 border-essu-green' : 'text-gray-400 hover:text-gray-600'}"
-					>
-						Create Account
-					</button>
-				</div>
-			{/if}
-
-			<div class="login-form-content">
+		<section class="login-form-panel" aria-label="Account access">
+			<div class="form-column" class:signup-column={mode === 'signup'}>
 				{#if mode === 'login' || mode === 'signup'}
-					{#key mode}
-						<div class="login-heading"><h1>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1><p>{mode === 'login' ? 'Sign in to request and track your documents.' : "Use your official school details. Name, student ID and program can't be changed later."}</p></div>
-					{/key}
+					<div class="login-tabs" role="tablist" aria-label="Account access">
+						<button type="button" role="tab" aria-selected={mode === 'login'} onclick={() => { mode = 'login'; error = ''; }} class:active={mode === 'login'}>Sign In</button>
+						<button type="button" role="tab" aria-selected={mode === 'signup'} onclick={() => { mode = 'signup'; error = ''; }} class:active={mode === 'signup'}>Create Account</button>
+					</div>
+					<div class="form-heading"><span class="gold-bar"></span><h1>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1><p>{mode === 'login' ? 'Sign in to request and track your documents.' : "Use your official school details. Name, student ID and program can't be changed later."}</p></div>
 				{/if}
+
 				{#if mode === 'check-email'}
-					<div class="text-center py-4">
-						<div class="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-							<i class="fa-solid fa-envelope-circle-check text-2xl text-essu-green"></i>
-						</div>
-						<h2 class="text-lg font-semibold text-gray-800 mb-2">Check your email</h2>
-						<p class="text-sm text-gray-500 mb-6">
-							We sent a verification link to <span class="font-medium text-gray-700">{email}</span>.
-							Click it to activate your account. The link expires in 24 hours.
-						</p>
-						<button
-							onclick={() => { mode = 'login'; error = ''; }}
-							class="text-sm text-essu-green hover:underline"
-						>
-							Back to Sign In
-						</button>
-					</div>
-			{:else if mode === 'forgot'}
-				<div>
-					<button onclick={() => { mode = 'login'; error = ''; }} class="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 mb-5">
-						<i class="fa-solid fa-arrow-left text-xs"></i> Back to Sign In
-					</button>
-					<h2 class="text-lg font-semibold text-gray-800 mb-1">Forgot your password?</h2>
-					<p class="text-sm text-gray-400 mb-5">Enter your email and we'll send you a reset link.</p>
-					{#if error}
-						<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center gap-2">
-							<i class="fa-solid fa-circle-exclamation shrink-0"></i>
-							{error}
-						</div>
-					{/if}
-					<form onsubmit={handleForgotPassword} class="space-y-4">
-						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
-							<input
-								bind:value={forgotEmail}
-								type="email"
-								placeholder="yourname@essu.edu.ph"
-								required
-								class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-							/>
-						</div>
-						<button
-							type="submit"
-							disabled={loading}
-							class="w-full py-2.5 bg-essu-green text-white rounded-lg font-medium text-sm hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-						>
-							{#if loading}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
-							Send Reset Link
-						</button>
+					<div class="result-state"><div class="result-icon"><i class="fa-solid fa-envelope-circle-check" aria-hidden="true"></i></div><h2>Check your email</h2><p>We sent a verification link to <strong>{email}</strong>. Click it to activate your account. The link expires in 24 hours.</p><button type="button" class="text-action" onclick={() => { mode = 'login'; error = ''; }}>Back to Sign In</button></div>
+				{:else if mode === 'forgot'}
+					<div class="form-heading secondary-heading"><h1>Forgot your password?</h1><p>Enter your email and we'll send you a reset link.</p></div>
+					<form onsubmit={handleForgotPassword} class="access-form compact-form">
+						<div class="form-scroll signin-scroll"><div class="field"><label for="forgot-email">Email Address</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg><input id="forgot-email" bind:value={forgotEmail} type="email" placeholder="yourname@essu.edu.ph" required /></div></div>{#if error}<div class="alert" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>{error}</span></div>{/if}</div>
+						<div class="form-actions"><button type="submit" disabled={loading} class="primary-button">{#if loading}<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>{/if}Send Reset Link <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div>
 					</form>
-				</div>
-			{:else if mode === 'forgot-sent'}
-				<div class="text-center py-4">
-					<div class="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-						<i class="fa-solid fa-envelope-circle-check text-2xl text-essu-green"></i>
-					</div>
-					<h2 class="text-lg font-semibold text-gray-800 mb-2">Check your email</h2>
-					<p class="text-sm text-gray-500 mb-6">
-						If an account exists for <span class="font-medium text-gray-700">{forgotEmail}</span>,
-						we've sent a password reset link. It expires in 1 hour.
-					</p>
-					<button onclick={() => { mode = 'login'; error = ''; }} class="text-sm text-essu-green hover:underline">
-						Back to Sign In
-					</button>
-				</div>
-			{:else}
-					{#if error && mode === 'login'}
-						<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-center gap-2">
-							<i class="fa-solid fa-circle-exclamation shrink-0"></i>
-							{error}
+				{:else if mode === 'forgot-sent'}
+					<div class="result-state"><div class="result-icon"><i class="fa-solid fa-envelope-circle-check" aria-hidden="true"></i></div><h2>Check your email</h2><p>If an account exists for <strong>{forgotEmail}</strong>, we've sent a password reset link. It expires in 1 hour.</p><button type="button" class="text-action" onclick={() => { mode = 'login'; error = ''; }}>Back to Sign In</button></div>
+				{:else if mode === 'login'}
+					<form onsubmit={handleLogin} class="access-form">
+						<div class="form-scroll signin-scroll">
+							{#if error}<div class="alert" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>{error}</span></div>{/if}
+							<div class="field"><label for="login-email">Email Address</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg><input id="login-email" bind:value={email} type="email" placeholder="yourname@essu.edu.ph" required /></div></div>
+							<div class="field"><label for="login-password">Password</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="login-password" bind:value={password} type={showLoginPassword ? 'text' : 'password'} placeholder="Enter your password" required /><button type="button" class="visibility-button" aria-label={showLoginPassword ? 'Hide password' : 'Show password'} onclick={() => (showLoginPassword = !showLoginPassword)}><i class="fa-solid {showLoginPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
 						</div>
-					{/if}
-
-					{#if mode === 'login'}
-						<form onsubmit={handleLogin} class="space-y-4">
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
-								<input
-									bind:value={email}
-									type="email"
-									placeholder="yourname@essu.edu.ph"
-									required
-									class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-								/>
+						<div class="form-actions"><div class="remember-row"><label><input bind:checked={rememberMe} type="checkbox" />Remember me</label><button type="button" class="forgot-link" onclick={() => { mode = 'forgot'; error = ''; forgotEmail = email; }}>Forgot password?</button></div><button type="submit" disabled={loading} class="primary-button">{#if loading}<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>{/if}Sign In <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><p class="secure-note"><i class="fa-solid fa-lock" aria-hidden="true"></i>Secure sign-in for ESSU students and staff</p></div>
+					</form>
+				{:else}
+					<form onsubmit={handleSignup} class="access-form signup-form" autocomplete="off">
+						<div class="form-scroll signup-scroll">
+							<div class="signup-grid">
+								<div class="field"><label for="signup-first">First Name</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="signup-first" value={firstName} type="text" placeholder="Juan" required oninput={(e) => { firstName = formatName(e.currentTarget.value); }} onpaste={(e) => { const input = e.currentTarget; const start = input.selectionStart ?? input.value.length; const end = input.selectionEnd ?? input.value.length; const next = formatName(input.value.slice(0, start) + (e.clipboardData?.getData('text') ?? '') + input.value.slice(end)); e.preventDefault(); firstName = next; input.value = next; }} /></div></div>
+								<div class="field"><label for="signup-last">Last Name</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="signup-last" value={lastName} type="text" placeholder="Cruz" required oninput={(e) => { lastName = formatName(e.currentTarget.value); }} onpaste={(e) => { const input = e.currentTarget; const start = input.selectionStart ?? input.value.length; const end = input.selectionEnd ?? input.value.length; const next = formatName(input.value.slice(0, start) + (e.clipboardData?.getData('text') ?? '') + input.value.slice(end)); e.preventDefault(); lastName = next; input.value = next; }} /></div></div>
+								<div class="field"><label for="signup-middle">Middle Name <span>(optional)</span></label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="signup-middle" value={middleName} type="text" placeholder="Dela" oninput={(e) => { middleName = formatName(e.currentTarget.value); }} onpaste={(e) => { const input = e.currentTarget; const start = input.selectionStart ?? input.value.length; const end = input.selectionEnd ?? input.value.length; const next = formatName(input.value.slice(0, start) + (e.clipboardData?.getData('text') ?? '') + input.value.slice(end)); e.preventDefault(); middleName = next; input.value = next; }} /></div></div>
+								<div class="field"><label for="signup-suffix">Suffix <span>(optional)</span></label><div class="select-wrap"><Select bind:value={suffix} options={nameSuffixes} placeholder="None" ariaLabel="Suffix" /></div></div>
+								<div class="field"><label for="signup-dob">Date of Birth</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><input id="signup-dob" bind:value={dateOfBirth} type="date" required min={DOB_MIN} max={DOB_MAX} /></div></div>
+								<div class="field"><label for="signup-id">Student ID</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5.5 16a3 3 0 0 1 5 0M13 10h5M13 14h5"/></svg><input id="signup-id" value={studentId} type="text" placeholder="00-0000" maxlength="7" inputmode="numeric" oninput={(e) => { studentId = formatStudentId(e.currentTarget.value, (e as unknown as InputEvent).inputType?.startsWith('delete')); e.currentTarget.value = studentId; studentIdError = ''; }} />{#if studentIdError}<small class="field-error">{studentIdError}</small>{/if}</div></div>
+								<div class="field span-2"><label for="signup-email">Email Address</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg><input id="signup-email" bind:value={email} type="email" placeholder="yourname@essu.edu.ph" required /></div></div>
+								<div class="field span-2"><label>Program / Course</label><div class="select-wrap"><Select bind:value={program} options={graduatePrograms} placeholder="Select your program..." ariaLabel="Program or course" /></div></div>
+								<div class="field"><label>Student Type</label><div class="select-wrap"><Select bind:value={studentType} options={studentTypes} placeholder="Select your student type..." ariaLabel="Student type" /></div></div>
+								<div class="field"><label for="signup-year">Last School Year Attended</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><input id="signup-year" bind:value={lastSchoolYear} type="number" placeholder="e.g. 2024" min="1990" max="2100" required /></div></div>
+								<div class="field"><label for="signup-password">Password</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="signup-password" bind:value={password} type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" required minlength="8" autocomplete="new-password" /><button type="button" class="visibility-button" aria-label={showPassword ? 'Hide password' : 'Show password'} onclick={() => (showPassword = !showPassword)}><i class="fa-solid {showPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
+								<div class="field"><label for="signup-confirm">Confirm</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="signup-confirm" bind:value={confirmPassword} type={showConfirmPassword ? 'text' : 'password'} placeholder="Repeat password" required autocomplete="new-password" /><button type="button" class="visibility-button" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'} onclick={() => (showConfirmPassword = !showConfirmPassword)}><i class="fa-solid {showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
+								<div class="review-warning span-2"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><p>Please review all your information carefully before submitting. Your <strong>name, student ID, and program</strong> must match your official school records exactly, as these cannot be changed after registration.</p></div>
 							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
-								<div class="relative">
-									<input
-										bind:value={password}
-										type={showLoginPassword ? 'text' : 'password'}
-										placeholder="Enter your password"
-										required
-										class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-									/>
-									<button type="button" aria-label={showLoginPassword ? 'Hide password' : 'Show password'} onclick={() => (showLoginPassword = !showLoginPassword)}
-										class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-										<i class="fa-solid {showLoginPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
-									</button>
-								</div>
-							</div>
-							<div class="flex items-center justify-between text-sm">
-								<label class="flex items-center gap-2 text-gray-500 cursor-pointer">
-									<input bind:checked={rememberMe} type="checkbox" class="rounded" />
-									Remember me
-								</label>
-								<button type="button" onclick={() => { mode = 'forgot'; error = ''; forgotEmail = email; }} class="text-essu-green hover:underline">Forgot password?</button>
-							</div>
-							<button
-								type="submit"
-								disabled={loading}
-								class="w-full py-2.5 bg-essu-green text-white rounded-lg font-medium text-sm hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-							>
-								{#if loading}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
-								Sign In
-							</button>
-						</form>
-
-					{:else}
-						<form onsubmit={handleSignup} class="space-y-4" autocomplete="off">
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">First Name</label>
-								<input
-									value={firstName}
-									type="text"
-									placeholder="Juan"
-									required
-									class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-									autocomplete="off"
-									oninput={(e) => {
-										firstName = formatName(e.currentTarget.value);
-									}}
-									onpaste={(e) => {
-										const input = e.currentTarget;
-										const start = input.selectionStart ?? input.value.length;
-										const end = input.selectionEnd ?? input.value.length;
-										const next = formatName(input.value.slice(0, start) + (e.clipboardData?.getData('text') ?? '') + input.value.slice(end));
-										e.preventDefault();
-										firstName = next;
-										input.value = next;
-									}}
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">Middle Name <span class="text-gray-400 font-normal">(optional)</span></label>
-								<input
-									value={middleName}
-									type="text"
-									placeholder="Dela"
-									class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-									autocomplete="off"
-									oninput={(e) => {
-										middleName = formatName(e.currentTarget.value);
-									}}
-									onpaste={(e) => {
-										const input = e.currentTarget;
-										const start = input.selectionStart ?? input.value.length;
-										const end = input.selectionEnd ?? input.value.length;
-										const next = formatName(input.value.slice(0, start) + (e.clipboardData?.getData('text') ?? '') + input.value.slice(end));
-										e.preventDefault();
-										middleName = next;
-										input.value = next;
-									}}
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name</label>
-								<input
-									value={lastName}
-									type="text"
-									placeholder="Cruz"
-									required
-									class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-									autocomplete="off"
-									oninput={(e) => {
-										lastName = formatName(e.currentTarget.value);
-									}}
-									onpaste={(e) => {
-										const input = e.currentTarget;
-										const start = input.selectionStart ?? input.value.length;
-										const end = input.selectionEnd ?? input.value.length;
-										const next = formatName(input.value.slice(0, start) + (e.clipboardData?.getData('text') ?? '') + input.value.slice(end));
-										e.preventDefault();
-										lastName = next;
-										input.value = next;
-									}}
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">Suffix <span class="text-gray-400 font-normal">(optional)</span></label>
-								<Select
-									bind:value={suffix}
-									options={nameSuffixes}
-									placeholder="None"
-									ariaLabel="Suffix"
-								/>
-							</div>
-							<div class="grid grid-cols-2 gap-3">
-								<div>
-									<label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth</label>
-									
-<input
-										bind:value={dateOfBirth}
-										type="date"
-										required
-										min={DOB_MIN}
-										max={DOB_MAX}
-										class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-										autocomplete="off"
-									/>
-								</div>
-								<div>
-									<label class="block text-sm font-medium text-gray-700 mb-1.5">Student ID</label>
-									<input
-										value={studentId}
-										type="text"
-										placeholder="00-0000"
-										maxlength="7"
-										inputmode="numeric"
-										class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-										autocomplete="off"
-										oninput={(e) => {
-											studentId = formatStudentId(
-												e.currentTarget.value,
-												(e as unknown as InputEvent).inputType?.startsWith('delete')
-											);
-											e.currentTarget.value = studentId;
-											studentIdError = '';
-										}}
-									/>
-									{#if studentIdError}
-										<p class="mt-1 text-xs text-red-600">{studentIdError}</p>
-									{/if}
-								</div>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
-								
-<input
-									bind:value={email}
-									type="email"
-									placeholder="yourname@essu.edu.ph"
-									required
-									class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-									autocomplete="off"
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">Program / Course</label>
-								<Select
-									bind:value={program}
-									options={graduatePrograms}
-									placeholder="Select your program..."
-									ariaLabel="Program or course"
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">Student Type</label>
-								<Select
-									bind:value={studentType}
-									options={studentTypes}
-									placeholder="Select your student type..."
-									ariaLabel="Student type"
-								/>
-							</div>
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1.5">Last School Year Attended</label>
-								
-<input
-									bind:value={lastSchoolYear}
-									type="number"
-									placeholder="e.g. 2024"
-									min="1990"
-									max="2100"
-									required
-									class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-									autocomplete="off"
-								/>
-							</div>
-							<div class="grid grid-cols-2 gap-3">
-								<div>
-									<label class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
-									<div class="relative">
-										
-<input
-											bind:value={password}
-											type={showPassword ? 'text' : 'password'}
-											placeholder="Min. 8 characters"
-											required
-											minlength="8"
-											autocomplete="new-password"
-											class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-										/>
-
-										<button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onclick={() => (showPassword = !showPassword)}
-											class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-											<i class="fa-solid {showPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
-										</button>
-									</div>
-								</div>
-								<div>
-									<label class="block text-sm font-medium text-gray-700 mb-1.5">Confirm</label>
-									<div class="relative">
-										
-<input
-											bind:value={confirmPassword}
-											type={showConfirmPassword ? 'text' : 'password'}
-											placeholder="Repeat password"
-											required
-											autocomplete="new-password"
-											class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light"
-										/>
-
-										<button type="button" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'} onclick={() => (showConfirmPassword = !showConfirmPassword)}
-											class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-											<i class="fa-solid {showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
-										</button>
-									</div>
-								</div>
-							</div>
-							<div class="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2.5">
-								<i class="fa-solid fa-triangle-exclamation text-amber-500 text-sm mt-0.5 shrink-0"></i>
-								<p class="text-xs text-amber-700 leading-relaxed">
-									Please review all your information carefully before submitting.
-									Your <strong>name, student ID, and program</strong> must match your official school records exactly, as these cannot be changed after registration.
-								</p>
-							</div>
-							<button
-								type="submit"
-								disabled={loading}
-								class="w-full py-2.5 bg-essu-blue text-white rounded-lg font-medium text-sm hover:bg-essu-blue-mid transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-							>
-								{#if loading}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
-								Create Account
-							</button>
-							{#if error}
-								<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 flex items-start gap-2" role="alert">
-									<i class="fa-solid fa-circle-exclamation shrink-0 mt-0.5"></i>
-									<span>{error}</span>
-								</div>
-							{/if}
-						</form>
-					{/if}
+							{#if error}<div class="alert" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>{error}</span></div>{/if}
+						</div>
+						<div class="form-actions"><button type="submit" disabled={loading} class="primary-button">{#if loading}<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>{/if}Create Account <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div>
+					</form>
 				{/if}
 			</div>
+		</section>
 	</div>
-		<p class="login-footer">
-			Eastern Samar State University · Graduate School
-		</p>
-
-	</div>
+	<p class="login-footer">Eastern Samar State University &middot; Graduate School</p>
+</div>
 
 <style>
-	.login-page { min-height: 100svh; display: grid; place-items: center; padding: clamp(1rem, 4vw, 3.5rem); background: linear-gradient(135deg, rgb(9 43 32 / 78%), rgb(19 83 58 / 72%)), url('/login-bg.jpg') center / cover fixed, linear-gradient(135deg, #123d30, #28694d); color: #17372b; }
-	.login-card { width: min(1180px, 100%); min-height: min(740px, calc(100svh - 4rem)); display: grid; grid-template-columns: minmax(0, .92fr) minmax(420px, 1.08fr); overflow: hidden; border: 1px solid rgb(255 255 255 / 45%); border-radius: 30px; background: rgb(244 250 246 / 78%); box-shadow: 0 30px 90px rgb(5 29 20 / 34%); backdrop-filter: blur(16px); }
-	.login-story { position: relative; display: flex; align-items: flex-end; min-height: 600px; padding: clamp(2rem, 5vw, 4rem); color: white; background: linear-gradient(180deg, rgb(10 48 35 / 35%) 5%, rgb(8 40 29 / 78%) 100%), url('/login-bg.jpg') center / cover no-repeat, linear-gradient(145deg, #1a6347, #103b2e); }
-	.login-story-content { max-width: 34rem; }
-	.login-eyebrow { margin: 0 0 1.1rem; color: #e8d69a; font-size: .7rem; font-weight: 600; letter-spacing: .18em; }
-	.login-story h2 { margin: 0 0 1.8rem; color: white; font-size: clamp(2.1rem, 3.5vw, 3.15rem); font-weight: 300; line-height: 1.18; letter-spacing: -.035em; }
-	.login-switch-card { display: flex; width: min(100%, 350px); flex-direction: column; align-items: flex-start; gap: .25rem; padding: 1rem 1.25rem; border: 1px solid rgb(255 255 255 / 42%); border-radius: 18px; background: rgb(255 255 255 / 14%); color: white; text-align: left; cursor: pointer; backdrop-filter: blur(16px); transition: transform .18s ease, background .18s ease, box-shadow .18s ease; }
-	.login-switch-card:hover { transform: translateY(-2px); background: rgb(255 255 255 / 21%); box-shadow: 0 12px 28px rgb(0 0 0 / 15%); }
-	.login-switch-card span { color: rgb(255 255 255 / 78%); font-size: .78rem; }
-	.login-switch-card strong { display: flex; align-items: center; gap: .65rem; font-size: 1rem; }
-	.login-form-panel { min-width: 0; display: flex; flex-direction: column; padding: clamp(1.5rem, 4vw, 3rem); background: rgb(248 252 249 / 82%); backdrop-filter: blur(16px); }
-	.login-brand { display: flex; align-items: center; gap: .9rem; margin-bottom: 1.9rem; }
-	.login-brand-icon { display: grid; width: 3rem; height: 3rem; flex: 0 0 auto; place-items: center; border: 1px solid rgb(31 107 80 / 13%); border-radius: 15px; background: #e6f0e9; color: #174f3e; font-size: 1.35rem; }
-	.login-brand h1 { margin: 0; color: #173b2e; font-size: 1.1rem; font-weight: 650; }
-	.login-brand p { margin: .1rem 0 0; color: #5b7065; font-size: .73rem; }
-	.login-heading { margin: 1.5rem 0 1.25rem; }
-	.login-heading span { color: #547364; font-size: .64rem; font-weight: 650; letter-spacing: .15em; }
-	.login-heading h2 { margin: .2rem 0 0; color: #173b2e; font-size: 2rem; font-weight: 300; letter-spacing: -.04em; }
-	.login-form-panel > .flex.border-b { align-self: flex-start; gap: .35rem; padding: .3rem; border: 1px solid rgb(31 107 80 / 12%); border-radius: 999px; background: rgb(226 238 230 / 70%); }
-	.login-form-panel > .flex.border-b button { min-height: 40px; padding: .55rem 1.15rem; border: 0; border-radius: 999px; color: #52685c; }
-	.login-form-panel > .flex.border-b button[class*='border-b-2'] { border: 0; background: #fff; color: #174f3e; box-shadow: 0 2px 8px rgb(23 79 62 / 10%); }
-	.login-form-content { flex: 1; }
-	.login-form-content form { display: grid; gap: .9rem; }
-	.login-form-content label.block { display: block; margin-bottom: .35rem; color: #314b3e; font-size: .75rem; font-weight: 550; }
-	.login-form-content input:not([type='checkbox']), .login-form-content select { width: 100%; min-height: 46px; border: 1px solid rgb(30 83 59 / 14%); border-radius: 999px; background: rgb(255 255 255 / 72%); color: #183b2e; padding: .7rem 1rem; font-size: .82rem; }
-	.login-form-content input:not([type='checkbox']):focus, .login-form-content select:focus { border-color: #287553; outline: 0; box-shadow: 0 0 0 3px rgb(40 117 83 / 27%); }
-	.login-form-content input::placeholder { color: #75877c; }
-	:global(.login-form-content form button[role='combobox']) { min-height: 46px; border: 1px solid rgb(30 83 59 / 14%); border-radius: 999px; background: rgb(255 255 255 / 72%); padding: .7rem 1rem; }
-	.login-form-content .relative input { padding-right: 2.8rem; }
-	.login-form-content form > button[type='submit'] { min-height: 48px; margin-top: .25rem; border: 1px solid rgb(255 255 255 / 80%); border-radius: 999px; background: #fff; color: #174f3e; font-weight: 700; box-shadow: 0 8px 20px rgb(23 79 62 / 10%); transition: transform .18s ease, box-shadow .18s ease; }
-	.login-form-content form > button[type='submit']:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgb(23 79 62 / 18%); }
-	.login-form-content [role='alert'], .login-form-content .bg-red-50 { border-color: #e9b9b5; border-radius: 14px; background: #fff0ee; color: #8f302c; }
-	.login-form-content .bg-amber-50 { border: 1px solid #e8d49a; border-radius: 14px; background: #fff8e6; color: #694e16; }
-	.login-form-panel > p.text-center { margin: auto 0 0; padding-top: 1.5rem; color: #667a6e; font-size: .68rem; }
-	.login-page :focus-visible { outline: 3px solid #246c4b; outline-offset: 3px; }
-	@media (max-width: 760px) { .login-page { padding: .75rem; } .login-card { min-height: calc(100svh - 1.5rem); grid-template-columns: 1fr; border-radius: 24px; } .login-story { min-height: 230px; padding: 1.5rem; } .login-story h2 { margin-bottom: 1rem; font-size: 1.8rem; } .login-eyebrow { margin-bottom: .55rem; } .login-switch-card { width: auto; padding: .7rem 1rem; } .login-form-panel { padding: 1.4rem; } .login-brand { margin-bottom: 1.2rem; } .login-heading { margin-top: 1rem; } }
-	@media (max-width: 420px) { .login-form-panel { padding: 1.15rem; } .login-form-content .grid.grid-cols-2 { grid-template-columns: 1fr; } }
-	.login-page { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: center; gap: 1.1rem; overflow: hidden; background: transparent; }
-	.login-page::before { position: fixed; z-index: -1; inset: -28px; content: ''; background: linear-gradient(135deg, rgb(8 43 31 / 76%), rgb(12 63 43 / 76%)), url('/login-bg.jpg') center / cover no-repeat, linear-gradient(135deg, #0d382b, #174f3e); filter: blur(6px); transform: scale(1.08); }
-	.login-card { width: min(1080px, 100%); height: min(720px, calc(100svh - 7rem)); min-height: 600px; grid-template-columns: 1fr 1fr; border: 1px solid rgb(255 255 255 / 18%); border-radius: 24px; background: rgb(255 255 255 / 96%); box-shadow: 0 30px 80px rgb(0 0 0 / 35%); }
-	.login-story { min-height: 0; padding: clamp(2rem, 4vw, 3.5rem); background: linear-gradient(180deg, transparent 24%, rgba(6, 38, 26, .92) 100%), url('/login-bg.jpg') center / cover no-repeat, #123d30; }
-	.login-story-content { width: 100%; }
-	.login-story h2 { max-width: 15ch; margin: 0 0 1.15rem; font-size: clamp(1.75rem, 2.6vw, 2.5rem); font-weight: 600; line-height: 1.2; letter-spacing: -.025em; }
-	.login-features { display: grid; gap: .68rem; margin: 0 0 1.25rem; padding: 0; list-style: none; color: rgb(255 255 255 / 92%); font-size: .86rem; }
-	.login-features li { display: flex; align-items: center; gap: .7rem; }
-	.login-features svg { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: #d8ebde; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-	.login-switch-card { display: inline-flex; width: auto; flex-direction: row; align-items: center; gap: .4rem; padding: .65rem 1rem; border-radius: 999px; background: rgb(255 255 255 / 18%); color: #fff; font-size: 14px; backdrop-filter: blur(16px); }
-	.login-switch-card span { color: rgb(255 255 255 / 90%); font-size: 14px; }
-	.login-switch-card strong { gap: .35rem; font-size: 14px; white-space: nowrap; }
-	.login-form-panel { min-height: 0; justify-content: center; padding: 2.25rem clamp(1.6rem, 3.2vw, 3rem); background: rgb(255 255 255 / 96%); }
-	.login-brand { gap: 1rem; margin-bottom: 1.5rem; }
-	.login-brand-icon { width: 48px; height: 48px; border-radius: 15px; font-size: 1.5rem; }
-	.login-tabs { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; padding: .25rem; border: 0; border-radius: 999px; background: #edf2ee; }
-	.login-form-panel > .login-tabs button { min-width: 0; height: 44px; padding: 0 .5rem; border: 0; border-radius: 999px; color: #527060; font-size: .82rem; font-weight: 550; white-space: nowrap; }
-	.login-form-panel > .login-tabs button:hover { color: #174f3e; background: rgb(255 255 255 / 65%); }
-	.login-form-panel > .login-tabs button[class*='border-b-2'] { color: #174f3e; background: #fff; font-weight: 700; box-shadow: 0 2px 8px rgb(23 79 62 / 12%); }
-	.login-form-content { min-height: 0; flex: 1; overflow-y: auto; scrollbar-color: #a8b9ad transparent; scrollbar-width: thin; }
-	.login-form-content::-webkit-scrollbar { width: 6px; }
-	.login-form-content::-webkit-scrollbar-thumb { border-radius: 999px; background: #a8b9ad; }
-	.login-heading { margin: 1.35rem 0 1.2rem; animation: login-enter 200ms ease both; }
-	.login-heading h1 { margin: 0 0 .35rem; color: #193c2e; font-size: 28px; font-weight: 600; line-height: 1.2; letter-spacing: -.025em; }
-	.login-heading p { margin: 0; color: #617268; font-size: .82rem; line-height: 1.5; }
-	.login-form-content form { gap: 1.15rem; }
-	.login-form-content label.block { margin-bottom: 6px; color: #334b3e; font-size: 13px; font-weight: 600; }
-	.login-form-content input:not([type='checkbox']) { min-height: 48px; padding: .7rem 1rem; border: 1px solid #c5d2ca; border-radius: 12px; background: #fff; font-size: .875rem; }
-	:global(.login-form-content form button[role='combobox']) { min-height: 48px; border: 1px solid #c5d2ca; border-radius: 12px; background: #fff; padding: .7rem 1rem; }
-	.login-form-content input:not([type='checkbox']):focus, .login-form-content select:focus { border-color: #1f6b4a; box-shadow: 0 0 0 3px rgb(31 107 74 / 25%); }
-	.login-form-content .relative > button[type='button'] { width: 44px; height: 44px; right: 2px; border-radius: 999px; }
-	.login-form-content form > button[type='submit'] { min-height: 48px; border: 0; border-radius: 12px; background: linear-gradient(110deg, #1f6b4a, #17503a); color: #fff; font-size: .9rem; font-weight: 700; box-shadow: 0 8px 18px rgb(23 80 58 / 18%); }
-	.login-form-content form > button[type='submit']:hover { background: linear-gradient(110deg, #287b57, #1c6043); transform: translateY(-1px); box-shadow: 0 11px 24px rgb(23 80 58 / 25%); }
-	.login-form-content form > button[type='submit']:active { transform: translateY(0); }
-	.login-form-content form > button[type='submit']:disabled { cursor: default; opacity: .62; }
-	.login-form-content .flex.items-center.justify-between { font-size: 14px; }
-	.login-form-content .flex.items-center.justify-between button:hover { text-decoration: underline; text-underline-offset: 3px; }
-	.login-form-content [role='alert'], .login-form-content .bg-red-50 { border: 1px solid #e5b6b3; border-radius: 12px; background: #fff0ef; color: #8f302c; font-size: 14px; }
-	.login-form-content .bg-amber-50 { border-radius: 12px; font-size: 13px; }
-	.login-footer { margin: 0; color: rgb(255 255 255 / 80%); font-size: 12px; text-align: center; }
-	@keyframes login-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-	@media (max-width: 900px) {
-		.login-page { justify-content: flex-start; padding: 1rem; }
-		.login-card { width: min(600px, 100%); height: auto; max-height: calc(100svh - 4.5rem); min-height: 0; grid-template-columns: 1fr; overflow-y: auto; }
-		.login-story { min-height: 140px; padding: 1rem 1.4rem; }
-		.login-story h2 { max-width: 100%; margin: 0; font-size: 1.35rem; line-height: 1.25; }
-		.login-features { display: none; }
-		.login-switch-card { margin-top: .65rem; padding: .45rem .85rem; }
-		.login-form-panel { min-height: 0; padding: 1.4rem; }
-		.login-form-content { overflow: visible; }
-	}
-	@media (max-width: 480px) { .login-card { max-height: none; } .login-form-panel { padding: 1.1rem; } .login-form-content .grid.grid-cols-2 { grid-template-columns: 1fr; } .login-form-panel > .login-tabs button { font-size: .74rem; } }
-	@media (prefers-reduced-motion: reduce) { .login-heading { animation: none; } .login-switch-card, .login-form-content form > button[type='submit'] { transition: none; } }
+	.login-page{--green-900:#0b3322;--green-800:#0f4a31;--green-700:#1f6b4a;--gold-500:#f2b705;--gold-600:#d9a400;--ink:#10261c;--muted:#5b6f64;--line:#cfd9d3;--surface:#fff;--field-bg:#f7faf8;min-height:100svh;position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;color:var(--ink);font-family:Poppins,system-ui,sans-serif}
+	.login-page:before{position:fixed;z-index:-1;inset:-24px;content:'';background:linear-gradient(rgba(11,51,34,.88),rgba(11,51,34,.88)),url('/login-bg.jpg') center/cover no-repeat,var(--green-900);filter:blur(10px);transform:scale(1.04)}
+	.login-card{width:min(1080px,94vw);height:min(700px,92vh);display:grid;grid-template-columns:5fr 6fr;overflow:hidden;border-radius:24px;background:var(--surface);box-shadow:0 30px 80px rgba(0,0,0,.4)}
+	.login-story{position:relative;min-width:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:36px 34px;background:var(--green-900);color:#fff}.story-photo{position:absolute;inset:0 0 auto;height:62%;background:url('/login-bg.jpg') center top/cover no-repeat;filter:saturate(.85);mask-image:linear-gradient(to bottom,#000 35%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 35%,transparent 100%)}
+	.story-chip{position:absolute;z-index:1;top:28px;left:28px;display:flex;align-items:center;gap:11px;padding:10px 14px;border:1px solid rgba(255,255,255,.26);border-radius:14px;background:rgba(255,255,255,.16);backdrop-filter:blur(10px);color:#fff}.story-chip>span:last-child{display:grid;gap:2px}.story-chip strong{font-size:14px;font-weight:600}.story-chip small{color:rgba(255,255,255,.85);font-size:12px}.story-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(255,255,255,.12);font-size:17px}
+	.story-copy{position:relative;z-index:1;width:100%;padding-top:0;}.story-copy h2{max-width:14ch;margin:0 0 24px;color:#fff;font-size:clamp(1.5rem,2.1vw,2.1rem);font-weight:600;line-height:1.25;text-wrap:balance}.steps{position:relative;display:flex;justify-content:space-between;gap:6px;margin:0 0 28px;padding:0;list-style:none}.steps:before{position:absolute;top:13px;left:16px;right:16px;height:1px;content:'';background:rgba(255,255,255,.25)}.steps li{position:relative;display:flex;align-items:center;gap:8px;color:#fff;font-size:13px}.steps li span{width:27px;height:27px;display:grid;place-items:center;border-radius:50%;background:var(--gold-500);color:var(--green-900);font-size:12px;font-weight:700}
+	.login-switch-card{display:inline-flex;align-items:center;gap:8px;padding:10px 15px;border:1px solid rgba(255,255,255,.35);border-radius:999px;background:transparent;color:#fff;font:500 14px Poppins,system-ui,sans-serif;cursor:pointer;transition:background .2s,transform .2s}.login-switch-card:hover{transform:translateY(-1px);background:rgba(255,255,255,.12)}.login-switch-card span{color:rgba(255,255,255,.88)}.login-switch-card strong{display:flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}
+	.login-form-panel{min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;padding:38px 40px;background:#fff}.form-column{width:100%;height:100%;max-width:400px;max-height:100%;display:flex;flex-direction:column}.signup-column{max-width:520px}.login-tabs{flex:none;height:44px;display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border:1px solid var(--line);border-radius:12px;background:var(--field-bg)}.login-tabs button{height:36px;border:0;border-radius:9px;background:transparent;color:var(--muted);font:500 13px Poppins,system-ui,sans-serif;white-space:nowrap;cursor:pointer}.login-tabs button.active{background:#fff;color:var(--green-800);font-weight:700;box-shadow:0 2px 8px rgba(16,38,28,.1)}
+	.form-heading{flex:none;margin:28px 0 24px;animation:content-in .2s ease both}.gold-bar{width:32px;height:4px;display:block;margin-bottom:10px;border-radius:4px;background:var(--gold-500)}.form-heading h1{margin:0 0 7px;color:var(--ink);font-size:28px;font-weight:700;line-height:1.2}.form-heading p{max-width:44ch;margin:0;color:var(--muted);font-size:14px;line-height:1.5}.secondary-heading{margin:18px 0 20px}.secondary-heading .gold-bar{display:none}
+	.access-form{min-height:0;flex:1;display:flex;flex-direction:column;animation:content-in .2s ease both}.form-scroll{min-height:0;flex:1;overflow-y:auto;scrollbar-gutter:stable;padding:4px 8px 8px 0;scrollbar-color:#9caf9f transparent;scrollbar-width:thin;mask-image:linear-gradient(to bottom,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%)}.form-scroll::-webkit-scrollbar{width:6px}.form-scroll::-webkit-scrollbar-thumb{border-radius:6px;background:#9caf9f}.signin-scroll{display:flex;flex-direction:column;justify-content:center;gap:16px}.field{min-width:0;display:flex;flex-direction:column;gap:6px}.field label{color:var(--ink);font-size:13px;font-weight:600}.field label span{color:var(--muted);font-weight:400}.input-wrap{position:relative;display:flex;align-items:center;color:var(--muted)}.input-wrap>svg{position:absolute;left:13px;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}.input-wrap:focus-within{color:var(--green-700)}.input-wrap input{width:100%;height:48px;padding:0 42px;border:1.5px solid var(--line);border-radius:12px;outline:0;background:var(--field-bg);color:var(--ink);font:400 14px Poppins,system-ui,sans-serif;transition:border-color .15s,box-shadow .15s,background .15s}.input-wrap input::placeholder{color:#65766c;opacity:1}.input-wrap input:focus{border-color:var(--green-700);background:#fff;box-shadow:0 0 0 4px rgba(31,107,74,.18)}.input-wrap input[type=date]{padding-right:10px}.visibility-button{position:absolute;right:4px;width:38px;height:38px;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}.visibility-button:hover{color:var(--green-700)}.select-wrap :global(button[role=combobox]){width:100%;min-height:48px;padding:0 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--field-bg);color:var(--ink);font:400 14px Poppins,system-ui,sans-serif}.select-wrap :global(button[role=combobox]:focus-visible){outline:0;border-color:var(--green-700);box-shadow:0 0 0 4px rgba(31,107,74,.18)}.field-error{color:#b42318;font-size:12px}
+	.remember-row{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--ink);font-size:14px}.remember-row label{display:flex;align-items:center;gap:8px;cursor:pointer}.remember-row input{width:16px;height:16px;accent-color:var(--green-700)}.forgot-link,.text-action{border:0;background:transparent;color:var(--green-700);font:600 13px Poppins,system-ui,sans-serif;cursor:pointer}.forgot-link:hover{text-decoration:underline;text-decoration-color:var(--gold-500);text-decoration-thickness:2px;text-underline-offset:4px}.form-actions{position:sticky;bottom:0;z-index:3;flex:none;display:grid;gap:12px;padding:12px 8px 0 0;border-top:1px solid rgba(207,217,211,.72);background:#fff}.primary-button{width:100%;min-height:50px;display:flex;align-items:center;justify-content:center;gap:9px;border:0;border-radius:12px;background:linear-gradient(135deg,var(--green-700),var(--green-900));color:#fff;font:700 14px Poppins,system-ui,sans-serif;box-shadow:0 5px 14px rgba(11,51,34,.16);cursor:pointer;transition:transform .2s,box-shadow .2s}.primary-button i:last-child{margin-left:auto;margin-right:13px}.primary-button:hover{transform:translateY(-1px);box-shadow:0 8px 19px rgba(11,51,34,.25)}.primary-button:active{transform:translateY(0)}.primary-button:disabled{opacity:.7;cursor:wait}.secure-note{display:flex;justify-content:center;align-items:center;gap:7px;margin:0;color:var(--muted);font-size:12.5px;text-align:center}.alert{display:flex;align-items:flex-start;gap:9px;padding:11px 12px;border:1px solid #f5b5b5;border-radius:12px;background:#fdecec;color:#8e2929;font-size:14px;line-height:1.45}.alert i{margin-top:2px}.signup-scroll{padding-right:8px}.signup-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 14px}.span-2{grid-column:1/-1}.review-warning{display:flex;align-items:flex-start;gap:9px;padding:9px 11px;border:1px solid #e8d49a;border-radius:12px;background:#fff8e6;color:#694e16}.review-warning>i{margin-top:2px;color:#a67b00}.review-warning p{margin:0;font-size:12.5px;line-height:1.45}
+	@keyframes content-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}.result-state{margin:auto 0;text-align:center;animation:content-in .2s ease both}.result-icon{width:56px;height:56px;display:grid;place-items:center;margin:0 auto 14px;border-radius:50%;background:#e8f3eb;color:var(--green-700);font-size:23px}.result-state h2{margin:0 0 8px;color:var(--ink);font-size:21px}.result-state p{margin:0 0 20px;color:var(--muted);font-size:14px;line-height:1.55}.result-state p strong{color:var(--ink)}.login-footer{margin:0;color:rgba(255,255,255,.8);font-size:12px;text-align:center}.login-page :focus-visible{outline:3px solid var(--gold-500);outline-offset:3px}
+	@media(max-width:900px){.login-page{justify-content:flex-start;padding:16px}.login-card{width:min(680px,94vw);height:auto;max-height:94vh;grid-template-columns:1fr;overflow:auto}.login-story{height:150px;min-height:150px;padding:0 20px}.story-photo{height:100%;mask-image:linear-gradient(to bottom,#000 20%,rgba(0,0,0,.55) 65%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 20%,rgba(0,0,0,.55) 65%,transparent 100%)}.story-chip{top:12px;left:16px;padding:6px 10px}.story-icon{width:28px;height:28px}.story-chip strong{font-size:12px}.story-chip small{font-size:10px}.story-copy{padding:0 0 13px}.story-copy h2{max-width:none;margin:0;font-size:16px;line-height:1.2}.steps,.login-switch-card{display:none}.login-form-panel{min-height:440px;padding:24px}.form-column{max-height:calc(94vh - 200px)}.form-heading{margin:22px 0 18px}.login-footer{padding-bottom:2px}}
+	@media(max-width:600px){.login-page{padding:8px}.login-card{width:100%;max-height:94vh}.login-form-panel{min-height:430px;padding:18px 15px}.form-column{max-height:calc(94vh - 190px)}.signup-grid{grid-template-columns:1fr}.signup-grid .span-2{grid-column:auto}.steps{display:none}.form-heading h1{font-size:25px}.form-heading p{font-size:13px}.input-wrap input,.select-wrap :global(button[role=combobox]){min-height:44px;height:48px}.remember-row{font-size:13px}}
+	@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 </style>
