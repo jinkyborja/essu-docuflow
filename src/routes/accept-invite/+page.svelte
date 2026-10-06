@@ -37,146 +37,36 @@
 	}
 </script>
 
-<div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-	<div class="w-full max-w-md">
-		<!-- Logo / Brand -->
-		<div class="text-center mb-8">
-			<div class="w-14 h-14 rounded-2xl bg-essu-green flex items-center justify-center mx-auto mb-3 shadow-lg">
-				<i class="fa-solid fa-graduation-cap text-2xl text-white"></i>
-			</div>
-			<h1 class="text-xl font-bold text-gray-900">ESSU DocuFlow</h1>
-			<p class="text-sm text-gray-500 mt-0.5">Eastern Samar State University</p>
-		</div>
-
-		<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-			{#if !data.valid}
-				<!-- Invalid/expired token -->
-				<div class="text-center py-6">
-					<div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
-						<i class="fa-solid fa-link-slash text-red-400 text-lg"></i>
-					</div>
-					<h2 class="font-semibold text-gray-800 mb-1">Invalid or Expired Link</h2>
-					<p class="text-sm text-gray-500">This invitation link is no longer valid. Please ask your admin to send a new invite.</p>
-				</div>
-			{:else if success}
-				<!-- Success state -->
-				<div class="text-center py-6">
-					<div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
-						<i class="fa-solid fa-circle-check text-green-500 text-lg"></i>
-					</div>
-					<h2 class="font-semibold text-gray-800 mb-1">Account Created!</h2>
-					<p class="text-sm text-gray-500 mb-4">Your {data.role} account has been set up. You can now log in.</p>
-					<a href="/login" class="inline-flex items-center gap-2 px-4 py-2 bg-essu-green text-white text-sm rounded-lg font-medium hover:bg-essu-green-mid transition-colors">
-						<i class="fa-solid fa-arrow-right-to-bracket text-xs"></i> Go to Login
-					</a>
-				</div>
-			{:else}
-				<!-- Registration form -->
-				<div class="mb-5">
-					<h2 class="text-lg font-semibold text-gray-800">Accept Invitation</h2>
-					<p class="text-sm text-gray-500 mt-0.5">You've been invited as <span class="font-medium text-essu-green">{data.role}</span>. Complete your profile to get started.</p>
-				</div>
-
-				<!-- Email badge (read-only) -->
-				<div class="mb-5 px-3 py-2.5 bg-gray-50 rounded-lg border border-gray-100 flex items-center gap-2">
-					<i class="fa-solid fa-envelope text-gray-400 text-sm"></i>
-					<span class="text-sm text-gray-600">{data.email}</span>
-					<span class="ml-auto text-xs px-2 py-0.5 rounded-full bg-essu-green/10 text-essu-green font-medium">{data.role}</span>
-				</div>
-
-				{#if error}
-					<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-						<i class="fa-solid fa-circle-exclamation mr-1"></i>{error}
-					</div>
+<div class="auth-shell">
+	<div class="auth-card">
+		<aside class="auth-left" aria-label="ESSU DocuFlow introduction">
+			<div class="auth-photo" aria-hidden="true"></div>
+			<div class="auth-brand-chip"><span class="auth-brand-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></span><span><strong>ESSU DocuFlow</strong><small>Student Document Request Portal</small></span></div>
+			<div class="auth-copy"><h2>Welcome to your ESSU staff workspace.</h2><ol class="auth-steps" aria-label="How DocuFlow works"><li><span>1</span>Request</li><li><span>2</span>Track</li><li><span>3</span>Receive</li></ol><a class="auth-pill" href="/login">Already have an account? Sign in <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>
+		</aside>
+		<section class="auth-right" aria-label="Staff account setup">
+			<div class="auth-content auth-staff-content">
+				{#if !data.valid}
+					<div class="auth-status"><div class="auth-status-icon" style="background:#fdecec;color:#a93e3b"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></div><h2>Invalid or Expired Link</h2><p>This invitation link is no longer valid. Please ask your admin to send a new invite.</p></div>
+				{:else if success}
+					<div class="auth-status"><div class="auth-status-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div><h2>Account Created!</h2><p>Your {data.role} account has been set up. You can now log in.</p><a href="/login" class="auth-link">Go to Login <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i></a></div>
+				{:else}
+					<div class="auth-heading"><div class="auth-accent"></div><h1>Set up your staff account</h1><p>Complete your details to activate your account.</p></div>
+					<div class="auth-email-badge"><i class="fa-solid fa-envelope" aria-hidden="true"></i><span>{data.email}</span><span class="auth-role">{data.role}</span></div>
+					{#if error}<div class="auth-message" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>{error}</span></div>{/if}
+					<form onsubmit={handleSubmit} class="auth-form">
+						<div class="auth-grid">
+							<div class="auth-field"><label for="staff-first">First Name <span>*</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="staff-first" bind:value={firstName} type="text" required autocomplete="given-name" /></div></div>
+							<div class="auth-field"><label for="staff-last">Last Name <span>*</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="staff-last" bind:value={lastName} type="text" required autocomplete="family-name" /></div></div>
+							<div class="auth-field" style="grid-column:1/-1"><label for="staff-position">Position / Title <span>(optional)</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="staff-position" bind:value={position} type="text" placeholder="e.g. Registrar, Records Officer" autocomplete="organization-title" /></div></div>
+							<div class="auth-field"><label for="staff-password">Password <span>*</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="staff-password" bind:value={password} type={showPassword ? 'text' : 'password'} required autocomplete="new-password" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onclick={() => (showPassword = !showPassword)}><i class="fa-solid {showPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
+							<div class="auth-field"><label for="staff-confirm">Confirm Password <span>*</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="staff-confirm" bind:value={confirmPassword} type={showConfirm ? 'text' : 'password'} required autocomplete="new-password" /><button type="button" aria-label={showConfirm ? 'Hide password' : 'Show password'} onclick={() => (showConfirm = !showConfirm)}><i class="fa-solid {showConfirm ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
+						</div>
+						<button type="submit" disabled={submitting} class="auth-submit">{#if submitting}<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>{/if}Create Account <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+					</form>
 				{/if}
-
-				<form onsubmit={handleSubmit} class="space-y-4">
-					<div class="grid grid-cols-2 gap-3">
-						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1.5">First Name <span class="text-red-500">*</span></label>
-							<input
-								bind:value={firstName}
-								type="text"
-								required
-								autocomplete="given-name"
-								class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-							/>
-						</div>
-						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name <span class="text-red-500">*</span></label>
-							<input
-								bind:value={lastName}
-								type="text"
-								required
-								autocomplete="family-name"
-								class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-							/>
-						</div>
-					</div>
-
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">Position / Title <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
-						<input
-							bind:value={position}
-							type="text"
-							placeholder="e.g. Registrar, Records Officer"
-							autocomplete="organization-title"
-							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-						/>
-					</div>
-
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">Password <span class="text-red-500">*</span></label>
-						<div class="relative">
-							<input
-								bind:value={password}
-								type={showPassword ? 'text' : 'password'}
-								required
-								autocomplete="new-password"
-								class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-							/>
-							<button
-								type="button"
-								onclick={() => (showPassword = !showPassword)}
-								class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
-							>
-								<i class="fa-solid {showPassword ? 'fa-eye-slash' : 'fa-eye'}"></i>
-							</button>
-						</div>
-					</div>
-
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password <span class="text-red-500">*</span></label>
-						<div class="relative">
-							<input
-								bind:value={confirmPassword}
-								type={showConfirm ? 'text' : 'password'}
-								required
-								autocomplete="new-password"
-								class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-							/>
-							<button
-								type="button"
-								onclick={() => (showConfirm = !showConfirm)}
-								class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
-							>
-								<i class="fa-solid {showConfirm ? 'fa-eye-slash' : 'fa-eye'}"></i>
-							</button>
-						</div>
-					</div>
-
-					<button
-						type="submit"
-						disabled={submitting}
-						class="w-full py-2.5 bg-essu-green text-white rounded-lg text-sm font-semibold hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-					>
-						{#if submitting}
-							<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>
-						{/if}
-						Create Account
-					</button>
-				</form>
-			{/if}
-		</div>
+			</div>
+		</section>
 	</div>
+	<p class="auth-footer">Eastern Samar State University &middot; Graduate School</p>
 </div>
