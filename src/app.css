@@ -715,7 +715,7 @@ table button[title] {
 .auth-right { min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 48px 40px; background: #fff; }
 .auth-content { width: 100%; max-width: 400px; display: flex; flex-direction: column; }
 .auth-content.auth-staff-content { max-width: 520px; }
-.auth-content.auth-staff-content { max-height: 100%; overflow-y: auto; scrollbar-gutter: stable; padding: 6px 8px 10px 4px; margin: -6px -4px 0 -4px; mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%); -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%); }
+.auth-content.auth-staff-content { max-height: 100%; overflow-y: auto; scrollbar-gutter: stable; padding: 8px 10px 16px 8px; margin: -8px -8px 0 -8px; }
 .auth-heading { margin: 0 0 24px; }
 .auth-accent { width: 32px; height: 4px; margin-bottom: 10px; border-radius: 4px; background: #f2b705; }
 .auth-heading h1 { margin: 0 0 7px; color: #10261c; font-size: 28px; font-weight: 700; line-height: 1.2; }
@@ -727,7 +727,7 @@ table button[title] {
 .auth-field > label { color: #10261c; font-size: 13px; font-weight: 600; }
 .auth-input-wrap { position: relative; display: flex; align-items: center; color: #5b6f64; }
 .auth-input-wrap > svg { position: absolute; z-index: 1; left: 13px; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-.auth-input-wrap:focus-within { color: #1f6b4a; }
+.auth-input-wrap:focus-within { position: relative; z-index: 2; color: #1f6b4a; }
 .auth-content input:not([type='checkbox']) { width: 100%; min-width: 0; height: 48px; padding: 0 42px; border: 1.5px solid #cfd9d3; border-radius: 12px; outline: 0; background: #f7faf8; color: #10261c; font: 400 14px Poppins, system-ui, sans-serif; }
 .auth-content select { display: block; width: 100%; height: 48px; min-height: 0; padding-block: 0; padding-inline: 44px 40px; border: 1.5px solid #cfd9d3; border-radius: 12px; outline: 0; appearance: none; -webkit-appearance: none; background-color: #f7faf8; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235b6f64' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 16px; color: #10261c; font: 400 14px Poppins, system-ui, sans-serif; line-height: normal; }
 .auth-content input:not([type='checkbox'])::placeholder { color: #65766c; opacity: 1; }
@@ -741,7 +741,7 @@ table button[title] {
 	outline: none;
 	border-color: #1f6b4a;
 	background: #fff;
-	box-shadow: 0 0 0 3px rgba(31, 107, 74, .18);
+	box-shadow: inset 0 0 0 1px #1f6b4a, 0 0 0 3px rgba(31, 107, 74, .18);
 }
 .auth-content input[aria-invalid='true']:focus,
 .auth-content input[aria-invalid='true']:focus-visible,
@@ -795,7 +795,7 @@ table button[title] {
 	.auth-right { min-height: 0; padding: 20px; }
 	.auth-content { max-width: 100%; }
 	.auth-content.auth-staff-content { max-width: 100%; }
-	.auth-content.auth-staff-content { max-height: none; overflow: visible; scrollbar-gutter: auto; padding: 0; margin: 0; mask-image: none; -webkit-mask-image: none; }
+	.auth-content.auth-staff-content { max-height: none; overflow: visible; scrollbar-gutter: auto; padding: 0; margin: 0;  }
 	.auth-footer { margin: 16px 0 auto; }
 }
 @media (max-width: 600px) {
