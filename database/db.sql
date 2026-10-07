@@ -52,7 +52,7 @@ CREATE TABLE users (
     student_id       VARCHAR(20) UNIQUE,
     program          VARCHAR(100),   -- legacy free text; program_id is authoritative
     program_id       INT,
-    student_type     ENUM('Enrolled', 'Supplemental', 'Former', 'Alumni'),
+    student_type     ENUM('Enrolled', 'Former', 'Alumni'),
     last_school_year INT,
     position         VARCHAR(50),
     verified         BOOLEAN DEFAULT FALSE,

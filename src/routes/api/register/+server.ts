@@ -26,7 +26,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const passwordHash = createHash('sha256').update(password).digest('hex');
 	const fullName = [firstName, middleName, lastName, suffix].filter(Boolean).join(' ');
 
-	const validTypes = ['Enrolled', 'Supplemental', 'Former', 'Alumni'];
+	const validTypes = ['Enrolled', 'Former', 'Alumni'];
 	if (!validTypes.includes(studentType)) {
 		return json({ error: 'Invalid student type' }, { status: 400 });
 	}

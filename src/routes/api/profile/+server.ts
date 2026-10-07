@@ -93,7 +93,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Missing required fields' }, { status: 400 });
 		}
 
-		const validTypes = ['Enrolled', 'Supplemental', 'Former', 'Alumni'];
+		const validTypes = ['Enrolled', 'Former', 'Alumni'];
 		if (!validTypes.includes(studentType)) {
 			return json({ error: 'Invalid student type' }, { status: 400 });
 		}

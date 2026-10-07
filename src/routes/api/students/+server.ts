@@ -48,6 +48,10 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		user_id, first_name, middle_name, last_name, suffix,
 		email, student_id, program, student_type, last_school_year, verified
 	} = body;
+	const validTypes = ['Enrolled', 'Former', 'Alumni'];
+	if (student_type != null && !validTypes.includes(student_type)) {
+		return json({ error: 'Invalid student type' }, { status: 400 });
+	}
 
 	await pool.execute(
 		`UPDATE users

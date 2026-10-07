@@ -14,7 +14,7 @@
 		email: string;
 		student_id: string | null;
 		program: string | null;
-		student_type: 'Enrolled' | 'Supplemental' | 'Former' | 'Alumni' | null;
+		student_type: 'Enrolled' | 'Former' | 'Alumni' | null;
 		last_school_year: number | null;
 		verified: boolean | number;
 		date_registered: string;
@@ -120,7 +120,6 @@
 
 	const typeColors: Record<string, string> = {
 		Enrolled: 'bg-blue-100 text-blue-700 border border-blue-200',
-		Supplemental: 'bg-purple-100 text-purple-700 border border-purple-200',
 		Former: 'bg-gray-100 text-gray-600 border border-gray-200',
 		Alumni: 'bg-green-100 text-green-700 border border-green-200'
 	};
@@ -164,7 +163,6 @@
 		>
 			<option value="">All Types</option>
 			<option value="Enrolled">Enrolled</option>
-			<option value="Supplemental">Supplemental</option>
 			<option value="Former">Former</option>
 			<option value="Alumni">Alumni</option>
 		</select>
@@ -431,7 +429,6 @@
 						>
 							<option value={null}>Select type</option>
 							<option value="Enrolled">Currently Enrolled</option>
-							<option value="Supplemental">Supplemental</option>
 							<option value="Former">Former</option>
 							<option value="Alumni">Alumni</option>
 						</select>

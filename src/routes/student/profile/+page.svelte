@@ -255,7 +255,6 @@
 					<div><p class="text-xs text-gray-400">Program</p><p class="font-medium">{profile.program}</p></div>
 					<div class="col-span-2"><p class="text-xs text-gray-400">Student Type</p><p class="font-medium">
 						{#if profile.student_type === 'Enrolled'}Currently Enrolled
-						{:else if profile.student_type === 'Supplemental'}Supplemental
 						{:else if profile.student_type === 'Former'}Former Student
 						{:else if profile.student_type === 'Alumni'}Alumni
 						{:else}—{/if}
@@ -483,7 +482,6 @@
 				<div class="space-y-2">
 					{#each [
 						{ value: 'Enrolled', label: 'Currently Enrolled', description: 'You are actively taking classes and are currently enrolled this semester.' },
-						{ value: 'Supplemental', label: 'Supplemental', description: 'You are completing or retaking specific units or subjects to fulfill graduation requirements.' },
 						{ value: 'Former', label: 'Former Student', description: 'You have previously attended ESSU but are no longer actively enrolled.' },
 						{ value: 'Alumni', label: 'Alumni', description: 'You have already graduated from ESSU and are requesting documents as a graduate.' }
 					] as opt}

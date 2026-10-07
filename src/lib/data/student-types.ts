@@ -7,11 +7,6 @@ export const studentTypes: { value: string; label: string; description: string }
 		description: 'You are actively taking classes and are currently enrolled this semester.'
 	},
 	{
-		value: 'Supplemental',
-		label: 'Supplemental',
-		description: 'You are completing or retaking specific units or subjects to fulfill graduation requirements.'
-	},
-	{
 		value: 'Former',
 		label: 'Former Student',
 		description: 'You have previously attended ESSU but are no longer actively enrolled.'

@@ -20,7 +20,7 @@ export type RequestStatusKey = 'pending' | 'approved' | 'rejected' | 'correction
 export type UserRole = 'Student' | 'Staff' | 'Admin';
 
 /** Mirrors the `users.student_type` ENUM in database/db.sql. */
-export type StudentType = 'Enrolled' | 'Supplemental' | 'Former' | 'Alumni';
+export type StudentType = 'Enrolled' | 'Former' | 'Alumni';
 
 /** Notification categories derived in the notifications pages. */
 export type NotificationType = 'request' | 'task' | 'system';
