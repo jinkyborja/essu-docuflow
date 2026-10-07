@@ -3,17 +3,15 @@
 	import TopBar from '$lib/components/layout/TopBar.svelte';
 	import { page } from '$app/stores';
 	import { sidebarCollapsed } from '$lib/stores/sidebar';
-	import { notifUnreadCount } from '$lib/stores/notifications';
+	import { notifUnreadCount, startNotifications } from '$lib/stores/notifications';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	const { children, data }: { children: Snippet; data: LayoutData } = $props();
 
-	onMount(() => {
-		// will be overridden accurately once notifications page loads
-		notifUnreadCount.set(data.notifCount ?? 0);
-	});
+	onMount(() => startNotifications(data.notifCount ?? 0));
+	$effect(() => { notifUnreadCount.set(data.notifCount ?? 0); });
 
 	const unread = $derived($notifUnreadCount);
 

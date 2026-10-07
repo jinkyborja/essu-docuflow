@@ -112,14 +112,14 @@
 						<i class="{item.icon} w-5 text-center
 							{active ? activeIcon : 'text-white/70 group-hover:text-white'}"></i>
 						{#if collapsed && item.badge && item.badge > 0}
-							<span class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+							<span class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" aria-hidden="true"></span>
 						{/if}
 					</div>
 					{#if !collapsed}
 						<span class="truncate">{item.label}</span>
 						{#if item.badge && item.badge > 0}
 							<span class="ml-auto text-xs bg-red-500 text-white rounded-full px-1.5 leading-5 font-semibold min-w-5 text-center shrink-0">
-								{item.badge > 99 ? '99+' : item.badge}
+								{item.badge > 9 ? '9+' : item.badge}
 							</span>
 						{:else if active}
 							<span class="ml-auto w-1.5 h-1.5 rounded-full {activeDot} shrink-0"></span>

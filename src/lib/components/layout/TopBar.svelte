@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
+	import { notifUnreadCount } from '$lib/stores/notifications';
 
 	interface Props {
 		title: string;
@@ -20,6 +21,13 @@
 	// Staff show their position; students show their program. Graduate School has no
 	// year levels, so no year is displayed.
 	const displayRole = $derived(user?.position ?? user?.program ?? '');
+	const unread = $derived($notifUnreadCount);
+	let previousUnread = $state(0);
+	let announcement = $state('');
+	$effect(() => {
+		if (unread > previousUnread) announcement = 'New notification';
+		previousUnread = unread;
+	});
 </script>
 
 <header
@@ -45,16 +53,19 @@
 		<a
 			href={$page.url.pathname.startsWith('/student') ? '/student/notifications' : '/staff/notifications'}
 			class="portal-notification-link relative flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100 hover:text-essu-green transition-colors"
-			aria-label="Notifications"
+			aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
 			title="Notifications"
 		>
 			<i class="fa-regular fa-bell"></i>
-			{#if $page.data.notifCount}
-				<span class="portal-notification-count absolute right-0.5 top-0.5 min-w-4 rounded-full bg-essu-green px-1 text-center text-[10px] leading-4 text-white">
-					{$page.data.notifCount > 99 ? '99+' : $page.data.notifCount}
+			{#if unread > 0}
+				{#key unread}
+				<span class="portal-notification-count absolute right-0.5 top-0.5 min-w-4 rounded-full bg-essu-green px-1 text-center text-[10px] leading-4 text-white" aria-hidden="true">
+					{unread > 9 ? '9+' : unread}
 				</span>
+				{/key}
 			{/if}
 		</a>
+		<span class="sr-only" aria-live="polite">{announcement}</span>
 		<!-- Profile shortcut; logout remains in the sidebar. -->
 		<a
 			href={$page.url.pathname.startsWith('/student') ? '/student/profile' : '/staff/profile'}
@@ -73,3 +84,8 @@
 		</a>
 	</div>
 </header>
+\n+<style>
+	.portal-notification-count { animation: notification-scale-in 150ms ease-out; }
+	@keyframes notification-scale-in { from { transform: scale(0.7); } to { transform: scale(1); } }
+	@media (prefers-reduced-motion: reduce) { .portal-notification-count { animation: none; } }
+</style>

@@ -3,7 +3,8 @@
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import { notifUnreadCount } from '$lib/stores/notifications';
+	import { markAllRead as markStoreAllRead, markOneRead, notifUnreadCount } from '$lib/stores/notifications';
+	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -57,6 +58,7 @@
 	const itemsPerPage = 5;
 	let selectedNotif = $state<Notif | null>(null);
 	let detailOpen = $state(false);
+	let toastMessage = $state('');
 
 	const filterOptions = ['all', 'request', 'task', 'system'];
 
@@ -74,15 +76,32 @@
 	const requestCount = $derived(notifications.filter((n) => n.type === 'request').length);
 
 	async function markRead(ids: string[]) {
+		const wasUnread = notifications.filter((n) => ids.includes(n.id) && !n.isRead);
+		if (!wasUnread.length) return;
 		notifications = notifications.map(n => ids.includes(n.id) ? { ...n, isRead: true } : n);
-		await fetch('/api/notifications/read', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ type: 'student-history', ids: ids.map(Number) })
-		});
+		try {
+			await markOneRead({ type: 'student-history', ids: wasUnread.map((n) => Number(n.id)) });
+		} catch {
+			notifications = notifications.map(n => ids.includes(n.id) ? { ...n, isRead: false } : n);
+			toastMessage = 'Could not mark notifications as read.';
+			setTimeout(() => toastMessage = '', 4000);
+		}
 	}
 
-	function markAllRead() { markRead(notifications.filter(n => !n.isRead).map(n => n.id)); }
+	async function markAllNotificationsRead() {
+		const ids = notifications.filter((n) => !n.isRead).map((n) => n.id);
+		if (!ids.length) return;
+		notifications = notifications.map((n) => ({ ...n, isRead: true }));
+		try {
+			await markStoreAllRead([{ type: 'student-history', ids: ids.map(Number) }]);
+		} catch {
+			notifications = notifications.map((n) => ids.includes(n.id) ? { ...n, isRead: false } : n);
+			toastMessage = 'Could not mark notifications as read.';
+			setTimeout(() => toastMessage = '', 4000);
+		}
+	}
+
+	onMount(() => { if (unreadCount > 0) void markAllNotificationsRead(); });
 
 	function viewDetail(notif: Notif) {
 		selectedNotif = notif;
@@ -123,11 +142,11 @@
 			{/if}
 			<div class="relative">
 				<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-				<input type="text" bind:value={search} placeholder="Search..." oninput={() => (currentPage = 1)} class="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-essu-blue/30 w-full sm:w-44" />
+				<input type="text" bind:value={search} placeholder="Search..." oninput={() => (currentPage = 1)} class="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30 w-full sm:w-44" />
 			</div>
 			{#if unreadCount > 0}
-				<button onclick={markAllRead} class="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap">
-					<i class="fa-solid fa-check-double mr-1 text-xs"></i>Mark all read
+				<button onclick={() => void markAllNotificationsRead()} class="min-h-11 px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+					<i class="fa-solid fa-check-double mr-1 text-xs"></i>Mark all as read
 				</button>
 			{/if}
 		</div>
@@ -152,7 +171,7 @@
 					<div class="flex-1 min-w-0">
 						<div class="flex items-start justify-between gap-2">
 							<div class="flex items-center gap-2">
-								<p class="text-sm font-semibold text-gray-800">{notif.title}</p>
+								<p class="text-sm {notif.isRead ? 'font-medium' : 'font-bold'} text-gray-800">{notif.title}</p>
 								{#if !notif.isRead}
 									<span class="w-2 h-2 bg-essu-blue rounded-full inline-block shrink-0"></span>
 								{/if}
@@ -220,3 +239,4 @@
 		<button onclick={() => (detailOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Close</button>
 	{/snippet}
 </Modal>
+{#if toastMessage}<div class="fixed bottom-5 right-5 z-[70] rounded-lg bg-red-700 px-4 py-3 text-sm text-white shadow-lg" role="status" aria-live="polite">{toastMessage}</div>{/if}
