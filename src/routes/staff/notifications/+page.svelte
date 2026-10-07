@@ -26,7 +26,7 @@
 	}
 
 	// New unreviewed pending requests → type 'request', isRead from staff_viewed
-	const fromNew: Notif[] = (data.newRequests as Record<string, unknown>[]).map(r => ({
+	const fromNew: Notif[] = $derived((data.newRequests as Record<string, unknown>[]).map(r => ({
 		id: String(r.request_id),
 		source: 'request' as const,
 		type: 'request' as const,
@@ -35,10 +35,10 @@
 		date: fmtDate(r.date_requested),
 		isRead: !!(r.staff_viewed),
 		relatedRequestId: r.request_id as string
-	}));
+	})));
 
 	// Status history → isRead from is_read column
-	const fromHistory: Notif[] = (data.history as Record<string, unknown>[]).map(h => {
+	const fromHistory: Notif[] = $derived((data.history as Record<string, unknown>[]).map(h => {
 		const status = h.new_status as string;
 		const type: Notif['type'] =
 			status === 'Correction Requested' ? 'task' :
@@ -60,12 +60,16 @@
 			actionItems: status === 'Correction Requested' && adminMsg ? [adminMsg] : undefined,
 			relatedRequestId: h.request_id as string
 		};
-	});
+	}));
 
 	// Merge: new requests first (unread), then history
 	let notifications = $state<Notif[]>([...fromNew, ...fromHistory]);
 
-	$effect(() => { notifUnreadCount.set(unreadCount); });
+	$effect(() => {
+		const loadedNotifications = [...fromNew, ...fromHistory];
+		notifications = loadedNotifications;
+		notifUnreadCount.set(loadedNotifications.filter((n) => !n.isRead).length);
+	});
 
 	let activeFilter = $state('all');
 	let search = $state('');

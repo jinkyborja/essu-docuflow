@@ -50,7 +50,11 @@
 
 	let notifications = $state(data.history.map(mapHistory));
 
-	$effect(() => { notifUnreadCount.set(unreadCount); });
+	$effect(() => {
+		const loadedHistory = data.history.map(mapHistory);
+		notifications = loadedHistory;
+		notifUnreadCount.set(loadedHistory.filter((n) => !n.isRead).length);
+	});
 
 	let activeFilter = $state('all');
 	let search = $state('');
