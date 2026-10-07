@@ -20,6 +20,7 @@
 		{ label: 'Dashboard',        icon: 'fa-solid fa-gauge-high',       href: '/student/dashboard' },
 		{ label: 'My Documents',     icon: 'fa-solid fa-folder-open',      href: '/student/documents' },
 		{ label: 'Request Document', icon: 'fa-solid fa-file-circle-plus', href: '/student/request' },
+		{ label: 'Forms',            icon: 'fa-solid fa-file-lines',       href: '/student/forms' },
 		{ label: 'Notifications',    icon: 'fa-regular fa-bell',           href: '/student/notifications', badge: unread },
 		{ label: 'My Profile',       icon: 'fa-solid fa-circle-user',      href: '/student/profile' }
 	]);
@@ -28,6 +29,7 @@
 		'/student/dashboard': 'Dashboard',
 		'/student/documents': 'My Documents',
 		'/student/request': 'Request Document',
+		'/student/forms': 'Forms',
 		'/student/notifications': 'Notifications',
 		'/student/profile': 'My Profile'
 	};
