@@ -4,7 +4,7 @@ import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
 import { verifyJwt } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
-import { validate, insertFiles, type FormInput, type FormFileInput } from '../+server';
+import { validate, insertFiles, type FormInput } from '$lib/server/forms';
 import { env } from '$env/dynamic/private';
 
 function session(cookies: { get: (key: string) => string | undefined }) {
