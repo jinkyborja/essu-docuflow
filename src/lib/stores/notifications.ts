@@ -10,6 +10,7 @@ export type ReadGroup = { type: 'student-history' | 'history' | 'request'; ids: 
 let channel: BroadcastChannel | undefined;
 let interval: ReturnType<typeof setInterval> | undefined;
 let inFlight = false;
+let mutationInFlight = false;
 let listenersInstalled = false;
 
 function publishCount(count: number) {
@@ -27,8 +28,8 @@ function onFocus() {
 }
 
 /** Re-run authenticated SvelteKit loads, which provide the current count and list data. */
-export async function refresh() {
-	if (typeof document === 'undefined' || document.visibilityState !== 'visible' || inFlight) return;
+export async function refresh(afterMutation = false) {
+	if (typeof document === 'undefined' || document.visibilityState !== 'visible' || inFlight || (mutationInFlight && !afterMutation)) return;
 	inFlight = true;
 	try {
 		await invalidateAll();
@@ -82,29 +83,37 @@ async function postRead(group: ReadGroup) {
 }
 
 export async function markAllRead(groups: ReadGroup[]) {
+	if (mutationInFlight) return;
 	let previousCount = 0;
 	const unsubscribe = unreadCount.subscribe((value) => (previousCount = value));
 	unsubscribe();
 	publishCount(0);
+	mutationInFlight = true;
 	try {
 		for (const group of groups) await postRead(group);
-		await refresh();
+		await refresh(true);
 	} catch (error) {
 		publishCount(previousCount);
 		throw error;
+	} finally {
+		mutationInFlight = false;
 	}
 }
 
 export async function markOneRead(group: ReadGroup) {
+	if (mutationInFlight) return;
 	let previousCount = 0;
 	const unsubscribe = unreadCount.subscribe((value) => (previousCount = value));
 	unsubscribe();
 	publishCount(Math.max(0, previousCount - group.ids.length));
+	mutationInFlight = true;
 	try {
 		await postRead(group);
-		await refresh();
+		await refresh(true);
 	} catch (error) {
 		publishCount(previousCount);
 		throw error;
+	} finally {
+		mutationInFlight = false;
 	}
 }
