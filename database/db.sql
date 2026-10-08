@@ -104,6 +104,8 @@ CREATE TABLE request_items (
     FOREIGN KEY (request_id) REFERENCES requests(request_id) ON DELETE CASCADE,
     FOREIGN KEY (document_id) REFERENCES documents(document_id)
 );
+-- Keep request_items.request_id identical to requests.request_id (VARCHAR(20));
+-- requests.document_id stays nullable for legacy compatibility with multi-document requests.
 
 -- 7. Which requirements each document asks for
 CREATE TABLE document_requirements (

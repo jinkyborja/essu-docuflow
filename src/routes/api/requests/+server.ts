@@ -74,9 +74,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 	if (payload.role !== 'Student') return json({ error: 'Forbidden' }, { status: 403 });
+	let stage = 'student_verification';
+	let conn: Awaited<ReturnType<typeof pool.getConnection>> | null = null;
+	let transactionOpen = false;
+	let lockName: string | null = null;
+	try {
 	const [studentRows] = await pool.execute('SELECT id_status FROM users WHERE user_id = ? AND role = \'Student\'', [payload.userId]);
 	if ((studentRows as Array<{ id_status: string }>)[0]?.id_status !== 'verified') {
-		return json({ error: 'Your student ID must be verified before you can request documents.' }, { status: 403 });
+		return json({ error: 'Your student ID must be verified before you can request documents.', code: 'ID_NOT_VERIFIED', message: 'Your student ID must be verified before you can request documents.' }, { status: 403 });
 	}
 
 	const formData = await request.formData();
@@ -88,28 +93,25 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	let documentIds: number[];
 	try { documentIds = rawIds ? JSON.parse(rawIds) : legacyId ? [Number(legacyId)] : []; } catch { documentIds = []; }
 	if (!Array.isArray(documentIds) || documentIds.length < 1 || documentIds.length > 5 || documentIds.some((id) => !Number.isInteger(id) || id < 1) || new Set(documentIds).size !== documentIds.length) {
-		return json({ error: 'Select between 1 and 5 different documents.' }, { status: 400 });
+		return json({ error: 'Select between 1 and 5 different documents.', code: 'INVALID_DOCUMENTS', message: 'Select between 1 and 5 different documents.' }, { status: 400 });
 	}
 	if (!purpose || !requirementsJson) {
-		return json({ error: 'Missing fields' }, { status: 400 });
+		return json({ error: 'Missing fields', code: 'MISSING_FIELDS', message: 'Purpose and requirements are required.' }, { status: 400 });
 	}
 	const idMarks = documentIds.map(() => '?').join(',');
+	stage = 'validate_documents';
 	const [activeDocs] = await pool.execute(`SELECT document_id FROM documents WHERE document_id IN (${idMarks})`, documentIds);
-	if ((activeDocs as Array<{document_id:number}>).length !== documentIds.length) return json({ error: 'One or more selected documents are unavailable.' }, { status: 400 });
+	if ((activeDocs as Array<{document_id:number}>).length !== documentIds.length) return json({ error: 'One or more selected documents are unavailable.', code: 'DOCUMENT_UNAVAILABLE', message: 'One or more selected documents are unavailable.' }, { status: 400 });
+	stage = 'load_requirements';
 	const [requirementRows] = await pool.execute(
 		`SELECT rq.name, rq.description, MAX(dr.in_person) AS in_person, MIN(dr.sort_order) AS sort_order
 		 FROM document_requirements dr JOIN requirements rq ON rq.requirement_id = dr.requirement_id
 		 WHERE dr.document_id IN (${idMarks}) GROUP BY rq.requirement_id, rq.name, rq.description ORDER BY sort_order, rq.name`, documentIds
 	);
 
-	// Generate request ID
-	const year = new Date().getFullYear();
-	const [countRows] = await pool.execute(
-		'SELECT COUNT(*) AS cnt FROM requests WHERE request_id LIKE ?',
-		[`REQ-${year}-%`]
-	);
-	const count = ((countRows as { cnt: number }[])[0].cnt ?? 0) + 1;
-	const requestId = `REQ-${year}-${String(count).padStart(3, '0')}`;
+	// Reserve a unique upload folder; allocate the human-readable request ID inside
+	// the insert transaction under a MySQL named lock to avoid concurrent duplicates.
+	const uploadBatch = crypto.randomUUID();
 
 	// Parse requirements and upload files
 	let reqs: Array<{
@@ -123,13 +125,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	// and both the student and staff see "Not yet submitted" with no explanation.
 	const uploadErrors: string[] = [];
 
+	stage = 'upload_requirement_files';
 	for (const req of reqs) {
 		if (req.in_person) continue;
 		const file = formData.get(`file_${req.name}`) as File | null;
 		if (file && file.size > 0) {
-			const ext = file.name.split('.').pop();
-			const safeName = req.name.toLowerCase().replace(/\s+/g, '-');
-			const path = `${requestId}/${safeName}-${Date.now()}.${ext}`;
+			const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
+			const safeName = req.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'requirement';
+			const path = `${uploadBatch}/${safeName}-${Date.now()}.${ext}`;
 			const buffer = Buffer.from(await file.arrayBuffer());
 			const { error } = await supabase.storage.from('requirements').upload(path, buffer, {
 				contentType: file.type
@@ -150,31 +153,75 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	if (uploadErrors.length > 0) {
 		return json(
 			{
-				error: `File upload failed — your request was not submitted. Please try again or contact the Graduate School. (${uploadErrors.join('; ')})`
+				error: 'File upload failed — your request was not submitted. Please try again or contact the Graduate School.',
+				code: 'REQUIREMENT_UPLOAD_FAILED',
+				message: `A requirement file could not be uploaded: ${uploadErrors.join('; ')}`
 			},
 			{ status: 502 }
 		);
 	}
 
-	const conn = await pool.getConnection();
-	try {
-		await conn.beginTransaction();
+	stage = 'acquire_transaction_connection';
+	conn = await pool.getConnection();
+	const year = new Date().getFullYear();
+	lockName = `docuflow_req_id_${year}`;
+	stage = 'request_id_lock';
+	const [lockRows] = await conn.execute('SELECT GET_LOCK(?, 10) AS acquired', [lockName]);
+	if ((lockRows as Array<{ acquired: number | null }>)[0]?.acquired !== 1) {
+		return json({ error: 'Could not submit your request. Please try again.', code: 'REQUEST_ID_LOCK_TIMEOUT', message: 'The request service is busy. Please try again.' }, { status: 503 });
+	}
+	await conn.beginTransaction();
+	transactionOpen = true;
+	stage = 'generate_request_id';
+	const prefix = `REQ-${year}-`;
+	const [sequenceRows] = await conn.execute(
+		'SELECT COALESCE(MAX(CAST(SUBSTRING(request_id, ?) AS UNSIGNED)), 0) AS seq FROM requests WHERE request_id LIKE ?',
+		[prefix.length + 1, `${prefix}%`]
+	);
+	const seq = Number((sequenceRows as Array<{ seq: number | string }>)[0]?.seq ?? 0) + 1;
+	const requestId = `${prefix}${String(seq).padStart(3, '0')}`;
+		stage = 'insert_request';
 		// purpose_id is the normalized value; the text column stays in sync until it is dropped.
 		await conn.execute(
 			`INSERT INTO requests (request_id, student_id, document_id, purpose, purpose_id)
 			 VALUES (?, ?, NULL, ?, (SELECT purpose_id FROM purposes WHERE label = ?))`,
 			[requestId, payload.userId, purpose, purpose]
 		);
+		stage = 'insert_request_items';
 		for (const documentId of documentIds) await conn.execute('INSERT INTO request_items (request_id, document_id) VALUES (?, ?)', [requestId, documentId]);
+		stage = 'replace_request_requirements';
 		await replaceRequestRequirements(conn, requestId, reqs);
+		stage = 'commit';
 		await conn.commit();
+		transactionOpen = false;
 		return json({ success: true, request_id: requestId });
 	} catch (err) {
-		await conn.rollback();
-		console.error('Create request failed:', err);
-		return json({ error: 'Could not submit your request. Please try again.' }, { status: 500 });
+		if (conn && transactionOpen) {
+			try { await conn.rollback(); } catch (rollbackError) { console.error('[requests POST] rollback failed', rollbackError); }
+			transactionOpen = false;
+		}
+		console.error('[requests POST]', err, 'stage:', stage);
+		const dbErr = err as { code?: string; errno?: number };
+		let code = 'REQUEST_SUBMIT_FAILED';
+		let message = 'Could not submit your request because the database rejected a write. Please retry; if it continues, contact the Graduate School.';
+		if (stage === 'insert_request' && (dbErr.code === 'ER_BAD_NULL_ERROR' || dbErr.errno === 1048)) {
+			code = 'LEGACY_DOCUMENT_ID_NOT_NULL';
+			message = 'Database schema requires requests.document_id to allow NULL for multi-document requests.';
+		} else if (stage === 'insert_request_items' && ['ER_TRUNCATED_WRONG_VALUE', 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD', 'ER_NO_REFERENCED_ROW_2', 'ER_NO_REFERENCED_ROW'].includes(dbErr.code ?? '')) {
+			code = 'REQUEST_ITEMS_SCHEMA_MISMATCH';
+			message = 'Database schema mismatch: request_items.request_id must match requests.request_id in type, length, character set, and collation.';
+		} else if (dbErr.code === 'ER_DUP_ENTRY') {
+			code = 'DUPLICATE_REQUEST_ID';
+			message = 'A duplicate request identifier was detected. Please retry; no request was submitted.';
+		}
+		return json({ error: 'Could not submit your request. Please try again.', code, message, stage }, { status: 500 });
 	} finally {
-		conn.release();
+		if (conn) {
+			if (lockName) {
+				try { await conn.execute('SELECT RELEASE_LOCK(?)', [lockName]); } catch (releaseError) { console.error('[requests POST] lock release failed', releaseError); }
+			}
+			conn.release();
+		}
 	}
 };
 
