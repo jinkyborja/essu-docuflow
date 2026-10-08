@@ -9,7 +9,7 @@
 	type Req = {
 		request_id: string; document_name: string; student_name: string;
 		student_code: string; program: string; status: string;
-		purpose: string; date_requested: string;
+		purpose: string; date_requested: string; items: Array<{document_id:number;name:string}>;
 	};
 
 	let requests = $state(data.requests as Req[]);
@@ -18,6 +18,8 @@
 	let filterStatus = $state('');
 
 	let deletingId = $state<string | null>(null);
+	let expanded = $state<string[]>([]);
+	function toggleItems(id: string) { expanded = expanded.includes(id) ? expanded.filter((item) => item !== id) : [...expanded, id]; }
 	let deleteConfirmId = $state<string | null>(null);
 
 	async function handleDelete(id: string) {
@@ -41,7 +43,7 @@
 				r.student_name.toLowerCase().includes(q) ||
 				r.request_id.toLowerCase().includes(q) ||
 				r.student_code?.toLowerCase().includes(q) ||
-				r.document_name.toLowerCase().includes(q);
+				(r.items ?? []).some((item) => item.name.toLowerCase().includes(q));
 			const matchStatus = !filterStatus || r.status === filterStatus;
 			return matchSearch && matchStatus;
 		})
@@ -111,7 +113,8 @@
 							</div>
 							<Badge value={req.status.toLowerCase()} />
 						</div>
-						<p class="text-sm text-gray-700">{req.document_name}</p>
+						<p class="text-sm text-gray-700">{req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => toggleItems(req.request_id)}>+{req.items.length - 1} more</button>{/if}</p>
+						{#if expanded.includes(req.request_id)}<p class="mt-1 text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
 						<div class="flex items-center justify-between gap-2 text-xs text-gray-400">
 							<span class="font-mono">{req.request_id}</span>
 							<span>{new Date(req.date_requested).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
@@ -153,7 +156,7 @@
 									<p class="text-xs text-gray-400">{req.student_code ?? '—'}</p>
 								</td>
 								<td class="px-4 py-3 text-gray-600">{req.program ?? '—'}</td>
-								<td class="px-4 py-3 text-gray-700 whitespace-nowrap">{req.document_name}</td>
+								<td class="px-4 py-3 text-gray-700 whitespace-nowrap">{req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => toggleItems(req.request_id)}>+{req.items.length - 1} more</button>{/if}{#if expanded.includes(req.request_id)}<div class="mt-1 whitespace-normal text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</div>{/if}</td>
 								<td class="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
 									{new Date(req.date_requested).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
 								</td>

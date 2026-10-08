@@ -43,10 +43,18 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	await pool.execute(
-		`INSERT INTO users (first_name, middle_name, last_name, suffix, date_of_birth, email, password_hash, role, student_id, program, student_type, last_school_year, verified)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, 'Student', ?, ?, ?, ?, FALSE)`,
+		`INSERT INTO users (first_name, middle_name, last_name, suffix, date_of_birth, email, password_hash, role, student_id, program, student_type, last_school_year, verified, id_status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, 'Student', ?, ?, ?, ?, FALSE, 'pending')`,
 		[firstName, middleName || null, lastName, suffix || null, dateOfBirth, email, passwordHash, studentId, program, studentType, lastSchoolYear]
 	);
+	const [admins] = await pool.execute("SELECT user_id FROM users WHERE role = 'Admin'");
+	for (const admin of admins as Array<{ user_id: number }>) {
+		await pool.execute(
+			`INSERT INTO request_status_history (request_id, old_status, new_status, changed_by, notification_user_id, is_read, student_read)
+			 VALUES (NULL, NULL, ?, NULL, ?, FALSE, TRUE)`,
+			['New student awaiting ID verification', admin.user_id]
+		);
+	}
 
 	const token = signJwt({ email }, JWT_SECRET, 86400);
 	const verifyUrl = `${new URL(request.url).origin}/api/verify?token=${token}`;

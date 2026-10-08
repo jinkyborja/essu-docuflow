@@ -6,6 +6,7 @@ import { fetchOneRequestRequirements } from '$lib/server/requirements';
 import { verifyJwt } from '$lib/server/jwt';
 import { sendEmail } from '$lib/server/email';
 import { JWT_SECRET } from '$env/static/private';
+import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
 
 export const GET: RequestHandler = async ({ params, cookies }) => {
 	const token = cookies.get('session');
@@ -18,11 +19,10 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 	}
 
 	const [rows] = await pool.execute(
-		`SELECT r.*, d.name AS document_name,
+		`SELECT r.*,
 		        u.first_name, u.middle_name, u.last_name, u.student_id AS student_code,
 		        u.program, u.student_type, u.email AS student_email
 		 FROM requests r
-		 JOIN documents d ON r.document_id = d.document_id
 		 JOIN users u ON r.student_id = u.user_id
 		 WHERE r.request_id = ?`,
 		[params.id]
@@ -31,6 +31,8 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 	if (list.length === 0) return json({ error: 'Not found' }, { status: 404 });
 
 	const req = list[0];
+	const items = (await fetchRequestItems([params.id])).get(params.id) ?? [];
+	req.items = items; req.document_name = documentNameSummary(items); req.documentName = req.document_name;
 
 	const requirements = await fetchOneRequestRequirements(params.id);
 
@@ -45,7 +47,7 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 		[params.id]
 	);
 
-	return json({ ...req, requirements, history: histRows });
+	return json({ ...req, items, requirements, history: histRows });
 };
 
 export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
@@ -63,16 +65,18 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	const [rows] = await pool.execute(
 		`SELECT r.*, u.email AS student_email,
 		        CONCAT(u.first_name, ' ', u.last_name) AS student_name,
-		        d.name AS document_name
+		        NULL AS document_name
 		 FROM requests r
 		 JOIN users u ON r.student_id = u.user_id
-		 JOIN documents d ON r.document_id = d.document_id
 		 WHERE r.request_id = ?`,
 		[params.id]
 	);
 	const list = rows as Record<string, unknown>[];
 	if (list.length === 0) return json({ error: 'Not found' }, { status: 404 });
 	const currentReq = list[0];
+	const requestItems = (await fetchRequestItems([params.id])).get(params.id) ?? [];
+	const documentNames = requestItems.map((item) => item.name).join(', ');
+	currentReq.document_name = documentNameSummary(requestItems);
 	const oldStatus = currentReq.status as string;
 
 	const contentType = request.headers.get('content-type') ?? '';
@@ -153,7 +157,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	// Send email
 	const studentEmail = currentReq.student_email as string;
 	const studentName = currentReq.student_name as string;
-	const documentName = currentReq.document_name as string;
+	const documentName = documentNames;
 
 	let emailSubject = '';
 	let emailHtml = '';
@@ -168,7 +172,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 				.createSignedUrl(filePath, 604800); // 7 days
 			downloadUrl = signedData?.signedUrl ?? '';
 		}
-		emailSubject = `Your request for ${documentName} has been approved`;
+		emailSubject = `Your request for ${documentNames} has been approved`;
 		emailHtml = `
 			<p>Dear ${studentName},</p>
 			<p>Your document request (<strong>${params.id}</strong>) for <strong>${documentName}</strong> has been <strong style="color:green">approved</strong>.</p>
@@ -180,7 +184,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 					: `<p>Please log in to ESSU DocuFlow to view the details of your request.</p>`}
 			<p>ESSU DocuFlow — Graduate School</p>`;
 	} else if (action === 'reject') {
-		emailSubject = `Your request for ${documentName} was rejected`;
+		emailSubject = `Your request for ${documentNames} was rejected`;
 		emailHtml = `
 			<p>Dear ${studentName},</p>
 			<p>Your document request (<strong>${params.id}</strong>) for <strong>${documentName}</strong> has been <strong style="color:red">rejected</strong>.</p>

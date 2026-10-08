@@ -20,7 +20,7 @@
 		{ label: 'All Requests',  icon: 'fa-solid fa-list-check',    href: '/staff/requests' },
 		{ label: 'Documents',     icon: 'fa-solid fa-file-lines',    href: '/staff/documents' },
 		{ label: 'Forms',         icon: 'fa-solid fa-file-circle-plus', href: '/staff/forms' },
-		{ label: 'Students',      icon: 'fa-solid fa-user-graduate', href: '/staff/students',  adminOnly: true },
+		{ label: 'Students',      icon: 'fa-solid fa-user-graduate', href: '/staff/students' },
 		{ label: 'Staff',         icon: 'fa-solid fa-user-tie',      href: '/staff/staff',     adminOnly: true },
 		{ label: 'Reports',       icon: 'fa-solid fa-chart-bar',     href: '/staff/reports' },
 		{ label: 'Notifications', icon: 'fa-regular fa-bell',        href: '/staff/notifications', badge: unread },

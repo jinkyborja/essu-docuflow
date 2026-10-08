@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const [rows] = await pool.execute(
 		`SELECT first_name, middle_name, last_name, suffix, date_of_birth,
 		        email, student_id, program, student_type, last_school_year,
-		        date_registered
+		        date_registered, id_status, id_verified_at, id_reject_reason
 		 FROM users WHERE user_id = ?`,
 		[payload.userId]
 	);
@@ -45,7 +45,10 @@ export const load: PageServerLoad = async ({ cookies }) => {
 			program:         u.program as string,
 			student_type:    u.student_type as string | null,
 			last_school_year: u.last_school_year as number | null,
-			date_registered:  fmt(u.date_registered)
+			date_registered:  fmt(u.date_registered),
+			id_status: u.id_status as string,
+			id_verified_at: fmt(u.id_verified_at),
+			id_reject_reason: u.id_reject_reason as string | null
 		}
 	};
 };

@@ -14,6 +14,7 @@
 		request_id: string; document_name: string; purpose: string; status: string;
 		admin_message: string | null; approved_file_path: string | null;
 		approved_file_name: string | null; requirements: string | null; date_requested: string;
+		items: Array<{document_id:number;name:string}>;
 	};
 
 	// Override list after resubmit refresh; null means use server data
@@ -27,6 +28,7 @@
 	let resubmitting = $state(false);
 	let resubmitError = $state('');
 	let toastMsg = $state('');
+	let expandedItems = $state<string[]>([]);
 
 	function parseReqs(json: string | null): Requirement[] {
 		if (!json) return [];
@@ -128,7 +130,8 @@
 					<div class="px-4 sm:px-5 py-4 flex items-start justify-between gap-3 flex-wrap border-b border-gray-100">
 						<div class="min-w-0">
 							<div class="flex items-center gap-2 mb-1 flex-wrap">
-								<p class="font-semibold text-gray-800">{req.document_name}</p>
+								<p class="font-semibold text-gray-800">{req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => expandedItems = expandedItems.includes(req.request_id) ? expandedItems.filter((id) => id !== req.request_id) : [...expandedItems, req.request_id]}>+{req.items.length - 1} more</button>{/if}</p>
+								{#if expandedItems.includes(req.request_id)}<p class="mt-1 text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
 								<Badge value={req.status.toLowerCase()} />
 							</div>
 							<p class="text-xs text-gray-400 font-mono break-all">{req.request_id} · {new Date(req.date_requested).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</p>

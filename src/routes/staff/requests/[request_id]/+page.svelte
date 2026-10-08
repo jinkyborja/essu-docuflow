@@ -13,6 +13,7 @@
 
 	const req = data.request as {
 		request_id: string; document_name: string; student_name: string;
+		items: Array<{ document_id: number; name: string }>;
 		student_code: string; program: string; student_type: string;
 		student_email: string; last_school_year: number | null;
 		purpose: string; status: string; requirements: Requirement[];
@@ -138,7 +139,7 @@
 					<h3 class="font-semibold text-gray-700">Request Details</h3>
 				</div>
 				<div class="grid grid-cols-2 gap-4 p-5 text-sm">
-					<div><p class="text-xs text-gray-400 mb-0.5">Document</p><p class="font-medium">{req.document_name}</p></div>
+					<div><p class="text-xs text-gray-400 mb-0.5">Documents</p><ul class="space-y-1">{#each req.items ?? [] as item}<li class="font-medium">{item.name}</li>{/each}</ul></div>
 					<div class="col-span-2"><p class="text-xs text-gray-400 mb-0.5">Purpose</p><p class="font-medium">{req.purpose}</p></div>
 					{#if req.admin_message}
 						<div class="col-span-2">

@@ -4,7 +4,10 @@
 
 	const { data }: { data: PageData } = $props();
 
-	const activeRequests = $derived(data.requests);
+	type RequestItem = { document_id: number; name: string };
+	type DashboardRequest = { request_id: string; document_name: string; items: RequestItem[]; status: string; date_requested: string };
+	const activeRequests = $derived(data.requests as DashboardRequest[]);
+	let expandedRequests = $state<string[]>([]);
 
 	const recentNotifs = $derived(
 		data.recentHistory.map((h) => ({
@@ -61,7 +64,8 @@
 								<i class="fa-solid fa-file text-blue-500 text-sm"></i>
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="text-sm font-medium text-gray-800">{req.document_name}</p>
+								<p class="text-sm font-medium text-gray-800">{req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => expandedRequests = expandedRequests.includes(req.request_id) ? expandedRequests.filter((id) => id !== req.request_id) : [...expandedRequests, req.request_id]}>+{req.items.length - 1} more</button>{/if}</p>
+								{#if expandedRequests.includes(req.request_id)}<p class="text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
 								<p class="text-xs text-gray-400">{req.request_id} · {new Date(req.date_requested as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
 							</div>
 							<div class="shrink-0">
@@ -105,7 +109,9 @@
 					{#each quickActions as action}
 						<a
 							href={action.href}
-							class="quick-action-link {action.color} flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-colors"
+							aria-disabled={action.href === '/student/request' && data.layoutUser.idStatus !== 'verified'}
+							onclick={(event) => { if (action.href === '/student/request' && data.layoutUser.idStatus !== 'verified') event.preventDefault(); }}
+							class="quick-action-link {action.href === '/student/request' && data.layoutUser.idStatus !== 'verified' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : action.color} flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-colors"
 						>
 							<i class="{action.icon} text-lg"></i>
 							<span class="text-xs font-medium leading-tight">{action.label}</span>

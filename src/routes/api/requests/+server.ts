@@ -5,6 +5,7 @@ import { supabase } from '$lib/server/supabase';
 import { replaceRequestRequirements, fetchRequestFilePaths } from '$lib/server/requirements';
 import { verifyJwt } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
+import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
 
 export const GET: RequestHandler = async ({ cookies, url }) => {
 	const token = cookies.get('session');
@@ -19,7 +20,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 
 	if (payload.role === 'Student') {
 		const [rows] = await pool.execute(
-			`SELECT r.request_id, r.document_id, d.name AS document_name, r.purpose,
+			`SELECT r.request_id, r.document_id, r.purpose,
 			        r.status, r.admin_message, r.approved_file_path, r.approved_file_name,
 			        CAST(COALESCE((
 			          SELECT JSON_ARRAYAGG(JSON_OBJECT(
@@ -37,25 +38,29 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 			        ), JSON_ARRAY()) AS CHAR) AS requirements,
 			        r.date_requested
 			 FROM requests r
-			 JOIN documents d ON r.document_id = d.document_id
 			 WHERE r.student_id = ?
 			 ORDER BY r.date_requested DESC`,
 			[payload.userId]
 		);
-		return json(rows);
+		const result = rows as Array<Record<string, unknown>>;
+		const items = await fetchRequestItems(result.map((r) => r.request_id as string));
+		for (const row of result) { const docs = items.get(row.request_id as string) ?? []; row.items = docs; row.documentName = documentNameSummary(docs); row.document_name = row.documentName; }
+		return json(result);
 	}
 
 	// Staff/Admin: all requests
 	const [rows] = await pool.execute(
-		`SELECT r.request_id, r.document_id, d.name AS document_name,
+		`SELECT r.request_id,
 		        u.first_name, u.middle_name, u.last_name, u.student_id AS student_code,
 		        u.program, r.purpose, r.status, r.date_requested
 		 FROM requests r
-		 JOIN documents d ON r.document_id = d.document_id
 		 JOIN users u ON r.student_id = u.user_id
 		 ORDER BY r.date_requested DESC`
 	);
-	return json(rows);
+	const result = rows as Array<Record<string, unknown>>;
+	const items = await fetchRequestItems(result.map((r) => r.request_id as string));
+	for (const row of result) { const docs = items.get(row.request_id as string) ?? []; row.items = docs; row.documentName = documentNameSummary(docs); row.document_name = row.documentName; }
+	return json(result);
 };
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -69,15 +74,33 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 	if (payload.role !== 'Student') return json({ error: 'Forbidden' }, { status: 403 });
+	const [studentRows] = await pool.execute('SELECT id_status FROM users WHERE user_id = ? AND role = \'Student\'', [payload.userId]);
+	if ((studentRows as Array<{ id_status: string }>)[0]?.id_status !== 'verified') {
+		return json({ error: 'Your student ID must be verified before you can request documents.' }, { status: 403 });
+	}
 
 	const formData = await request.formData();
-	const documentId = formData.get('document_id') as string;
+	const rawIds = formData.get('documentIds') as string | null;
+	const legacyId = formData.get('document_id') as string | null;
 	const purpose = formData.get('purpose') as string;
 	const requirementsJson = formData.get('requirements') as string;
 
-	if (!documentId || !purpose || !requirementsJson) {
+	let documentIds: number[];
+	try { documentIds = rawIds ? JSON.parse(rawIds) : legacyId ? [Number(legacyId)] : []; } catch { documentIds = []; }
+	if (!Array.isArray(documentIds) || documentIds.length < 1 || documentIds.length > 5 || documentIds.some((id) => !Number.isInteger(id) || id < 1) || new Set(documentIds).size !== documentIds.length) {
+		return json({ error: 'Select between 1 and 5 different documents.' }, { status: 400 });
+	}
+	if (!purpose || !requirementsJson) {
 		return json({ error: 'Missing fields' }, { status: 400 });
 	}
+	const idMarks = documentIds.map(() => '?').join(',');
+	const [activeDocs] = await pool.execute(`SELECT document_id FROM documents WHERE document_id IN (${idMarks})`, documentIds);
+	if ((activeDocs as Array<{document_id:number}>).length !== documentIds.length) return json({ error: 'One or more selected documents are unavailable.' }, { status: 400 });
+	const [requirementRows] = await pool.execute(
+		`SELECT rq.name, rq.description, MAX(dr.in_person) AS in_person, MIN(dr.sort_order) AS sort_order
+		 FROM document_requirements dr JOIN requirements rq ON rq.requirement_id = dr.requirement_id
+		 WHERE dr.document_id IN (${idMarks}) GROUP BY rq.requirement_id, rq.name, rq.description ORDER BY sort_order, rq.name`, documentIds
+	);
 
 	// Generate request ID
 	const year = new Date().getFullYear();
@@ -93,7 +116,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		name: string; description: string; in_person: boolean;
 		file_path: string | null; file_name: string | null;
 		submitted_at: string | null; needs_correction: boolean;
-	}> = JSON.parse(requirementsJson);
+	}> = (requirementRows as Array<Record<string, unknown>>).map((row) => ({ name: row.name as string, description: row.description as string, in_person: Boolean(row.in_person), file_path: null, file_name: null, submitted_at: null, needs_correction: false }));
 
 	// Upload every attached requirement file. A storage failure must NOT be
 	// swallowed — otherwise the request is created with null file_path/submitted_at
@@ -139,9 +162,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		// purpose_id is the normalized value; the text column stays in sync until it is dropped.
 		await conn.execute(
 			`INSERT INTO requests (request_id, student_id, document_id, purpose, purpose_id)
-			 VALUES (?, ?, ?, ?, (SELECT purpose_id FROM purposes WHERE label = ?))`,
-			[requestId, payload.userId, documentId, purpose, purpose]
+			 VALUES (?, ?, NULL, ?, (SELECT purpose_id FROM purposes WHERE label = ?))`,
+			[requestId, payload.userId, purpose, purpose]
 		);
+		for (const documentId of documentIds) await conn.execute('INSERT INTO request_items (request_id, document_id) VALUES (?, ?)', [requestId, documentId]);
 		await replaceRequestRequirements(conn, requestId, reqs);
 		await conn.commit();
 		return json({ success: true, request_id: requestId });

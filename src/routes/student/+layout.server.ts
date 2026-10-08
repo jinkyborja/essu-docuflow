@@ -19,14 +19,14 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 
 	const [[rows], [notifRows]] = await Promise.all([
 		pool.execute(
-			'SELECT first_name, last_name, program, student_id FROM users WHERE user_id = ?',
+			'SELECT first_name, last_name, program, student_id, id_status, id_reject_reason FROM users WHERE user_id = ?',
 			[payload!.userId]
 		),
 		pool.execute(
 			`SELECT COUNT(*) AS n FROM request_status_history h
-			 JOIN requests r ON h.request_id = r.request_id
-			 WHERE r.student_id = ? AND h.student_read = FALSE`,
-			[payload!.userId]
+			 LEFT JOIN requests r ON h.request_id = r.request_id
+			 WHERE (r.student_id = ? OR h.notification_user_id = ?) AND h.student_read = FALSE`,
+			[payload!.userId, payload!.userId]
 		)
 	]);
 	const u = (rows as Record<string, unknown>[])[0];
@@ -44,6 +44,8 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 			initials,
 			program: (u.program as string | null) ?? 'Student',
 			studentId: (u.student_id as string | null) ?? ''
+			,idStatus: (u.id_status as string) ?? 'pending',
+			idRejectReason: (u.id_reject_reason as string | null) ?? null
 		}
 	};
 };

@@ -40,6 +40,7 @@
 	// Status history → isRead from is_read column
 	const fromHistory: Notif[] = $derived((data.history as Record<string, unknown>[]).map(h => {
 		const status = h.new_status as string;
+		if (!h.request_id) return { id: String(h.history_id), source: 'history' as const, type: 'system' as const, title: status, message: status, date: fmtDate(h.changed_at), isRead: !!h.is_read };
 		const type: Notif['type'] =
 			status === 'Correction Requested' ? 'task' :
 			status === 'Approved'             ? 'system' : 'system';

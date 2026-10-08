@@ -5,6 +5,17 @@ import pool from '$lib/server/db';
 import { verifyJwt } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 
+export const GET: RequestHandler = async ({ cookies }) => {
+	const token = cookies.get('session');
+	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
+	let payload: { userId: number; role: string };
+	try { payload = verifyJwt(token, JWT_SECRET); } catch { return json({ error: 'Unauthorized' }, { status: 401 }); }
+	const [rows] = await pool.execute('SELECT user_id, first_name, middle_name, last_name, date_of_birth, email, student_id, program, student_type, last_school_year, id_status, id_verified_at, id_reject_reason FROM users WHERE user_id = ?', [payload.userId]);
+	const profile = (rows as Record<string, unknown>[])[0];
+	if (!profile) return json({ error: 'Profile not found' }, { status: 404 });
+	return json(profile);
+};
+
 export const PATCH: RequestHandler = async ({ request, cookies }) => {
 	const token = cookies.get('session');
 	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });

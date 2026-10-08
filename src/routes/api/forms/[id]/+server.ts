@@ -24,8 +24,9 @@ export const PUT: RequestHandler = async ({ request, cookies, params }) => {
 	const [found] = await pool.execute('SELECT form_id FROM forms WHERE form_id = ?', [id]);
 	if (!(found as unknown[]).length) return json({ error: 'Form not found.' }, { status: 404 });
 	const oldPaths = (oldRows as { storage_path: string | null }[]).map((f) => f.storage_path).filter((p): p is string => !!p);
+	if (input.files.some((file) => file.storage_path && !oldPaths.includes(file.storage_path) && file.size == null)) return json({ error: 'File size is required for each uploaded file.' }, { status: 400 });
 	const keep = new Set(input.files.map((f) => f.storage_path).filter((p): p is string => !!p));
-	if (input.files.some((f) => f.storage_path && !oldPaths.includes(f.storage_path) && !/^forms\/[a-f0-9-]{36}\/\d+-[\w.-]+$/i.test(f.storage_path))) return json({ error: 'Invalid storage path.' }, { status: 400 });
+	if (input.files.some((f) => f.storage_path && !oldPaths.includes(f.storage_path) && !/^forms\/[a-f0-9-]{36}\/\d+-[\w.-]+--[A-Za-z0-9_-]+$/i.test(f.storage_path))) return json({ error: 'Invalid storage path.' }, { status: 400 });
 	const remove = oldPaths.filter((p) => !keep.has(p));
 	const conn = await pool.getConnection();
 	try {

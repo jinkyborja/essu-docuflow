@@ -23,7 +23,7 @@
 	];
 
 	let currentStep = $state(1);
-	let selectedDoc = $state<DocOption | null>(null);
+	let selectedDocs = $state<DocOption[]>([]);
 	let purpose = $state('');
 	let submitting = $state(false);
 	let submitError = $state('');
@@ -34,10 +34,18 @@
 	let files = $state<Record<string, File | null>>({});
 
 	// Requirements now arrive as rows from the server, already ordered.
-	const requirements = $derived<Requirement[]>(selectedDoc?.requirements ?? []);
+	const requirements = $derived.by(() => {
+		const merged = new Map<string, Requirement & { neededFor: string[] }>();
+		for (const doc of selectedDocs) for (const req of doc.requirements ?? []) {
+			const existing = merged.get(req.name);
+			if (existing) { existing.neededFor.push(doc.name); existing.in_person ||= req.in_person; }
+			else merged.set(req.name, { ...req, neededFor: [doc.name] });
+		}
+		return [...merged.values()];
+	});
 
 	const canProceed = $derived.by(() => {
-		if (currentStep === 1) return !!selectedDoc;
+		if (currentStep === 1) return selectedDocs.length > 0;
 		if (currentStep === 2) {
 			// All non-in-person requirements must have a file
 			return requirements.every(r => r.in_person || !!files[r.name]);
@@ -45,9 +53,15 @@
 		return !!purpose.trim();
 	});
 
-	function selectDoc(doc: DocOption) {
-		selectedDoc = doc;
-		files = {};
+	function toggleDoc(doc: DocOption) {
+		if (selectedDocs.some((item) => item.document_id === doc.document_id)) {
+			selectedDocs = selectedDocs.filter((item) => item.document_id !== doc.document_id);
+		} else if (selectedDocs.length < 5) {
+			selectedDocs = [...selectedDocs, doc];
+		}
+	}
+	function removeDoc(documentId: number) {
+		selectedDocs = selectedDocs.filter((doc) => doc.document_id !== documentId);
 	}
 
 	function next() { if (currentStep < 3) currentStep++; }
@@ -68,7 +82,7 @@
 			}));
 
 			const fd = new FormData();
-			fd.append('document_id', String(selectedDoc!.document_id));
+			fd.append('documentIds', JSON.stringify(selectedDocs.map((doc) => doc.document_id)));
 			fd.append('purpose', purpose.trim());
 			fd.append('requirements', JSON.stringify(reqs));
 
@@ -92,7 +106,7 @@
 
 	function reset() {
 		currentStep = 1;
-		selectedDoc = null;
+		selectedDocs = [];
 		purpose = '';
 		files = {};
 		submitError = '';
@@ -102,6 +116,9 @@
 </script>
 
 <div class="max-w-2xl mx-auto space-y-6">
+	{#if data.idStatus !== 'verified'}
+		<div class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">You can request documents once the Graduate School office verifies your student ID.{data.idStatus === 'rejected' && data.idRejectReason ? ` Reason: ${data.idRejectReason}` : ''}</div>
+	{:else}
 	<!-- Step indicator -->
 	<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
 		<StepIndicator {steps} {currentStep} />
@@ -125,14 +142,17 @@
 					{#each documents as doc}
 						{@const reqs = doc.requirements ?? []}
 						<button
-							onclick={() => selectDoc(doc)}
+							type="button"
+							onclick={() => toggleDoc(doc)}
+							aria-pressed={selectedDocs.some((item) => item.document_id === doc.document_id)}
+							aria-disabled={!selectedDocs.some((item) => item.document_id === doc.document_id) && selectedDocs.length >= 5}
 							class="ui-document-option text-left p-4 border-2 rounded-xl transition-all
-								{selectedDoc?.document_id === doc.document_id
+								{selectedDocs.some((item) => item.document_id === doc.document_id)
 									? 'border-essu-green bg-green-50/60'
-									: 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}"
+									: selectedDocs.length >= 5 ? 'border-gray-200 opacity-50 cursor-not-allowed' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}"
 						>
 							<div class="flex items-center gap-2 mb-2">
-								<i class="fa-solid fa-file-lines {selectedDoc?.document_id === doc.document_id ? 'text-essu-green' : 'text-gray-400'}"></i>
+								<i class="fa-solid {selectedDocs.some((item) => item.document_id === doc.document_id) ? 'fa-square-check text-essu-green' : 'fa-square text-gray-400'}"></i>
 								<p class="font-semibold text-sm text-gray-800">{doc.name}</p>
 							</div>
 							{#if reqs.length > 0}
@@ -144,11 +164,15 @@
 					{/each}
 				</div>
 			{/if}
+			<div class="sticky bottom-0 mt-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm" aria-live="polite">
+				<p class="text-sm font-semibold text-gray-700">{selectedDocs.length} {selectedDocs.length === 1 ? 'document' : 'documents'} selected</p>
+				<div class="mt-2 flex flex-wrap gap-2">{#each selectedDocs as doc}<span class="inline-flex items-center gap-1 rounded-full bg-essu-green/10 px-3 py-1 text-xs text-essu-green">{doc.name}<button type="button" aria-label={`Remove ${doc.name}`} onclick={() => removeDoc(doc.document_id)} class="rounded-full px-1 hover:bg-essu-green/10"><i class="fa-solid fa-xmark"></i></button></span>{/each}</div>
+			</div>
 
 		<!-- Step 2: Submit Requirements -->
 		{:else if currentStep === 2}
 			<h2 class="text-lg font-semibold text-gray-800 mb-1">Submit Requirements</h2>
-			<p class="text-sm text-gray-500 mb-1">Document: <strong>{selectedDoc?.name}</strong></p>
+			<p class="text-sm text-gray-500 mb-1">Selected documents: <strong>{selectedDocs.map((doc) => doc.name).join(', ')}</strong></p>
 			<p class="text-sm text-gray-500 mb-5">Upload the required files below.</p>
 
 			{#if requirements.length === 0}
@@ -163,6 +187,7 @@
 							<div class="flex items-start justify-between gap-3 mb-2">
 								<div>
 									<p class="text-sm font-medium text-gray-700">{req.name}</p>
+									<p class="mt-0.5 text-xs text-gray-500">Needed for: {req.neededFor.join(', ')}</p>
 									{#if req.description}
 										<p class="text-xs text-gray-400 mt-0.5">{req.description}</p>
 									{/if}
@@ -216,9 +241,12 @@
 				</div>
 
 				<div class="bg-linear-to-br from-essu-green/5 to-essu-green-mid/5 border border-essu-green/20 rounded-xl p-5 space-y-3 text-sm">
+					<div class="flex items-center justify-between"><span class="font-semibold text-gray-700">Documents</span><button type="button" onclick={() => currentStep = 1} class="text-xs text-essu-green hover:underline">Edit</button></div>
+					{#each selectedDocs as doc}<p class="text-gray-800">{doc.name}</p>{/each}
+					<div class="flex items-center justify-between"><span class="font-semibold text-gray-700">Requirements</span><button type="button" onclick={() => currentStep = 2} class="text-xs text-essu-green hover:underline">Edit</button></div>
 					<div class="flex justify-between gap-4">
 						<span class="text-gray-500">Document</span>
-						<span class="font-medium text-gray-800 text-right">{selectedDoc?.name}</span>
+						<span class="font-medium text-gray-800 text-right">{selectedDocs.map((doc) => doc.name).join(', ')}</span>
 					</div>
 					<div class="flex justify-between gap-4">
 						<span class="text-gray-500">Requirements</span>
@@ -249,7 +277,6 @@
 				</div>
 			</div>
 		{/if}
-	</div>
 
 	<!-- Navigation -->
 	<div class="flex items-center justify-between">
@@ -280,6 +307,8 @@
 			</button>
 		{/if}
 	</div>
+	</div>
+	{/if}
 </div>
 
 <!-- Success Modal -->

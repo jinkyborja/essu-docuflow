@@ -8,6 +8,7 @@ USE defaultdb;
 DROP TABLE IF EXISTS request_requirements;
 DROP TABLE IF EXISTS document_requirements;
 DROP TABLE IF EXISTS request_status_history;
+DROP TABLE IF EXISTS request_items;
 DROP TABLE IF EXISTS requests;
 DROP TABLE IF EXISTS documents;
 DROP TABLE IF EXISTS requirements;
@@ -56,8 +57,13 @@ CREATE TABLE users (
     last_school_year INT,
     position         VARCHAR(50),
     verified         BOOLEAN DEFAULT FALSE,
+    id_status        ENUM('pending', 'verified', 'rejected') NOT NULL DEFAULT 'pending',
+    id_verified_by   INT NULL,
+    id_verified_at   TIMESTAMP NULL,
+    id_reject_reason VARCHAR(300) NULL,
     date_registered  DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (program_id) REFERENCES programs(program_id)
+    FOREIGN KEY (program_id) REFERENCES programs(program_id),
+    FOREIGN KEY (id_verified_by) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
 -- 5. Documents (admin-managed list of requestable documents)
@@ -75,7 +81,7 @@ CREATE TABLE documents (
 CREATE TABLE requests (
     request_id         VARCHAR(20) PRIMARY KEY,
     student_id         INT NOT NULL,
-    document_id        INT NOT NULL,
+    document_id        INT NULL,
     purpose            VARCHAR(255),   -- legacy free text; purpose_id is authoritative
     purpose_id         INT,
     status             ENUM('Pending', 'Approved', 'Rejected', 'Correction Requested') DEFAULT 'Pending',
@@ -87,6 +93,16 @@ CREATE TABLE requests (
     FOREIGN KEY (student_id) REFERENCES users(user_id),
     FOREIGN KEY (document_id) REFERENCES documents(document_id),
     FOREIGN KEY (purpose_id) REFERENCES purposes(purpose_id)
+);
+
+CREATE TABLE request_items (
+    item_id      INT PRIMARY KEY AUTO_INCREMENT,
+    request_id   VARCHAR(20) NOT NULL,
+    document_id  INT NOT NULL,
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_request_items_request_document (request_id, document_id),
+    FOREIGN KEY (request_id) REFERENCES requests(request_id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents(document_id)
 );
 
 -- 7. Which requirements each document asks for
@@ -125,8 +141,10 @@ CREATE TABLE request_status_history (
     changed_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
     is_read      BOOLEAN NOT NULL DEFAULT FALSE,  -- staff read flag
     student_read BOOLEAN NOT NULL DEFAULT FALSE,  -- student read flag
+    notification_user_id INT NULL,
     FOREIGN KEY (request_id) REFERENCES requests(request_id),
-    FOREIGN KEY (changed_by) REFERENCES users(user_id)
+    FOREIGN KEY (changed_by) REFERENCES users(user_id),
+    FOREIGN KEY (notification_user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 -- Forms catalog (also available as database/migrations/2026-10-07-forms.sql)

@@ -22,6 +22,7 @@
 
 	function mapHistory(h: Record<string, unknown>): Notif {
 		const status = h.new_status as string;
+		if (!h.request_id) return { id: String(h.history_id), type: 'system', title: status, message: status, date: new Date(h.changed_at as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }), isRead: !!h.student_read };
 		const type: Notif['type'] =
 			status === 'Approved' ? 'request'
 			: status === 'Correction Requested' ? 'task'

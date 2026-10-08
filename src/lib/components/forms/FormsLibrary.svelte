@@ -2,9 +2,10 @@
 	import { onMount, tick } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import { formCategories, type FormRecord, type FormFile } from '$lib/data/forms';
+	import { formCategories } from '$lib/data/forms';
+	type FormFile = { file_id?: number; page_no: number; storage_path: string | null; public_url: string; name: string; type: string; size?: number };
+	type FormRecord = { form_id: number; title: string; category: string; code: string | null; description: string; fields: string[]; download_name: string; files: FormFile[] };
 	let forms = $state<FormRecord[]>([]);
 	let loading = $state(true);
 	let { canManage }: { canManage: boolean } = $props();
@@ -17,9 +18,11 @@
 	let title = $state(''); let categoryValue = $state(''); let newCategory = $state(''); let code = $state(''); let description = $state('');
 	let initialTitle = $state(''); let initialDownloadName = $state(''); let editorAttempted = $state(false);
 	let dragging = $state(false); let activeUploadName = $state(''); let titleInput = $state<HTMLInputElement>(); let editorTrigger = $state<HTMLElement | null>(null);
-	type DraftFile = { file?: File; page_no: number; storage_path: string | null; public_url: string; name: string; type: string; preview?: string };
+	type DraftFile = { file?: File; page_no: number; storage_path: string | null; public_url: string; name: string; type: string; size?: number; preview?: string };
 	let draftFiles = $state<DraftFile[]>([]); let inlineError = $state(''); let fileInput = $state<HTMLInputElement>();
-	const categories = $derived(['All categories', ...new Set([...formCategories, ...forms.map((f) => f.category)])]);
+	const categories = $derived(['All categories', ...new Set([...formCategories, 'Prospectus', ...forms.map((f) => f.category)])]);
+	const previewFiles = $derived(draftFiles.filter((f) => isPreview(f.name)));
+	const editableFiles = $derived(draftFiles.filter((f) => !isPreview(f.name)));
 	const filtered = $derived(forms.filter((f) => (category === 'All categories' || f.category === category) && `${f.title} ${f.category} ${f.code ?? ''}`.toLowerCase().includes(query.toLowerCase())));
 	const resolvedCategory = $derived(categoryValue === '__new' ? newCategory.trim() : categoryValue.trim());
 	const editorDirty = $derived(editing ? hasChanges() : !!(title || categoryValue || newCategory || code || description || draftFiles.length));
@@ -35,7 +38,7 @@
 	function openEditor(form?: FormRecord) {
 		editorTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		editing = form ?? null; title = form?.title ?? ''; initialTitle = title; initialDownloadName = form?.download_name ?? ''; categoryValue = form?.category ?? ''; newCategory = ''; code = form?.code ?? ''; description = form?.description ?? ''; editorAttempted = false; inlineError = ''; discardOpen = false;
-		draftFiles = form ? form.files.map((f) => ({ ...f, name: f.public_url.split('/').pop() || `Page ${f.page_no}`, type: f.public_url.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg' })) : [];
+		draftFiles = form ? form.files.map((f) => ({ ...f })) : [];
 		modalOpen = true;
 		void tick().then(() => titleInput?.focus());
 	}
@@ -59,45 +62,55 @@
 		inlineError = ''; if (!list) return;
 		for (const file of Array.from(list)) {
 			if (draftFiles.length >= 5) { inlineError = 'A form can have up to 5 files.'; break; }
-			const ext = file.name.split('.').pop()?.toLowerCase();
-			if (!['jpg', 'jpeg', 'png', 'webp', 'pdf'].includes(ext ?? '') || file.size > 5 * 1024 * 1024 || !file.size) { inlineError = `${file.name}: use JPG, PNG, WebP or PDF up to 5 MB.`; continue; }
-			if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(file.type)) { inlineError = `${file.name}: unsupported file type.`; continue; }
-			draftFiles = [...draftFiles, { file, page_no: draftFiles.length + 1, storage_path: null, public_url: '', name: file.name, type: file.type, preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined }];
+			const ext = extension(file.name);
+			const mime: Record<string, string> = { jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',pdf:'application/pdf',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',doc:'application/msword',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',xls:'application/vnd.ms-excel' };
+			if (!mime[ext] || file.size > 10 * 1024 * 1024 || !file.size) { inlineError = `${file.name}: use JPG, PNG, WebP, PDF, DOCX, DOC, XLSX or XLS up to 10 MB.`; continue; }
+			if (file.type !== mime[ext]) { inlineError = `${file.name}: file extension and MIME type do not match.`; continue; }
+			draftFiles = [...draftFiles, { file, page_no: isPreview(file.name) ? previewFiles.length + 1 : 0, storage_path: null, public_url: '', name: file.name, type: file.type, preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined }];
 		}
 	}
-	function moveFile(i: number, direction: number) { const target = i + direction; if (target < 0 || target >= draftFiles.length) return; const next = [...draftFiles]; [next[i], next[target]] = [next[target], next[i]]; draftFiles = next.map((f, index) => ({ ...f, page_no: index + 1 })); }
+	function extension(name: string) { return name.split('.').pop()?.toLowerCase() ?? ''; }
+	function isPreview(name: string) { return ['jpg', 'jpeg', 'png', 'webp', 'pdf'].includes(extension(name)); }
+	function moveFile(file: DraftFile, direction: number) { const pages = [...previewFiles]; const i = pages.indexOf(file); const target = i + direction; if (target < 0 || target >= pages.length) return; [pages[i], pages[target]] = [pages[target], pages[i]]; draftFiles = [...pages.map((f, index) => ({ ...f, page_no: index + 1 })), ...editableFiles]; }
+	function removeFile(file: DraftFile) { const remaining = draftFiles.filter((item) => item !== file); draftFiles = [...remaining.filter((item) => isPreview(item.name)).map((item, index) => ({ ...item, page_no: index + 1 })), ...remaining.filter((item) => !isPreview(item.name))]; }
+	function outputName(form: FormRecord, file: FormFile) { return `ESSU-${form.title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'form'}.${extension(file.name)}`; }
+	function categoryClass(value: string) { return value === 'Prospectus' ? 'border border-amber-200 bg-amber-100 text-amber-900' : ''; }
+	function editableLabel(file: FormFile) { const suffix = extension(file.name).toUpperCase(); return `Download ${suffix}`; }
 	async function save() {
 		editorAttempted = true;
 		const realCategory = resolvedCategory;
 		if (!editorValid) { inlineError = 'Complete the required fields and add between 1 and 5 files.'; return; }
 		saving = true; progress = 0; inlineError = '';
 		try {
-			const nextFiles: (FormFile & { name?: string; type?: string })[] = draftFiles.map((f) => ({ page_no: f.page_no, storage_path: f.storage_path, public_url: f.public_url, name: f.name, type: f.type }));
+			const nextFiles = draftFiles.map((f) => ({ page_no: isPreview(f.name) ? f.page_no : 0, storage_path: f.storage_path, public_url: f.public_url, name: f.name, type: f.type, size: f.file?.size ?? f.size }));
 			const newOnes = draftFiles.filter((f) => f.file);
 			if (newOnes.length) {
 				const urlResponse = await fetch('/api/forms/upload-url', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ files: newOnes.map((f) => ({ name: f.file!.name, type: f.file!.type, size: f.file!.size })) }) });
 				const result = await urlResponse.json(); if (!urlResponse.ok) throw new Error(result.error || 'Could not prepare file upload.');
 				for (let i = 0; i < newOnes.length; i++) {
 					activeUploadName = newOnes[i].name;
-					const target = nextFiles.find((f) => f.name === newOnes[i].name && !f.storage_path && !f.public_url);
+					const target = nextFiles[draftFiles.indexOf(newOnes[i])];
 					const upload = result.uploads[i]; const response = await fetch(upload.signedUrl, { method: 'PUT', headers: { 'content-type': upload.type }, body: newOnes[i].file });
 					if (!response.ok) throw new Error(`Upload failed for ${upload.name}.`);
 					if (target) { target.storage_path = upload.path; target.public_url = upload.publicUrl; }
 					progress = Math.round(((i + 1) / newOnes.length) * 100);
 				}
 			}
-			const body = { title, category: realCategory, code: code.trim() || null, description, fields: editing ? editing.fields : [], download_name: editing && title === initialTitle ? initialDownloadName : slug(title), files: nextFiles.map((f, i) => ({ page_no: i + 1, storage_path: f.storage_path, public_url: f.public_url })) };
+			const body = { title, category: realCategory, code: code.trim() || null, description, fields: editing ? editing.fields : [], download_name: editing && title === initialTitle ? initialDownloadName : slug(title), files: nextFiles.map((f) => ({ ...f })) };
 			const response = await fetch(editing ? `/api/forms/${editing.form_id}` : '/api/forms', { method: editing ? 'PUT' : 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 			const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not save form.');
 			closeEditor(); toast(editing ? 'Form updated.' : 'Form added.'); await refresh();
 		} catch (e) { inlineError = (e as Error).message; } finally { saving = false; activeUploadName = ''; }
 	}
 	async function deleteForm() { if (!deleting) return; saving = true; try { const response = await fetch(`/api/forms/${deleting.form_id}`, { method: 'DELETE' }); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not delete form.'); deleteOpen = false; toast('Form deleted.'); await refresh(); } catch (e) { toast((e as Error).message, true); } finally { saving = false; } }
-	function download(url: string, name: string) { const a = document.createElement('a'); a.href = url; a.download = name; a.target = '_blank'; a.rel = 'noopener'; a.click(); }
-	function downloadMenu(form: FormRecord) { if (form.files.length <= 1) { download(form.files[0]?.public_url ?? '', form.download_name); return; } downloadFor = downloadFor === form.form_id ? null : form.form_id; }
+	async function download(url: string, name: string) { try { const response = await fetch(url); if (!response.ok) throw new Error('Download failed'); const objectUrl = URL.createObjectURL(await response.blob()); const a = document.createElement('a'); a.href = objectUrl; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); } catch { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.download = name; a.click(); } }
+	function previewPages(form: FormRecord) { return form.files.filter((file) => isPreview(file.name)); }
+	function editableFilesFor(form: FormRecord) { return form.files.filter((file) => !isPreview(file.name)); }
+	function downloadEditable(form: FormRecord, file: FormFile) { download(file.public_url, outputName(form, file)); }
+	function downloadPreview(form: FormRecord) { for (const file of previewPages(form)) download(file.public_url, outputName(form, file)); }
 	function downloadChoice(form: FormRecord, pageNo: number | 'all') {
-		if (pageNo === 'all') form.files.forEach((file) => download(file.public_url, `${form.download_name}-page-${file.page_no}`));
-		else { const file = form.files.find((item) => item.page_no === pageNo); if (file) download(file.public_url, `${form.download_name}-page-${file.page_no}`); }
+		if (pageNo === 'all') previewPages(form).forEach((file) => download(file.public_url, outputName(form, file)));
+		else { const file = previewPages(form).find((item) => item.page_no === pageNo); if (file) download(file.public_url, outputName(form, file)); }
 		downloadFor = null;
 	}
 	function trapModalFocus(event: KeyboardEvent) {
@@ -131,9 +144,9 @@
 	{:else if filtered.length === 0}<EmptyState message="No forms found" description="Try another search or category." />
 	{:else}<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">{#each filtered as form (form.form_id)}
 		<article class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"><div class="flex items-start justify-between gap-3"><div class="flex min-w-0 items-start gap-3"><button class="flex h-[72px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 text-2xl text-gray-400 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => { selected = form; viewOpen = true; }} aria-label={`View ${form.title}`}>
-			<i class="fa-solid fa-file-lines" aria-hidden="true"></i></button>
-			<div class="min-w-0"><h3 class="truncate font-semibold text-gray-800">{form.title}</h3><div class="mt-1 flex flex-wrap items-center gap-2"><Badge value={form.category} size="sm" />{#if form.code}<span class="text-xs text-gray-500">{form.code}</span>{/if}</div><p class="mt-2 line-clamp-2 text-sm text-gray-600">{form.description}</p><p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">{#if form.files.length > 1}<span class="rounded-full border border-essu-green/20 bg-essu-green/5 px-2 py-0.5 text-essu-green">{form.files.length} pages</span>{:else}<span>1 page</span>{/if}</p></div></div>{#if canManage}<div class="flex shrink-0 items-center gap-1"><button onclick={() => openEditor(form)} class="flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 transition-colors hover:text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30" title="Edit" aria-label={`Edit ${form.title}`}><i class="fa-solid fa-pen text-sm"></i></button><button onclick={() => { deleting = form; deleteOpen = true; }} class="flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 transition-colors hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-essu-green/30" title="Delete" aria-label={`Delete ${form.title}`}><i class="fa-solid fa-trash text-sm"></i></button></div>{/if}</div>
-				<div class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3"><button class="flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-essu-green hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => { selected = form; viewOpen = true; }}><i class="fa-solid fa-eye"></i>View</button><div class="relative"><button aria-expanded={downloadFor === form.form_id} aria-label={`Download ${form.title}`} class="flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-essu-green hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => downloadMenu(form)}><i class="fa-solid fa-download"></i>Download</button>{#if downloadFor === form.form_id}<div class="absolute left-0 z-10 mt-1 min-w-40 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">{#each form.files as file}<button class="block w-full rounded px-3 py-2 text-left text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => downloadChoice(form, file.page_no)}>Page {file.page_no}</button>{/each}<button class="block w-full rounded px-3 py-2 text-left text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => downloadChoice(form, 'all')}>All pages</button></div>{/if}</div></div>
+			<i class="fa-solid {previewPages(form).length ? 'fa-file-lines' : editableFilesFor(form).some((file) => ['doc','docx'].includes(extension(file.name))) ? 'fa-file-word' : editableFilesFor(form).length ? 'fa-file-excel' : 'fa-file-lines'}" aria-hidden="true"></i></button>
+			<div class="min-w-0"><h3 class="truncate font-semibold text-gray-800">{form.title}</h3><div class="mt-1 flex flex-wrap items-center gap-2"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {categoryClass(form.category) || 'bg-gray-100 text-gray-700'}">{form.category}</span>{#if form.code}<span class="text-xs text-gray-500">{form.code}</span>{/if}</div><p class="mt-2 line-clamp-2 text-sm text-gray-600">{form.description}</p><p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">{#if previewPages(form).length}<span class="rounded-full border border-essu-green/20 bg-essu-green/5 px-2 py-0.5 text-essu-green">{previewPages(form).length} {previewPages(form).length === 1 ? 'page' : 'pages'}</span>{/if}{#if editableFilesFor(form).length}<span class="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-800">Editable</span>{/if}</p></div></div>{#if canManage}<div class="flex shrink-0 items-center gap-1"><button onclick={() => openEditor(form)} class="flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 transition-colors hover:text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30" title="Edit" aria-label={`Edit ${form.title}`}><i class="fa-solid fa-pen text-sm"></i></button><button onclick={() => { deleting = form; deleteOpen = true; }} class="flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 transition-colors hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-essu-green/30" title="Delete" aria-label={`Delete ${form.title}`}><i class="fa-solid fa-trash text-sm"></i></button></div>{/if}</div>
+				<div class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3"><button class="flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-essu-green hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => { selected = form; viewOpen = true; }}><i class="fa-solid fa-eye"></i>View</button>{#each editableFilesFor(form) as file}<button class="flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-essu-green hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => downloadEditable(form, file)}><i class="fa-solid fa-download"></i>{editableLabel(file)}</button>{/each}{#if previewPages(form).length}<button class="flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-essu-green hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => downloadPreview(form)}><i class="fa-solid fa-download"></i>Download preview</button>{/if}</div>
 			</article>
 	{/each}</div>{/if}
 </div>
@@ -156,18 +169,21 @@
 			<section class="space-y-4 border-t border-gray-200 pt-5" aria-labelledby="files-heading">
 				<div class="flex items-center justify-between gap-3"><h3 id="files-heading" class="form-section-label">Files</h3><span class="text-xs font-medium text-gray-500">{draftFiles.length} of 5 files</span></div>
 				<button type="button" class="form-dropzone {dragging ? 'form-dropzone-active' : ''}" aria-label="Add form files. Drag files here or browse." disabled={saving} onclick={() => fileInput?.click()} ondragenter={(e) => { e.preventDefault(); dragging = true; }} ondragover={(e) => { e.preventDefault(); dragging = true; }} ondragleave={(e) => { if (e.currentTarget === e.target) dragging = false; }} ondrop={(e) => { e.preventDefault(); dragging = false; addFiles(e.dataTransfer?.files ?? null); }}>
-					<i class="fa-solid fa-cloud-arrow-up text-2xl text-essu-green" aria-hidden="true"></i><span class="text-sm font-semibold text-gray-800">Drag files here or <span class="text-essu-green underline">Browse</span></span><span class="text-xs text-gray-500">JPG, PNG, WebP or PDF. Up to 5 files, 5 MB each.</span>
+					<i class="fa-solid fa-cloud-arrow-up text-2xl text-essu-green" aria-hidden="true"></i><span class="text-sm font-semibold text-gray-800">Drag files here or <span class="text-essu-green underline">Browse</span></span><span class="text-xs text-gray-500">Images or PDF for preview. Word or Excel for the editable version. Up to 5 files, 10 MB each.</span>
 				</button>
-				<input bind:this={fileInput} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" multiple class="sr-only" aria-label="Browse form files" disabled={saving} onchange={(e) => { addFiles(e.currentTarget.files); e.currentTarget.value = ''; }} />
+				<input bind:this={fileInput} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.doc,.xlsx,.xls" multiple class="sr-only" aria-label="Browse form files" disabled={saving} onchange={(e) => { addFiles(e.currentTarget.files); e.currentTarget.value = ''; }} />
 				{#if editorAttempted && draftFiles.length === 0}<p class="form-error"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> Add at least one file.</p>{/if}
 				{#if inlineError}<p class="form-error" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>{inlineError}</p>{/if}
 				<div class="space-y-2">
-					{#each draftFiles as file, i (file.page_no + '-' + file.name)}
+					{#each previewFiles as file, i (file.page_no + '-' + file.name)}
 						<div class="form-file-row">
 							<div class="form-file-thumb">{#if file.type === 'application/pdf' || file.public_url.toLowerCase().endsWith('.pdf')}<i class="fa-solid fa-file-pdf text-xl text-gray-500" aria-label="PDF"></i>{:else if file.preview}<img src={file.preview} alt="" class="h-full w-full object-cover object-top" onerror={(e) => { (e.currentTarget as HTMLImageElement).classList.add('hidden'); e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} /><i class="hidden fa-solid fa-file-image text-xl text-gray-400" aria-hidden="true"></i>{:else}<img src={file.public_url} alt="" class="h-full w-full object-cover object-top" onerror={(e) => { (e.currentTarget as HTMLImageElement).classList.add('hidden'); e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} /><i class="hidden fa-solid fa-file-image text-xl text-gray-400" aria-hidden="true"></i>{/if}</div>
 							<div class="min-w-0 flex-1"><div class="mb-1 flex items-center gap-2"><span class="form-page-badge">Page {i + 1}</span><span class="truncate text-sm font-medium text-gray-800">{file.name}</span></div><div class="flex items-center gap-2 text-xs text-gray-500">{#if file.file}<span>{(file.file.size / 1024).toFixed(0)} KB</span><span class="form-file-status form-file-new">New</span>{:else}<span class="form-file-status">Existing</span>{/if}</div>{#if saving && activeUploadName === file.name}<div class="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200"><div class="h-full bg-essu-green transition-all" style={`width:${progress}%`}></div></div>{/if}</div>
-							<button type="button" aria-label={`Move ${file.name} up`} class="form-file-action" onclick={() => moveFile(i, -1)} disabled={saving || i === 0}><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button><button type="button" aria-label={`Move ${file.name} down`} class="form-file-action" onclick={() => moveFile(i, 1)} disabled={saving || i === draftFiles.length - 1}><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button><button type="button" aria-label={`Remove ${file.name}`} class="form-file-action form-file-remove" onclick={() => draftFiles = draftFiles.filter((_, ix) => ix !== i).map((f, ix) => ({ ...f, page_no: ix + 1 }))} disabled={saving}><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+							<button type="button" aria-label={`Move ${file.name} up`} class="form-file-action" onclick={() => moveFile(file, -1)} disabled={saving || i === 0}><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button><button type="button" aria-label={`Move ${file.name} down`} class="form-file-action" onclick={() => moveFile(file, 1)} disabled={saving || i === previewFiles.length - 1}><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button><button type="button" aria-label={`Remove ${file.name}`} class="form-file-action form-file-remove" onclick={() => removeFile(file)} disabled={saving}><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
 						</div>
+					{/each}
+					{#each editableFiles as file}
+						<div class="form-file-row"><div class="form-file-thumb"><i class="fa-solid {['doc','docx'].includes(extension(file.name)) ? 'fa-file-word text-blue-700' : 'fa-file-excel text-green-700'} text-2xl" aria-hidden="true"></i></div><div class="min-w-0 flex-1"><p class="truncate text-sm font-medium text-gray-800">{file.name}</p><div class="flex items-center gap-2 text-xs text-gray-500">{#if file.file || file.size}<span>{((file.file?.size ?? file.size ?? 0) / 1024).toFixed(0)} KB</span>{/if}{#if file.file}<span class="form-file-status form-file-new">New</span>{:else}<span class="form-file-status">Existing</span>{/if}</div></div><button type="button" aria-label={`Remove ${file.name}`} class="form-file-action form-file-remove" onclick={() => removeFile(file)} disabled={saving}><i class="fa-solid fa-trash" aria-hidden="true"></i></button></div>
 					{/each}
 				</div>
 			</section>
@@ -185,8 +201,8 @@
 </Modal>
 {/if}
 <Modal open={viewOpen} title={selected?.title ?? 'View form'} size="xl" onclose={() => viewOpen = false}>
-	{#snippet body()}<div class="space-y-4">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}{#each selected?.files ?? [] as file}<div><p class="mb-2 text-sm font-medium">Page {file.page_no}</p>{#if file.public_url.toLowerCase().endsWith('.pdf')}<div class="flex items-center gap-3 rounded-lg bg-gray-50 p-6"><i class="fa-solid fa-file-pdf text-3xl text-red-500"></i><a href={file.public_url} target="_blank" rel="noopener" class="text-essu-green underline">Open PDF</a></div>{:else}<img src={file.public_url} alt={`${selected?.title} page ${file.page_no}`} class="mx-auto max-h-[65vh] rounded border border-gray-200 object-contain" />{/if}</div>{/each}</div>{/snippet}
-	{#snippet footer()}<Button variant="secondary" onclick={() => viewOpen = false}>Close</Button>{#if selected}{#if selected.files.length === 1}<Button onclick={() => download(selected!.files[0].public_url, selected!.download_name)} icon="fa-solid fa-download">Download</Button>{:else}<div class="flex flex-wrap gap-2">{#each selected.files as file}<Button variant="secondary" onclick={() => downloadChoice(selected!, file.page_no)}>Page {file.page_no}</Button>{/each}<Button onclick={() => downloadChoice(selected!, 'all')} icon="fa-solid fa-download">All pages</Button></div>{/if}{/if}{/snippet}
+	{#snippet body()}<div class="space-y-4">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}{#if selected && previewPages(selected).length === 0}<div class="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">Preview isn't available for Word files. Download the editable version to open it.</div>{/if}{#each selected ? previewPages(selected) : [] as file}<div><p class="mb-2 text-sm font-medium">Page {file.page_no}</p>{#if extension(file.name) === 'pdf'}<div class="flex items-center gap-3 rounded-lg bg-gray-50 p-6"><i class="fa-solid fa-file-pdf text-3xl text-red-500"></i><a href={file.public_url} target="_blank" rel="noopener" class="text-essu-green underline">Open PDF</a></div>{:else}<img src={file.public_url} alt={`${selected?.title} page ${file.page_no}`} class="mx-auto max-h-[65vh] rounded border border-gray-200 object-contain" />{/if}</div>{/each}</div>{/snippet}
+	{#snippet footer()}<Button variant="secondary" onclick={() => viewOpen = false}>Close</Button>{#if selected}{#each editableFilesFor(selected) as file}<Button onclick={() => downloadEditable(selected!, file)} icon="fa-solid fa-download">{editableLabel(file)}</Button>{/each}{#if previewPages(selected).length}<Button onclick={() => downloadPreview(selected!)} icon="fa-solid fa-download">Download preview</Button>{/if}{/if}{/snippet}
 </Modal>
 {#if toastMessage}<div class="fixed bottom-5 right-5 z-[70] rounded-lg px-4 py-3 text-sm text-white shadow-lg {toastError ? 'bg-red-700' : 'bg-essu-green'}" role="status" aria-live="polite">{toastMessage}</div>{/if}
 

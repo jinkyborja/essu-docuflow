@@ -17,12 +17,22 @@
 		student_type: 'Enrolled' | 'Former' | 'Alumni' | null;
 		last_school_year: number | null;
 		verified: boolean | number;
+		id_status: 'pending' | 'verified' | 'rejected';
+		id_verified_at: string | null;
+		id_reject_reason: string | null;
+		date_of_birth: string | null;
 		date_registered: string;
 	};
 
 	let students = $state(data.students as Student[]);
 	let search = $state('');
 	let filterType = $state('');
+	let statusTab = $state<'pending'|'verified'|'rejected'|'all'>((new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('status') as 'pending'|'verified'|'rejected') || 'all');
+	let reviewStudent = $state<Student | null>(null);
+	let rejectReason = $state('');
+	let reviewError = $state('');
+	let reviewing = $state(false);
+	const pendingCount = $derived(students.filter(s => s.id_status === 'pending').length);
 
 	const filtered = $derived.by(() => {
 		const q = search.trim().toLowerCase();
@@ -38,9 +48,21 @@
 				s.email.toLowerCase().includes(q) ||
 				(s.program ?? '').toLowerCase().includes(q);
 			const matchType = !filterType || s.student_type === filterType;
-			return matchSearch && matchType;
+			return matchSearch && matchType && (statusTab === 'all' || s.id_status === statusTab);
 		});
 	});
+
+	async function decideId(action: 'verify'|'reject') {
+		if (!reviewStudent) return;
+		reviewing = true; reviewError = '';
+		try {
+			const res = await fetch(`/api/students/${reviewStudent.user_id}/verify`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action, reason: rejectReason }) });
+			const result = await res.json();
+			if (!res.ok) { reviewError = result.error ?? 'Could not update verification.'; return; }
+			students = students.map(s => s.user_id === reviewStudent!.user_id ? {...s, id_status: result.id_status, id_verified_at: result.id_verified_at, id_reject_reason: result.id_reject_reason} : s);
+			reviewStudent = null; rejectReason = '';
+		} catch { reviewError = 'Network error.'; } finally { reviewing = false; }
+	}
 
 	let editOpen = $state(false);
 	let deleteOpen = $state(false);
@@ -145,6 +167,11 @@
 <div class="space-y-5">
 	<!-- Search / Filter -->
 	<div class="flex flex-col sm:flex-row gap-3">
+		<div class="flex gap-1 overflow-x-auto">
+			{#each [{key:'pending',label:`Pending (${pendingCount})`},{key:'verified',label:'Verified'},{key:'rejected',label:'Rejected'},{key:'all',label:'All'}] as tab}
+				<button onclick={() => statusTab = tab.key as typeof statusTab} class="rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap {statusTab === tab.key ? 'bg-essu-green text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">{tab.label}</button>
+			{/each}
+		</div>
 		<span class="inline-flex items-center self-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20 whitespace-nowrap shrink-0">
 			{filtered.length}{filtered.length !== students.length ? ` / ${students.length}` : ''} students
 		</span>
@@ -240,7 +267,8 @@
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Program</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Last S.Y.</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Verified</th>
+							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Email</th>
+							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">ID Status</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Registered</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
 						</tr>
@@ -271,21 +299,15 @@
 									{s.last_school_year ?? '—'}
 								</td>
 								<td class="px-4 py-3">
-									{#if s.verified}
-										<span class="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
-											<i class="fa-solid fa-circle-check"></i> Verified
-										</span>
-									{:else}
-										<span class="inline-flex items-center gap-1 text-xs text-orange-500 font-medium">
-											<i class="fa-solid fa-clock"></i> Pending
-										</span>
-									{/if}
+									{#if s.verified}<span class="text-xs text-green-700">Verified</span>{:else}<span class="text-xs text-amber-700">Pending</span>{/if}
 								</td>
+								<td class="px-4 py-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {s.id_status === 'verified' ? 'bg-green-100 text-green-700' : s.id_status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}">{s.id_status}</span></td>
 								<td class="px-4 py-3 text-gray-500 text-xs">
 									{new Date(s.date_registered).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
 								</td>
 								<td class="px-4 py-3">
 									<div class="flex items-center gap-1">
+										<button onclick={() => { reviewStudent = s; reviewError = ''; rejectReason = ''; }} class="px-2 py-1 text-xs rounded-md border border-gray-200 text-essu-green hover:bg-gray-50">Review</button>
 										<button
 											onclick={() => openEdit(s)}
 											class="p-1.5 text-gray-300 hover:text-essu-green transition-colors"
@@ -312,6 +334,29 @@
 		{/if}
 	</div>
 </div>
+
+<Modal open={!!reviewStudent} title="Review student ID" size="md" onclose={() => reviewStudent = null}>
+	{#snippet body()}
+		{#if reviewStudent}
+			<div class="space-y-4">
+				{#if students.some(s => s.user_id !== reviewStudent!.user_id && s.student_id === reviewStudent!.student_id)}<div class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Another account has the same student ID. Cross-check before deciding.</div>{/if}
+				<div class="grid grid-cols-2 gap-3 text-sm">
+					<div class="col-span-2"><p class="text-xs text-gray-400">Full name</p><p class="font-medium">{fullName(reviewStudent)}</p></div>
+					<div class="col-span-2"><p class="text-xs text-gray-400">Student ID</p><p class="font-mono text-2xl font-bold tracking-wide">{reviewStudent.student_id ?? '—'}</p></div>
+					<div><p class="text-xs text-gray-400">Program</p>{reviewStudent.program ?? '—'}</div><div><p class="text-xs text-gray-400">Student type</p>{reviewStudent.student_type ?? '—'}</div>
+					<div><p class="text-xs text-gray-400">Last school year attended</p>{reviewStudent.last_school_year ?? '—'}</div><div><p class="text-xs text-gray-400">Date of birth</p>{reviewStudent.date_of_birth ?? '—'}</div>
+					<div><p class="text-xs text-gray-400">Email</p>{reviewStudent.email}</div><div><p class="text-xs text-gray-400">Date registered</p>{reviewStudent.date_registered}</div>
+				</div>
+				{#if data.role === 'Admin'}<label class="block text-sm font-medium text-gray-700">Rejection reason<textarea bind:value={rejectReason} maxlength="300" rows="3" placeholder="Required when rejecting" class="mt-1 w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"></textarea></label>{/if}
+				{#if reviewError}<p class="text-sm text-red-700" role="alert">{reviewError}</p>{/if}
+			</div>
+		{/if}
+	{/snippet}
+	{#snippet footer()}
+		<button onclick={() => reviewStudent = null} class="px-4 py-2 text-sm border rounded-lg">Close</button>
+		{#if data.role === 'Admin'}<button onclick={() => decideId('reject')} disabled={reviewing || !rejectReason.trim()} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg disabled:opacity-50">Reject</button><button onclick={() => decideId('verify')} disabled={reviewing} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg disabled:opacity-50">Verify student</button>{/if}
+	{/snippet}
+</Modal>
 
 <!-- Edit Modal -->
 <Modal open={editOpen} title="Edit Student" size="md" onclose={() => (editOpen = false)}>

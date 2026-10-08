@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifyJwt } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
-import { slugName, validate, insertFiles, type FormInput } from '$lib/server/forms';
+import { slugName, validate, insertFiles, originalFileName, originalFileSize, fileExtension, formFileMime, type FormInput } from '$lib/server/forms';
 
 function session(cookies: { get: (key: string) => string | undefined }) {
 	const token = cookies.get('session');
@@ -31,9 +31,10 @@ export const GET: RequestHandler = async ({ cookies }) => {
 				description: row.description, fields, download_name: row.download_name,
 				created_at: row.created_at, updated_at: row.updated_at, files: [] });
 		}
-		if (row.file_id != null) (forms.get(id)!.files as unknown[]).push({
-			file_id: row.file_id, page_no: row.page_no, storage_path: row.storage_path, public_url: row.public_url
-		});
+		if (row.file_id != null) {
+			const name = originalFileName(row.storage_path as string | null, String(row.public_url).split('/').pop() ?? 'form-file');
+			(forms.get(id)!.files as unknown[]).push({ file_id: row.file_id, page_no: row.page_no, storage_path: row.storage_path, public_url: row.public_url, name, type: formFileMime[fileExtension(name)] ?? 'application/octet-stream', size: originalFileSize(row.storage_path as string | null) });
+		}
 	}
 	return json([...forms.values()]);
 };
@@ -47,6 +48,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	const validation = validate(body);
 	if (validation) return json({ error: validation }, { status: 400 });
 	const { title, category, code, description, fields, download_name, files } = body as unknown as FormInput;
+	if (files.some((file) => file.size == null)) return json({ error: 'File size is required for each uploaded file.' }, { status: 400 });
 	const conn = await pool.getConnection();
 	try {
 		await conn.beginTransaction();

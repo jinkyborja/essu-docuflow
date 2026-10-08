@@ -6,7 +6,7 @@
 
 	const { data }: { data: PageData } = $props();
 
-	type Row = { request_id: string; status: string; date_requested: string; document_name: string };
+	type Row = { request_id: string; status: string; date_requested: string; document_name: string; items: Array<{document_id:number;name:string}> };
 	type DocStat = { document_name: string; total: number; approved: number; rejected: number };
 	type DateWindow = { start: Date | null; end: Date };
 	type TrendBucket = { key: string; label: string; value: number };
@@ -121,11 +121,13 @@
 	function buildDocStats(rows: Row[]): DocStat[] {
 		const counts = new Map<string, DocStat>();
 		for (const row of rows) {
-			const item = counts.get(row.document_name) ?? { document_name: row.document_name, total: 0, approved: 0, rejected: 0 };
-			item.total += 1;
-			if (row.status === 'Approved') item.approved += 1;
-			if (row.status === 'Rejected') item.rejected += 1;
-			counts.set(row.document_name, item);
+			for (const doc of row.items ?? []) {
+				const item = counts.get(doc.name) ?? { document_name: doc.name, total: 0, approved: 0, rejected: 0 };
+				item.total += 1;
+				if (row.status === 'Approved') item.approved += 1;
+				if (row.status === 'Rejected') item.rejected += 1;
+				counts.set(doc.name, item);
+			}
 		}
 		return [...counts.values()].sort((a, b) => b.total - a.total || a.document_name.localeCompare(b.document_name));
 	}

@@ -46,6 +46,11 @@
 		<TopBar title={pageTitle} />
 
 		<main class="portal-main flex-1 mt-16 p-6">
+			{#if data.layoutUser.idStatus === 'pending'}
+				<div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">Your account is waiting for ID verification by the Graduate School office. You can request documents once verified.</div>
+			{:else if data.layoutUser.idStatus === 'rejected'}
+				<div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">Your student ID could not be verified. Reason: {data.layoutUser.idRejectReason ?? 'Please contact the Graduate School office.'}</div>
+			{/if}
 			{@render children()}
 		</main>
 	</div>

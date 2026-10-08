@@ -22,6 +22,11 @@
 		<StatCard label="Pending Requests" value={data.counts.pending}  icon="fa-solid fa-clock"         color="orange" />
 		<StatCard label="Approved"         value={data.counts.approved} icon="fa-solid fa-circle-check"  color="green"  />
 	</div>
+	{#if data.role === 'Admin'}
+		<a href="/staff/students?status=pending" class="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900 hover:bg-amber-100">
+			<span class="font-semibold">Pending verification</span><span class="rounded-full bg-amber-200 px-3 py-1 text-sm font-bold">{data.counts.pendingVerification}</span>
+		</a>
+	{/if}
 
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 		<!-- Pending approval queue -->
