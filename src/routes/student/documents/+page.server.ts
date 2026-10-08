@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import pool from '$lib/server/db';
 import { fetchRequestRequirements } from '$lib/server/requirements';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
 
@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch { redirect(302, '/login'); }
 	if (payload!.role !== 'Student') redirect(302, '/staff/dashboard');
 

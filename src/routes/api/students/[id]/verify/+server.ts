@@ -1,14 +1,14 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request, cookies, params }) => {
 	const token = cookies.get('session');
 	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
 	let actor: { userId: number; role: string };
-	try { actor = verifyJwt(token, JWT_SECRET); } catch { return json({ error: 'Unauthorized' }, { status: 401 }); }
+	try { actor = (await verifySession(token, JWT_SECRET)); } catch { return json({ error: 'Unauthorized' }, { status: 401 }); }
 	if (actor.role !== 'Admin') return json({ error: 'Admin access required' }, { status: 403 });
 	const body = await request.json().catch(() => ({}));
 	if (!['verify', 'reject'].includes(body.action)) return json({ error: 'Action must be verify or reject' }, { status: 400 });

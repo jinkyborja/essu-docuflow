@@ -13,7 +13,7 @@
 	type RequestRow = {
 		request_id: string; document_name: string; purpose: string; status: string;
 		admin_message: string | null; approved_file_path: string | null;
-		approved_file_name: string | null; requirements: string | null; date_requested: string;
+		approved_file_name: string | null; requirements: Requirement[]; date_requested: string;
 		items: Array<{document_id:number;name:string}>;
 	};
 
@@ -29,11 +29,6 @@
 	let resubmitError = $state('');
 	let toastMsg = $state('');
 	let expandedItems = $state<string[]>([]);
-
-	function parseReqs(json: string | null): Requirement[] {
-		if (!json) return [];
-		try { return JSON.parse(json); } catch { return []; }
-	}
 
 	function openResubmit(r: RequestRow) {
 		resubmitReq = r;
@@ -73,7 +68,7 @@
 		resubmitError = '';
 		try {
 			const fd = new FormData();
-			const reqs = parseReqs(resubmitReq.requirements);
+			const reqs = resubmitReq.requirements;
 			for (const r of reqs) {
 				if (!r.in_person && resubmitFiles[r.name]) {
 					fd.append(`file_${r.name}`, resubmitFiles[r.name]!);
@@ -123,7 +118,7 @@
 	{:else}
 		<div class="space-y-4">
 			{#each requests as req}
-				{@const reqs = parseReqs(req.requirements)}
+				{@const reqs = req.requirements}
 				{@const needsCorrection = req.status === 'Correction Requested'}
 				{@const canResubmit = needsCorrection || req.status === 'Pending'}
 				<div class="bg-white rounded-xl border border-gray-100 shadow-sm {needsCorrection ? 'border-yellow-300' : ''}">
@@ -231,7 +226,7 @@
 <Modal open={resubmitOpen} title="Resubmit Requirements" size="sm" onclose={() => resubmitOpen = false}>
 	{#snippet body()}
 		{#if resubmitReq}
-			{@const reqs = parseReqs(resubmitReq.requirements)}
+			{@const reqs = resubmitReq.requirements}
 			<div class="space-y-4">
 				{#if resubmitReq.admin_message}
 					<div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">

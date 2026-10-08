@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import pool from '$lib/server/db';
 
@@ -10,7 +10,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token!, JWT_SECRET);
+		payload = (await verifySession(token!, JWT_SECRET));
 	} catch {
 		redirect(302, '/login');
 	}

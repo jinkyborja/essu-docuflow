@@ -49,6 +49,7 @@ CREATE TABLE users (
     suffix           VARCHAR(10),
     email            VARCHAR(100) UNIQUE NOT NULL,
     password_hash    VARCHAR(255) NOT NULL,
+    auth_version     INT UNSIGNED NOT NULL DEFAULT 0,
     role             ENUM('Student', 'Staff', 'Admin') NOT NULL DEFAULT 'Student',
     student_id       VARCHAR(20) UNIQUE,
     program          VARCHAR(100),   -- legacy free text; program_id is authoritative

@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 	const sessionDuration = rememberMe ? 86400 * 30 : 86400;
 	const token = signJwt(
-		{ userId: user.user_id, email: user.email, role: user.role },
+		{ userId: user.user_id, email: user.email, role: user.role, purpose: 'session', authVersion: Number(user.auth_version) },
 		JWT_SECRET,
 		sessionDuration
 	);

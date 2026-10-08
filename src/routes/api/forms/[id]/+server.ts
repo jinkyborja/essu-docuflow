@@ -2,19 +2,19 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validate, insertFiles, type FormInput } from '$lib/server/forms';
 import { env } from '$env/dynamic/private';
 
-function session(cookies: { get: (key: string) => string | undefined }) {
+async function session(cookies: { get: (key: string) => string | undefined }) {
 	const token = cookies.get('session'); if (!token) return null;
-	try { return verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET); } catch { return null; }
+	try { return (await verifySession(token, JWT_SECRET)); } catch { return null; }
 }
 const bucket = env.SUPABASE_FORMS_BUCKET || 'forms';
 
 export const PUT: RequestHandler = async ({ request, cookies, params }) => {
-	const user = session(cookies); if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
+	const user = await session(cookies); if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 	if (!['Staff', 'Admin'].includes(user.role)) return json({ error: 'Forbidden' }, { status: 403 });
 	let body: Record<string, unknown>; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body.' }, { status: 400 }); }
 	const problem = validate(body); if (problem) return json({ error: problem }, { status: 400 });
@@ -43,7 +43,7 @@ export const PUT: RequestHandler = async ({ request, cookies, params }) => {
 };
 
 export const DELETE: RequestHandler = async ({ cookies, params }) => {
-	const user = session(cookies); if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
+	const user = await session(cookies); if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 	if (!['Staff', 'Admin'].includes(user.role)) return json({ error: 'Forbidden' }, { status: 403 });
 	const id = Number(params.id); if (!Number.isInteger(id) || id < 1) return json({ error: 'Invalid form ID.' }, { status: 400 });
 	const [rows] = await pool.execute('SELECT storage_path FROM form_files WHERE form_id = ?', [id]);

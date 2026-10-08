@@ -2,14 +2,14 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import pool from '$lib/server/db';
 import { fetchDocumentRequirements, type RequirementItem } from '$lib/server/requirements';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 
 export const load: PageServerLoad = async ({ cookies }) => {
 	const token = cookies.get('session');
 	if (!token) redirect(302, '/login');
 	try {
-		const p = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		const p = (await verifySession(token, JWT_SECRET));
 		if (p.role !== 'Student') redirect(302, '/staff/dashboard');
 		const [studentRows] = await pool.execute('SELECT id_status FROM users WHERE user_id = ?', [p.userId]);
 		if ((studentRows as Array<{id_status:string}>)[0]?.id_status !== 'verified') {

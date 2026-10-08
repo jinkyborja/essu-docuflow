@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import pool from './db';
 
 function base64urlEncode(str: string): string {
 	return Buffer.from(str).toString('base64url');
@@ -30,7 +31,37 @@ export function verifyJwt<T extends Record<string, unknown>>(token: string, secr
 	if (signature !== expected) throw new Error('Invalid signature');
 
 	const payload = JSON.parse(base64urlDecode(claims)) as T & { exp: number };
-	if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
+	if (!payload || typeof payload !== 'object' || !Number.isSafeInteger(payload.exp)) {
+		throw new Error('Invalid token claims');
+	}
+	if (payload.exp <= Math.floor(Date.now() / 1000)) throw new Error('Token expired');
 
 	return payload as T;
+}
+
+export type SessionClaims = {
+	userId: number;
+	email: string;
+	role: 'Student' | 'Staff' | 'Admin';
+	purpose: 'session';
+	authVersion: number;
+};
+
+export async function verifySession(token: string, secret: string): Promise<SessionClaims> {
+	const payload = verifyJwt<Record<string, unknown>>(token, secret);
+	if (
+		payload.purpose !== 'session' ||
+		!Number.isSafeInteger(payload.authVersion) || Number(payload.authVersion) < 0 ||
+		typeof payload.userId !== 'number' || !Number.isSafeInteger(payload.userId) || payload.userId <= 0 ||
+		typeof payload.email !== 'string' || !payload.email.trim() ||
+		!['Student', 'Staff', 'Admin'].includes(payload.role as string)
+	) {
+		throw new Error('Invalid session token');
+	}
+	const [rows] = await pool.execute('SELECT auth_version, role, email, verified FROM users WHERE user_id = ?', [payload.userId]);
+	const user = (rows as Array<{ auth_version: number; role: string; email: string; verified: boolean }>)[0];
+	if (!user || !user.verified || Number(user.auth_version) !== payload.authVersion || user.role !== payload.role || user.email !== payload.email) {
+		throw new Error('Session revoked');
+	}
+	return payload as SessionClaims;
 }

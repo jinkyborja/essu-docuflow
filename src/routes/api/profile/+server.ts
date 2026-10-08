@@ -2,14 +2,14 @@ import { json } from '@sveltejs/kit';
 import { createHash } from 'node:crypto';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
 	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
 	let payload: { userId: number; role: string };
-	try { payload = verifyJwt(token, JWT_SECRET); } catch { return json({ error: 'Unauthorized' }, { status: 401 }); }
+	try { payload = (await verifySession(token, JWT_SECRET)); } catch { return json({ error: 'Unauthorized' }, { status: 401 }); }
 	const [rows] = await pool.execute('SELECT user_id, first_name, middle_name, last_name, date_of_birth, email, student_id, program, student_type, last_school_year, id_status, id_verified_at, id_reject_reason FROM users WHERE user_id = ?', [payload.userId]);
 	const profile = (rows as Record<string, unknown>[])[0];
 	if (!profile) return json({ error: 'Profile not found' }, { status: 404 });
@@ -22,7 +22,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -69,7 +69,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Email is already in use by another account' }, { status: 409 });
 		}
 
-		await pool.execute('UPDATE users SET email = ? WHERE user_id = ?', [newEmail, payload.userId]);
+		await pool.execute('UPDATE users SET email = ?, auth_version = auth_version + 1 WHERE user_id = ?', [newEmail, payload.userId]);
 
 		return json({ success: true });
 	}
@@ -93,7 +93,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		}
 
 		const newHash = createHash('sha256').update(newPassword).digest('hex');
-		await pool.execute('UPDATE users SET password_hash = ? WHERE user_id = ?', [newHash, payload.userId]);
+		await pool.execute('UPDATE users SET password_hash = ?, auth_version = auth_version + 1 WHERE user_id = ?', [newHash, payload.userId]);
 
 		return json({ success: true });
 	}

@@ -2,10 +2,11 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
-import { replaceRequestRequirements, fetchRequestFilePaths } from '$lib/server/requirements';
-import { verifyJwt } from '$lib/server/jwt';
+import { replaceRequestRequirements, fetchRequestFilePaths, fetchRequestRequirements } from '$lib/server/requirements';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
+import { validateUpload } from '$lib/server/upload-validation';
 
 export const GET: RequestHandler = async ({ cookies, url }) => {
 	const token = cookies.get('session');
@@ -13,7 +14,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -22,21 +23,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 		const [rows] = await pool.execute(
 			`SELECT r.request_id, r.document_id, r.purpose,
 			        r.status, r.admin_message, r.approved_file_path, r.approved_file_name,
-			        CAST(COALESCE((
-			          SELECT JSON_ARRAYAGG(JSON_OBJECT(
-			            'name', rq.name,
-			            'description', rq.description,
-			            'in_person', rr.in_person,
-			            'file_path', rr.file_path,
-			            'file_name', rr.file_name,
-			            'submitted_at', rr.submitted_at,
-			            'needs_correction', rr.needs_correction
-			          ))
-			          FROM request_requirements rr
-			          JOIN requirements rq ON rq.requirement_id = rr.requirement_id
-			          WHERE rr.request_id = r.request_id
-			        ), JSON_ARRAY()) AS CHAR) AS requirements,
-			        r.date_requested
+		        r.date_requested
 			 FROM requests r
 			 WHERE r.student_id = ?
 			 ORDER BY r.date_requested DESC`,
@@ -44,7 +31,14 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 		);
 		const result = rows as Array<Record<string, unknown>>;
 		const items = await fetchRequestItems(result.map((r) => r.request_id as string));
-		for (const row of result) { const docs = items.get(row.request_id as string) ?? []; row.items = docs; row.documentName = documentNameSummary(docs); row.document_name = row.documentName; }
+		const requirements = await fetchRequestRequirements(result.map((r) => r.request_id as string));
+		for (const row of result) {
+			const docs = items.get(row.request_id as string) ?? [];
+			row.items = docs;
+			row.documentName = documentNameSummary(docs);
+			row.document_name = row.documentName;
+			row.requirements = requirements.get(row.request_id as string) ?? [];
+		}
 		return json(result);
 	}
 
@@ -69,7 +63,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -78,6 +72,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	let conn: Awaited<ReturnType<typeof pool.getConnection>> | null = null;
 	let transactionOpen = false;
 	let lockName: string | null = null;
+	const uploadedPaths: string[] = [];
+	let submitted = false;
 	try {
 	const [studentRows] = await pool.execute('SELECT id_status FROM users WHERE user_id = ? AND role = \'Student\'', [payload.userId]);
 	if ((studentRows as Array<{ id_status: string }>)[0]?.id_status !== 'verified') {
@@ -119,6 +115,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		file_path: string | null; file_name: string | null;
 		submitted_at: string | null; needs_correction: boolean;
 	}> = (requirementRows as Array<Record<string, unknown>>).map((row) => ({ name: row.name as string, description: row.description as string, in_person: Boolean(row.in_person), file_path: null, file_name: null, submitted_at: null, needs_correction: false }));
+	// Validate the entire catalog-derived batch before uploading any file.
+	for (const req of reqs) {
+		if (req.in_person) continue;
+		const invalid = await validateUpload(formData.get(`file_${req.name}`));
+		if (invalid) return json({ error: `${req.name}: ${invalid.error}` }, { status: invalid.status });
+	}
 
 	// Upload every attached requirement file. A storage failure must NOT be
 	// swallowed — otherwise the request is created with null file_path/submitted_at
@@ -141,6 +143,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				console.error(`Storage upload failed for "${req.name}":`, error);
 				uploadErrors.push(`${req.name}: ${error.message}`);
 			} else {
+				uploadedPaths.push(path);
 				req.file_path = path;
 				req.file_name = file.name;
 				req.submitted_at = new Date().toISOString();
@@ -194,6 +197,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		stage = 'commit';
 		await conn.commit();
 		transactionOpen = false;
+		submitted = true;
 		return json({ success: true, request_id: requestId });
 	} catch (err) {
 		if (conn && transactionOpen) {
@@ -216,6 +220,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		}
 		return json({ error: 'Could not submit your request. Please try again.', code, message, stage }, { status: 500 });
 	} finally {
+		if (!submitted && uploadedPaths.length) {
+			try { await supabase.storage.from('requirements').remove(uploadedPaths); }
+			catch (cleanupError) { console.error('Request upload cleanup failed:', cleanupError); }
+		}
 		if (conn) {
 			if (lockName) {
 				try { await conn.execute('SELECT RELEASE_LOCK(?)', [lockName]); } catch (releaseError) { console.error('[requests POST] lock release failed', releaseError); }
@@ -231,7 +239,7 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}

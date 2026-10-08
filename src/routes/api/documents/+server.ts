@@ -3,8 +3,9 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
 import { fetchDocumentRequirements, replaceDocumentRequirements } from '$lib/server/requirements';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
+import { validateUpload } from '$lib/server/upload-validation';
 
 export const GET: RequestHandler = async () => {
 	const [rows] = await pool.execute(
@@ -22,7 +23,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -34,6 +35,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	const templateFile = formData.get('template') as File | null;
 
 	if (!name || !requirementsJson) return json({ error: 'Missing fields' }, { status: 400 });
+	if (templateFile !== null) {
+		const invalid = await validateUpload(templateFile, true);
+		if (invalid) return json({ error: invalid.error }, { status: invalid.status });
+	}
 
 	let templatePath: string | null = null;
 	let templateName: string | null = null;
@@ -82,7 +87,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -96,6 +101,10 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 	const removeTemplate = formData.get('remove_template') === 'true';
 
 	if (!documentId || !name || !requirementsJson) return json({ error: 'Missing fields' }, { status: 400 });
+	if (templateFile !== null) {
+		const invalid = await validateUpload(templateFile, true);
+		if (invalid) return json({ error: invalid.error }, { status: invalid.status });
+	}
 
 	// Fetch current template path
 	const [rows] = await pool.execute('SELECT template_path FROM documents WHERE document_id = ?', [documentId]);
@@ -153,7 +162,7 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	const token = cookies.get('session');
 	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
 	try {
-		const p = verifyJwt<{ role: string }>(token, JWT_SECRET);
+		const p = (await verifySession(token, JWT_SECRET));
 		if (p.role === 'Student') return json({ error: 'Forbidden' }, { status: 403 });
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { supabase } from '$lib/server/supabase';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { env } from '$env/dynamic/private';
 
@@ -15,7 +15,7 @@ const bucket = env.SUPABASE_FORMS_BUCKET || 'forms';
 function safeName(name: string) { return name.normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(-100) || 'file'; }
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const token = cookies.get('session'); if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
-	try { if (!['Staff', 'Admin'].includes(verifyJwt<{ role: string }>(token, JWT_SECRET).role)) return json({ error: 'Forbidden' }, { status: 403 }); }
+	try { if (!['Staff', 'Admin'].includes((await verifySession(token, JWT_SECRET)).role)) return json({ error: 'Forbidden' }, { status: 403 }); }
 	catch { return json({ error: 'Unauthorized' }, { status: 401 }); }
 	let body: { files?: { name: string; type: string; size: number }[] };
 	try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body.' }, { status: 400 }); }

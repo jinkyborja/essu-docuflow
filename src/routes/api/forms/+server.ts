@@ -1,18 +1,18 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { slugName, validate, insertFiles, originalFileName, originalFileSize, fileExtension, formFileMime, type FormInput } from '$lib/server/forms';
 
-function session(cookies: { get: (key: string) => string | undefined }) {
+async function session(cookies: { get: (key: string) => string | undefined }) {
 	const token = cookies.get('session');
 	if (!token) return null;
-	try { return verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET); } catch { return null; }
+	try { return (await verifySession(token, JWT_SECRET)); } catch { return null; }
 }
 
 export const GET: RequestHandler = async ({ cookies }) => {
-	const user = session(cookies);
+	const user = await session(cookies);
 	if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 	if (!['Student', 'Staff', 'Admin'].includes(user.role)) return json({ error: 'Forbidden' }, { status: 403 });
 	const [rows] = await pool.execute(
@@ -40,7 +40,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
 };
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
-	const user = session(cookies);
+	const user = await session(cookies);
 	if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 	if (!['Staff', 'Admin'].includes(user.role)) return json({ error: 'Forbidden' }, { status: 403 });
 	let body: Record<string, unknown>;

@@ -3,17 +3,18 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
 import { fetchOneRequestRequirements } from '$lib/server/requirements';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { sendEmail } from '$lib/server/email';
 import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
+import { validateUpload } from '$lib/server/upload-validation';
 
 export const GET: RequestHandler = async ({ params, cookies }) => {
 	const token = cookies.get('session');
 	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -31,6 +32,11 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 	if (list.length === 0) return json({ error: 'Not found' }, { status: 404 });
 
 	const req = list[0];
+	const isOwner = payload.role === 'Student' && req.student_id === payload.userId;
+	if (!isOwner && !['Staff', 'Admin'].includes(payload.role)) {
+		return json({ error: 'Forbidden' }, { status: 403 });
+	}
+
 	const items = (await fetchRequestItems([params.id])).get(params.id) ?? [];
 	req.items = items; req.document_name = documentNameSummary(items); req.documentName = req.document_name;
 
@@ -56,9 +62,13 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
+	if (!['Staff', 'Admin'].includes(payload.role)) {
+		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
 	// Get current request
@@ -95,6 +105,30 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 		action = body.action;
 		adminMessage = body.admin_message ?? null;
 		flaggedRequirements = body.flagged_requirements ?? null;
+	}
+
+	if (!['approve', 'reject', 'correction'].includes(action)) {
+		return json({ error: 'Invalid action' }, { status: 400 });
+	}
+	if (!['Pending', 'Correction Requested'].includes(oldStatus)) {
+		return json({ error: 'This request has already been decided.' }, { status: 409 });
+	}
+	if (adminMessage !== null && typeof adminMessage !== 'string') {
+		return json({ error: 'Remarks must be text.' }, { status: 400 });
+	}
+	adminMessage = adminMessage?.trim() || null;
+	if ((action === 'reject' || action === 'correction') && !adminMessage) {
+		return json({ error: 'Remarks are required when rejecting or requesting corrections.' }, { status: 400 });
+	}
+	if (action === 'approve' && (!(approvedFile instanceof File) || approvedFile.size === 0)) {
+		return json({ error: 'Upload the final document before approving the request.' }, { status: 400 });
+	}
+	if (action === 'approve') {
+		const invalid = await validateUpload(approvedFile, true);
+		if (invalid) return json({ error: invalid.error }, { status: invalid.status });
+	}
+	if (flaggedRequirements !== null && (!Array.isArray(flaggedRequirements) || flaggedRequirements.some((name) => typeof name !== 'string'))) {
+		return json({ error: 'Flagged requirements must be an array of names.' }, { status: 400 });
 	}
 
 	let newStatus: string;
@@ -163,7 +197,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	let emailHtml = '';
 
 	if (action === 'approve') {
-		// A file is optional — the student must still be told the request was approved.
+		// Approval requires an uploaded digital deliverable.
 		let downloadUrl = '';
 		const filePath = approvedFilePath ?? (currentReq.approved_file_path as string | null);
 		if (filePath) {

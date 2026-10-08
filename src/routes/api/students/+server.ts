@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
 import { fetchRequestFilePaths } from '$lib/server/requirements';
-import { verifyJwt } from '$lib/server/jwt';
+import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ cookies }) => {
@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -36,7 +36,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -73,7 +73,7 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 
 	let payload: { userId: number; role: string };
 	try {
-		payload = verifyJwt<{ userId: number; role: string }>(token, JWT_SECRET);
+		payload = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}

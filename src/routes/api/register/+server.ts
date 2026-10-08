@@ -56,7 +56,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		);
 	}
 
-	const token = signJwt({ email }, JWT_SECRET, 86400);
+	const token = signJwt({ email, purpose: 'email-verification' }, JWT_SECRET, 86400);
 	const verifyUrl = `${new URL(request.url).origin}/api/verify?token=${token}`;
 
 	try {

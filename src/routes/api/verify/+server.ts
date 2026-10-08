@@ -12,7 +12,13 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 
 	try {
-		const payload = verifyJwt<{ email: string }>(token, JWT_SECRET);
+		const payload = verifyJwt<Record<string, unknown>>(token, JWT_SECRET);
+		// Previously emailed verification links had no purpose or session identity.
+		const legacyVerification = payload.purpose === undefined && payload.userId === undefined && payload.role === undefined;
+		if (
+			(payload.purpose !== 'email-verification' && !legacyVerification) ||
+			typeof payload.email !== 'string' || !payload.email.trim()
+		) throw new Error('Invalid verification token');
 		await pool.execute('UPDATE users SET verified = TRUE WHERE email = ?', [payload.email]);
 	} catch {
 		// JWT invalid/expired or DB error

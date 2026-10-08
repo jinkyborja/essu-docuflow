@@ -10,7 +10,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!email) return json({ error: 'Email is required' }, { status: 400 });
 
 	const [rows] = await pool.execute(
-		'SELECT first_name, last_name FROM users WHERE email = ?',
+		'SELECT first_name, last_name, auth_version FROM users WHERE email = ?',
 		[email]
 	);
 	const user = (rows as Record<string, unknown>[])[0];
@@ -18,7 +18,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	// Always return success to prevent email enumeration
 	if (!user) return json({ success: true });
 
-	const token = signJwt({ email, purpose: 'reset' }, JWT_SECRET, 3600);
+	const token = signJwt({ email, purpose: 'reset', authVersion: Number(user.auth_version) }, JWT_SECRET, 3600);
 	const resetUrl = `${new URL(request.url).origin}/reset-password?token=${token}`;
 	const fullName = `${user.first_name} ${user.last_name}`;
 

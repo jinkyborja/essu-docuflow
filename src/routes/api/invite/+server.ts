@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { verifyJwt, signJwt } from '$lib/server/jwt';
+import { verifySession, signJwt } from '$lib/server/jwt';
 import { sendEmail } from '$lib/server/email';
 import { JWT_SECRET } from '$env/static/private';
 
@@ -10,7 +10,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 	let caller: { role: string };
 	try {
-		caller = verifyJwt<{ role: string }>(token, JWT_SECRET);
+		caller = (await verifySession(token, JWT_SECRET));
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
