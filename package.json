@@ -5,6 +5,9 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"dev:test": "node qa/docuflow/local/start.mjs",
+		"qa:db:setup": "node qa/docuflow/local/setup-db.mjs",
+		"qa:db:cleanup": "node qa/docuflow/local/cleanup-db.mjs",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
