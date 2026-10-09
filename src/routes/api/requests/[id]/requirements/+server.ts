@@ -113,6 +113,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 			'UPDATE requests SET status = ?, admin_message = NULL WHERE request_id = ?',
 			['Pending', params.id]
 		);
+		await conn.execute('INSERT INTO request_status_history (request_id, old_status, new_status, changed_by) VALUES (?, ?, ?, ?)', [params.id, initialStatus, 'Pending', payload.userId]);
 		await conn.commit();
 		saved = true;
 	} catch (err) {

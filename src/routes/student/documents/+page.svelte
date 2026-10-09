@@ -1,4 +1,6 @@
 <script lang="ts">
+	import RequestJourney from '$lib/components/ui/RequestJourney.svelte';
+	import type {JourneyEvent} from '$lib/request-flow';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import type { PageData } from './$types';
@@ -6,11 +8,13 @@
 	const { data }: { data: PageData } = $props();
 
 	type Requirement = {
+		form_id?: number | null; signature_note?: string | null; form_files?: Array<{public_url:string;name:string}>;
 		name: string; description?: string; in_person: boolean;
 		file_path: string | null; file_name: string | null;
 		submitted_at: string | null; needs_correction: boolean;
 	};
 	type RequestRow = {
+		history?: JourneyEvent[]; completed_at?: string | null;
 		request_id: string; document_name: string; purpose: string; status: string;
 		admin_message: string | null; approved_file_path: string | null;
 		approved_file_name: string | null; requirements: Requirement[]; date_requested: string;
@@ -121,13 +125,13 @@
 				{@const reqs = req.requirements}
 				{@const needsCorrection = req.status === 'Correction Requested'}
 				{@const canResubmit = needsCorrection || req.status === 'Pending'}
-				<div class="bg-white rounded-xl border border-gray-100 shadow-sm {needsCorrection ? 'border-yellow-300' : ''}">
+				<div id={req.request_id} class="bg-white rounded-xl border border-gray-100 shadow-sm scroll-mt-24 {needsCorrection ? 'border-yellow-300' : ''}">
 					<div class="px-4 sm:px-5 py-4 flex items-start justify-between gap-3 flex-wrap border-b border-gray-100">
 						<div class="min-w-0">
 							<div class="flex items-center gap-2 mb-1 flex-wrap">
-								<p class="font-semibold text-gray-800">{req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => expandedItems = expandedItems.includes(req.request_id) ? expandedItems.filter((id) => id !== req.request_id) : [...expandedItems, req.request_id]}>+{req.items.length - 1} more</button>{/if}</p>
+								<p class="font-semibold text-gray-800">{req.items?.[0]?.name ?? req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => expandedItems = expandedItems.includes(req.request_id) ? expandedItems.filter((id) => id !== req.request_id) : [...expandedItems, req.request_id]}>+{req.items.length - 1} more</button>{/if}</p>
 								{#if expandedItems.includes(req.request_id)}<p class="mt-1 text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
-								<Badge value={req.status.toLowerCase()} />
+								<Badge value={req.completed_at ? 'completed' : req.status.toLowerCase()} />
 							</div>
 							<p class="text-xs text-gray-400 font-mono break-all">{req.request_id} · {new Date(req.date_requested).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
 						</div>
@@ -138,12 +142,13 @@
 									{needsCorrection ? 'bg-yellow-500 text-white hover:bg-yellow-600' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}"
 							>
 								<i class="fa-solid fa-rotate-left"></i>
-								{needsCorrection ? 'Resubmit' : 'Update Files'}
+								{needsCorrection ? 'Upload corrections' : 'Update Files'}
 							</button>
 						{/if}
 					</div>
 
 					<div class="px-4 sm:px-5 py-4 space-y-3 text-sm">
+						<RequestJourney status={req.status} dateRequested={req.date_requested} history={req.history} hasFile={!!req.approved_file_path} />
 						<div>
 							<p class="text-xs text-gray-400 mb-0.5">Purpose</p>
 							<p class="text-gray-700">{req.purpose}</p>
@@ -236,7 +241,7 @@
 				{#if resubmitError}
 					<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{resubmitError}</div>
 				{/if}
-				<p class="text-sm text-gray-600">Upload corrected files for the flagged requirements:</p>
+				<p class="text-sm text-gray-600">{resubmitReq.status === 'Correction Requested' ? 'Replace every flagged file before resubmitting. Other files can stay as they are.' : 'Select the files you want to replace. Existing files are kept until a replacement succeeds.'}</p>
 				<div class="space-y-3">
 					{#each reqs.filter(r => !r.in_person) as r}
 						<div class="border border-gray-100 rounded-lg p-3 {r.needs_correction ? 'border-yellow-300 bg-yellow-50/30' : ''}">
@@ -246,6 +251,8 @@
 								{/if}
 								<p class="text-sm font-medium text-gray-700 {r.needs_correction ? 'text-yellow-700' : ''}">{r.name}</p>
 							</div>
+							{#if r.signature_note}<p class="mb-2 text-xs text-gray-600">{r.signature_note}</p>{/if}
+							{#each r.form_files ?? [] as file}<a href={file.public_url} target="_blank" rel="noopener noreferrer" class="block mb-2 text-xs text-essu-green underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">Download form: {file.name}</a>{/each}
 							<label class="flex items-start gap-2 px-3 py-2 border border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-essu-green/50 text-sm {resubmitFiles[r.name] ? 'text-essu-green' : 'text-gray-400'}">
 								<i class="fa-solid fa-upload text-xs shrink-0 mt-1"></i>
 								<span class="min-w-0 break-words">
@@ -264,7 +271,7 @@
 	{/snippet}
 	{#snippet footer()}
 		<button onclick={() => resubmitOpen = false} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-		<button onclick={submitResubmission} disabled={resubmitting} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid disabled:opacity-60 flex items-center gap-2">
+		<button onclick={submitResubmission} disabled={resubmitting || !Object.values(resubmitFiles).some(Boolean) || (resubmitReq?.status === 'Correction Requested' && resubmitReq.requirements.some(item => item.needs_correction && !item.in_person && !resubmitFiles[item.name]))} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid disabled:opacity-60 flex items-center gap-2">
 			{#if resubmitting}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
 			Resubmit
 		</button>

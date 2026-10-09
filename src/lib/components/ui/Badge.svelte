@@ -11,6 +11,7 @@
 	const { value, size = 'md' }: Props = $props();
 
 	const colorMap: Record<string, string> = {
+		completed: 'bg-green-100 text-green-700 border border-green-200',
 		// RequestStatus (lowercased — see RequestStatusKey)
 		pending: 'bg-orange-100 text-orange-700 border border-orange-200',
 		approved: 'bg-green-100 text-green-700 border border-green-200',

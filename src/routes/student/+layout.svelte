@@ -1,4 +1,5 @@
 <script lang="ts">
+	import VerificationHelp from '$lib/components/ui/VerificationHelp.svelte';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import TopBar from '$lib/components/layout/TopBar.svelte';
 	import { page } from '$app/stores';
@@ -47,9 +48,9 @@
 
 		<main class="portal-main flex-1 mt-16 p-6">
 			{#if data.layoutUser.idStatus === 'pending'}
-				<div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">Your account is waiting for ID verification by the Graduate School office. You can request documents once verified.</div>
+				<div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">Your account is waiting for verification by the Graduate School office. We check your student ID against the master's enrollment list.</div>
 			{:else if data.layoutUser.idStatus === 'rejected'}
-				<div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">Your student ID could not be verified. Reason: {data.layoutUser.idRejectReason ?? 'Please contact the Graduate School office.'}</div>
+				<div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">Your student ID could not be verified. Reason: {data.layoutUser.idRejectReason ?? 'Please contact the Graduate School office.'}<VerificationHelp /></div>
 			{/if}
 			{@render children()}
 		</main>

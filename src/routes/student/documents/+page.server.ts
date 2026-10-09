@@ -1,3 +1,4 @@
+import { attachRequestJourney } from '$lib/server/request-journey';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import pool from '$lib/server/db';
@@ -32,5 +33,6 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const reqMap = await fetchRequestRequirements(reqs.map((r) => r.request_id as string));
 	for (const r of reqs) r.requirements = reqMap.get(r.request_id as string) ?? [];
 
+	await attachRequestJourney(reqs);
 	return { requests: reqs };
 };

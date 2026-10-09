@@ -159,34 +159,33 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 		newStatus = 'Rejected';
 	} else if (action === 'correction') {
 		newStatus = 'Correction Requested';
-		// Flag specific requirements. One statement, no read-modify-write of a blob.
-		if (flaggedRequirements) {
-			await pool.execute(
-				`UPDATE request_requirements rr
-				 JOIN requirements rq ON rq.requirement_id = rr.requirement_id
-				 SET rr.needs_correction = (rq.name IN (${flaggedRequirements.map(() => '?').join(',') || 'NULL'}))
-				 WHERE rr.request_id = ?`,
-				[...flaggedRequirements, params.id]
-			);
-		}
+
 	} else {
 		return json({ error: 'Invalid action' }, { status: 400 });
 	}
 
-	// Update request
-	await pool.execute(
-		`UPDATE requests SET status = ?, admin_message = ?,
-		 approved_file_path = COALESCE(?, approved_file_path),
-		 approved_file_name = COALESCE(?, approved_file_name)
-		 WHERE request_id = ?`,
-		[newStatus, adminMessage, approvedFilePath, approvedFileName, params.id]
-	);
-
-	// Record history
-	await pool.execute(
-		'INSERT INTO request_status_history (request_id, old_status, new_status, changed_by) VALUES (?, ?, ?, ?)',
-		[params.id, oldStatus, newStatus, payload.userId]
-	);
+	// Lock and decide atomically: another reviewer may act during the file upload.
+	const conn = await pool.getConnection();
+	let decided = false;
+	try {
+		await conn.beginTransaction();
+		const [locked] = await conn.execute('SELECT status FROM requests WHERE request_id = ? FOR UPDATE', [params.id]);
+		if ((locked as Array<{status:string}>)[0]?.status !== oldStatus) {
+			await conn.rollback(); return json({error:'The request changed during review. Refresh before deciding.'}, {status:409});
+		}
+		if (action === 'correction') {
+			const [requirementRows] = await conn.execute('SELECT rq.name, rr.in_person FROM request_requirements rr JOIN requirements rq ON rq.requirement_id = rr.requirement_id WHERE rr.request_id = ?', [params.id]);
+			const requirements = requirementRows as Array<{name:string;in_person:boolean}>;
+			if (!flaggedRequirements?.length || flaggedRequirements.some(name => !requirements.some(item => item.name === name && !item.in_person))) {
+				await conn.rollback(); return json({error:'Select at least one uploaded requirement that needs correction.'}, {status:400});
+			}
+			await conn.execute(`UPDATE request_requirements rr JOIN requirements rq ON rq.requirement_id = rr.requirement_id SET rr.needs_correction = (rq.name IN (${flaggedRequirements.map(() => '?').join(',')})) WHERE rr.request_id = ?`, [...flaggedRequirements,params.id]);
+		}
+		await conn.execute('UPDATE requests SET status = ?, admin_message = ?, approved_file_path = COALESCE(?, approved_file_path), approved_file_name = COALESCE(?, approved_file_name) WHERE request_id = ?', [newStatus,adminMessage,approvedFilePath,approvedFileName,params.id]);
+		await conn.execute('INSERT INTO request_status_history (request_id, old_status, new_status, changed_by) VALUES (?, ?, ?, ?)', [params.id,oldStatus,newStatus,payload.userId]);
+		await conn.commit(); decided = true;
+	} catch (e) { await conn.rollback(); console.error('Request decision failed',e); return json({error:'Could not save the decision. Please try again.'}, {status:500}); }
+	finally { conn.release(); if (!decided && approvedFilePath) await supabase.storage.from('requirements').remove([approvedFilePath]); }
 
 	// Send email
 	const studentEmail = currentReq.student_email as string;

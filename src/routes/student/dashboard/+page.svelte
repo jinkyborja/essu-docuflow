@@ -5,14 +5,14 @@
 	const { data }: { data: PageData } = $props();
 
 	type RequestItem = { document_id: number; name: string };
-	type DashboardRequest = { request_id: string; document_name: string; items: RequestItem[]; status: string; date_requested: string };
-	const activeRequests = $derived(data.requests as DashboardRequest[]);
+	type DashboardRequest = { completed_at?: string | null; approved_file_path?: string | null; request_id: string; document_name: string; items: RequestItem[]; status: string; date_requested: string };
+	const activeRequests = $derived((data.requests as DashboardRequest[]).filter(req => !req.completed_at).sort((a,b) => Number(b.status === 'Correction Requested') - Number(a.status === 'Correction Requested')));
 	let expandedRequests = $state<string[]>([]);
 
 	const recentNotifs = $derived(
 		data.recentHistory.map((h) => ({
 			id: String(h.history_id),
-			title: `${h.document_name}: ${h.new_status}`,
+			title: h.request_id ? `${h.document_name ?? 'Document request'}: ${h.new_status}` : String(h.new_status),
 			date: new Date(h.changed_at as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
 		}))
 	);
@@ -35,6 +35,9 @@
 		</p>
 	</div>
 
+	<div class="rounded-xl border border-gray-100 bg-white p-4 text-sm">
+		<p class="font-semibold text-gray-800">Your next step</p><p class="mt-1 text-gray-600">{data.layoutUser.idStatus !== 'verified' ? 'Check your verification banner above. You can browse Forms while the office reviews your account.' : activeRequests.some(req => req.status === 'Correction Requested') ? 'You have a request needing corrections. Open it below to update the flagged files.' : activeRequests.some(req => req.status === 'Approved') ? 'An approved document is ready. Open My Documents to download it.' : activeRequests.length ? 'Your request is waiting for office review. Track it below.' : 'Choose Request Document to start. The wizard shows the requirements and linked forms.'}</p>
+	</div>
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
 		<!-- Active Requests -->
 		<div class="xl:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -64,12 +67,12 @@
 								<i class="fa-solid fa-file text-blue-500 text-sm"></i>
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="text-sm font-medium text-gray-800">{req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => expandedRequests = expandedRequests.includes(req.request_id) ? expandedRequests.filter((id) => id !== req.request_id) : [...expandedRequests, req.request_id]}>+{req.items.length - 1} more</button>{/if}</p>
+								<p class="text-sm font-medium text-gray-800">{req.items?.[0]?.name ?? req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => expandedRequests = expandedRequests.includes(req.request_id) ? expandedRequests.filter((id) => id !== req.request_id) : [...expandedRequests, req.request_id]}>+{req.items.length - 1} more</button>{/if}</p>
 								{#if expandedRequests.includes(req.request_id)}<p class="text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
 								<p class="text-xs text-gray-400">{req.request_id} · {new Date(req.date_requested as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
 							</div>
 							<div class="shrink-0">
-								<Badge value={(req.status as string).toLowerCase()} size="sm" />
+								<Badge value={(req.status as string).toLowerCase()} size="sm" /><a href={'/student/documents#' + req.request_id} class="block mt-2 text-xs text-essu-green underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">{req.status === 'Correction Requested' ? 'Upload corrections' : req.status === 'Approved' ? 'Get document' : 'Track request'}</a>
 							</div>
 						</div>
 					{/each}

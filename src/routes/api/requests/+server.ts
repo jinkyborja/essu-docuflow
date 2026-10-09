@@ -1,3 +1,4 @@
+import { attachRequestJourney } from '$lib/server/request-journey';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
@@ -39,6 +40,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 			row.document_name = row.documentName;
 			row.requirements = requirements.get(row.request_id as string) ?? [];
 		}
+		await attachRequestJourney(result);
 		return json(result);
 	}
 

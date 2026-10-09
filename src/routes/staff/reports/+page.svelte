@@ -258,7 +258,7 @@
 		<div>
 			<p class="report-eyebrow">Registrar analytics</p>
 			<h2>Reports &amp; Analytics</h2>
-			<p class="report-subtitle">Overview of document requests</p>
+			<p class="report-subtitle">Counts refer to requests; one request can include several documents.</p>
 		</div>
 		<div class="report-heading-meta">
 			<span class="report-period-chip"><i class="fa-regular fa-calendar" aria-hidden="true"></i>{periodLabel}</span>
@@ -323,7 +323,7 @@
 			</article>
 			<article class="report-kpi report-kpi-rate">
 				<div class="report-kpi-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>
-				<div class="report-kpi-copy"><p>Approval Rate</p><strong>{approvalRate.toFixed(0)}%</strong><span>{resolved} resolved · {rejectionRate.toFixed(0)}% rejected</span></div>
+				<div class="report-kpi-copy"><p>Approval Rate (resolved requests)</p><strong>{approvalRate.toFixed(0)}%</strong><span>{resolved} resolved · {rejectionRate.toFixed(0)}% rejected</span></div>
 				{#if approvalRateDelta !== null}<small class:positive={approvalRateDelta >= 0} class:negative={approvalRateDelta < 0} aria-label={`${Math.abs(approvalRateDelta).toFixed(0)} percentage points vs previous period`}><i class="fa-solid {approvalRateDelta > 0 ? 'fa-arrow-up' : approvalRateDelta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(approvalRateDelta).toFixed(0)} pts</small>{/if}
 			</article>
 		</section>
@@ -378,7 +378,7 @@
 
 		<section class="report-grid report-grid-secondary">
 			<article class="report-card report-document-card">
-				<header class="report-card-header"><div><h3>Requests by Document Type</h3><p>Sorted by request volume</p></div></header>
+				<header class="report-card-header"><div><h3>Requests by Document Type</h3><p>A request is counted once for each document type it contains.</p></div></header>
 				{#if docStats.length}
 					<div class="report-document-bars">
 						{#each docStats as stat}

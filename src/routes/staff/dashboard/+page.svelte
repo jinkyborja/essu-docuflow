@@ -17,17 +17,21 @@
 <div class="space-y-6">
 	<!-- Stats -->
 	<div class="ui-stat-grid grid grid-cols-2 xl:grid-cols-4 gap-4">
-		<StatCard label="Total Students"   value={data.counts.students} icon="fa-solid fa-users"         color="blue"   />
-		<StatCard label="Total Requests"   value={data.counts.requests} icon="fa-solid fa-file-lines"    color="teal"   />
-		<StatCard label="Pending Requests" value={data.counts.pending}  icon="fa-solid fa-clock"         color="orange" />
-		<StatCard label="Approved"         value={data.counts.approved} icon="fa-solid fa-circle-check"  color="green"  />
+		<a href="/staff/students" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Total Students"   value={data.counts.students} icon="fa-solid fa-users"         color="blue"   /></a>
+		<a href="/staff/requests" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Total Requests"   value={data.counts.requests} icon="fa-solid fa-file-lines"    color="teal"   /></a>
+		<a href="/staff/requests?status=Pending" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Pending Requests" value={data.counts.pending}  icon="fa-solid fa-clock"         color="orange" /></a>
+		<a href="/staff/requests?status=Approved" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Approved"         value={data.counts.approved} icon="fa-solid fa-circle-check"  color="green"  /></a>
 	</div>
 	{#if data.role === 'Admin'}
 		<a href="/staff/students?status=pending" class="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900 hover:bg-amber-100">
-			<span class="font-semibold">Pending verification</span><span class="rounded-full bg-amber-200 px-3 py-1 text-sm font-bold">{data.counts.pendingVerification}</span>
+			<span class="font-semibold">Student IDs awaiting office verification</span><span class="rounded-full bg-amber-200 px-3 py-1 text-sm font-bold">{data.counts.pendingVerification}</span>
 		</a>
 	{/if}
 
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+		<a href="/staff/requests?status=Approved&amp;delivery=waiting" class="rounded-xl border border-essu-green/20 bg-white p-4 text-sm text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingDelivery} approved requests awaiting delivery confirmation</strong><span class="block mt-1 text-xs text-gray-500">Open a request and record delivery only after the student receives the document.</span></a>
+		<a href="/staff/requests?status=Correction%20Requested" class="rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-800 focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingCorrections} requests awaiting student corrections</strong><span class="block mt-1 text-xs text-gray-500">Review outstanding corrections and office messages.</span></a>
+	</div>
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 		<!-- Pending approval queue -->
 		<div class="xl:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">

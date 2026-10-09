@@ -1,4 +1,5 @@
 <script lang="ts">
+	import {invalidateAll} from '$app/navigation';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import type { PageData } from './$types';
@@ -13,7 +14,7 @@
 		submitted_at: string | null; needs_correction: boolean;
 	};
 
-	const req = data.request as {
+	const req = $derived(data.request as {
 		request_id: string; document_name: string; student_name: string;
 		items: Array<{ document_id: number; name: string }>;
 		student_code: string; program: string; student_type: string;
@@ -21,10 +22,10 @@
 		purpose: string; status: string; requirements: Requirement[];
 		admin_message: string | null; approved_file_path: string | null;
 		approved_file_name: string | null; date_requested: string;
-	};
-	const history = data.history as Array<{
+	});
+	const history = $derived(data.history as Array<{
 		old_status: string | null; new_status: string; changed_at: string; changed_by_name: string | null;
-	}>;
+	}>);
 
 	// Modal state
 	let correctionOpen = $state(false);
@@ -40,6 +41,18 @@
 	let flagged = $state<Record<string, boolean>>({});
 
 	let currentStatus = $state(req.status);
+	let deliveryOverride = $state(false);
+	const delivered = $derived(deliveryOverride || history.some(event => event.new_status === 'Completed'));
+	async function recordDelivery() {
+		if (!confirm('Confirm that the student has received all documents in this request?')) return;
+		submitting = true; actionError = '';
+		try {
+			const res = await fetch('/api/requests/' + req.request_id + '/complete', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})});
+			const data = await res.json();
+			if (!res.ok) { actionError = data.error ?? 'Could not record delivery.'; return; }
+			deliveryOverride = true; showToast('Delivery recorded.'); await invalidateAll();
+		} catch { actionError = 'Could not record delivery.'; } finally { submitting = false; }
+	}
 
 	function showToast(msg: string) {
 		toastMessage = msg;
@@ -75,6 +88,7 @@
 			if (!res.ok) { actionError = result.error ?? 'Action failed.'; return; }
 
 			currentStatus = result.new_status;
+			await invalidateAll();
 			correctionOpen = rejectOpen = approveOpen = false;
 			adminMessage = '';
 			approvedFile = null;
@@ -216,6 +230,8 @@
 		<!-- Sidebar: actions + history -->
 		<div class="space-y-4">
 			<!-- Actions -->
+			{#if currentStatus === 'Approved'}<div class="rounded-xl bg-white border border-essu-green/20 p-4 space-y-2"><p class="font-semibold text-sm text-essu-green">{delivered ? 'Delivery recorded' : 'Approved - ready for release'}</p><p class="text-xs text-gray-600">{delivered ? 'The office confirmed receipt of the documents.' : 'The student can download the approved file. Record delivery after confirming receipt; approval alone does not confirm delivery.'}</p>{#if !delivered}<button onclick={recordDelivery} disabled={submitting} class="px-3 py-2 rounded-lg bg-essu-green text-white text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">Record delivery</button>{/if}</div>{/if}
+			{#if actionError}<p role="alert" class="text-sm text-red-700">{actionError}</p>{/if}
 			{#if currentStatus === 'Pending' || currentStatus === 'Correction Requested'}
 				<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
 					<p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Actions</p>
@@ -334,7 +350,7 @@
 	{/snippet}
 	{#snippet footer()}
 		<button onclick={() => correctionOpen = false} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-		<button onclick={() => submitAction('correction')} disabled={submitting || !adminMessage.trim()} class="px-4 py-2 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-60 flex items-center gap-2">
+		<button onclick={() => submitAction('correction')} disabled={submitting || !adminMessage.trim() || !Object.values(flagged).some(Boolean)} class="px-4 py-2 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-60 flex items-center gap-2">
 			{#if submitting}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
 			Send Correction Request
 		</button>

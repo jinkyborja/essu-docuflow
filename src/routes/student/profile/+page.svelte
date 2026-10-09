@@ -1,4 +1,5 @@
 <script lang="ts">
+	import {formatDate} from '$lib/request-flow';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import type { PageData } from './$types';
 
@@ -237,7 +238,7 @@
 					<div><p class="text-xs text-gray-400">Last Name</p>
 						<p class="font-medium">{profile.last_name}{profile.suffix ? ', ' + profile.suffix : ''}</p>
 					</div>
-					<div><p class="text-xs text-gray-400">Date of Birth</p><p class="font-medium">{profile.date_of_birth ?? '—'}</p></div>
+					<div><p class="text-xs text-gray-400">Date of Birth</p><p class="font-medium">{formatDate(profile.date_of_birth)}</p></div>
 					<div class="col-span-2"><p class="text-xs text-gray-400">Email</p><p class="font-medium">{profile.email}</p></div>
 				</div>
 			</div>
@@ -260,7 +261,7 @@
 						{:else}—{/if}
 					</p></div>
 					<div><p class="text-xs text-gray-400">Last School Year</p><p class="font-medium">{profile.last_school_year ?? '—'}</p></div>
-					<div><p class="text-xs text-gray-400">Date Registered</p><p class="font-medium">{profile.date_registered ?? '—'}</p></div>
+					<div><p class="text-xs text-gray-400">Date Registered</p><p class="font-medium">{formatDate(profile.date_registered)}</p></div>
 				</div>
 			</div>
 		</div>

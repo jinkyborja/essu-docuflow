@@ -1,4 +1,7 @@
 <script lang="ts">
+	import {onMount} from 'svelte';
+	import MasterlistModal from '$lib/components/ui/MasterlistModal.svelte';
+	import type { MasterlistMatch } from '$lib/server/masterlist';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import type { PageData } from './$types';
@@ -6,6 +9,7 @@
 	const { data }: { data: PageData } = $props();
 
 	type Student = {
+		campus?: string | null; masterlistMatch?: MasterlistMatch; id_verified_by_name?: string | null; id_verification_note?: string | null;
 		user_id: number;
 		first_name: string;
 		middle_name: string | null;
@@ -30,8 +34,40 @@
 	let statusTab = $state<'pending'|'verified'|'rejected'|'all'>((new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('status') as 'pending'|'verified'|'rejected') || 'all');
 	let reviewStudent = $state<Student | null>(null);
 	let rejectReason = $state('');
+	let masterlistOpen = $state(false), reviewLoading = $state(false), rejecting = $state(false), verifyAnyway = $state(false), overrideNote = $state('');
+	let reviewVersion = 0;
+	const differing = $derived(reviewStudent?.masterlistMatch ? (['name', 'program', 'campus'] as const).filter(key => reviewStudent!.masterlistMatch![key] !== 'match') : []);
+	async function openReview(student: Student) {
+		const version = ++reviewVersion;
+		reviewStudent = {...student}; reviewLoading = true; reviewError = ''; rejectReason = ''; rejecting = false; verifyAnyway = false; overrideNote = '';
+		try {
+			const res = await fetch('/api/students/' + student.user_id);
+			const result = await res.json();
+			if (version !== reviewVersion || reviewStudent?.user_id !== student.user_id) return;
+			if (!res.ok) { reviewError = result.error ?? result.message ?? 'Could not load review.'; return; }
+			reviewStudent = result;
+		} catch { if (version === reviewVersion) reviewError = 'Could not load student review.'; }
+		finally { if (version === reviewVersion) reviewLoading = false; }
+	}
+	function closeReview() { reviewVersion++; reviewStudent = null; reviewLoading = false; }
+	function formatDate(value: string | null) {
+		if (!value) return '-'; const date = new Date(value);
+		return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Manila' });
+	}
+	function age(value: string | null): number | null {
+		if (!value) return null; const birth = new Date(value);
+		if (Number.isNaN(birth.getTime())) return null;
+		const parts = (date: Date) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Manila' }).formatToParts(date).map(p => [p.type, Number(p.value)]));
+		const b = parts(birth), today = parts(new Date());
+		return today.year - b.year - (today.month < b.month || (today.month === b.month && today.day < b.day) ? 1 : 0);
+	}
 	let reviewError = $state('');
 	let reviewing = $state(false);
+	onMount(() => {
+		const id = Number(new URLSearchParams(window.location.search).get('review'));
+		const student = students.find(row => row.user_id === id);
+		if (student) void openReview(student);
+	});
 	const pendingCount = $derived(students.filter(s => s.id_status === 'pending').length);
 
 	const filtered = $derived.by(() => {
@@ -52,15 +88,17 @@
 		});
 	});
 
-	async function decideId(action: 'verify'|'reject') {
-		if (!reviewStudent) return;
+	async function decideId(action: 'verify'|'reject'|'revoke') {
+		if (!reviewStudent || reviewLoading || !reviewStudent.masterlistMatch) return;
+		if (action === 'revoke' && !confirm('Revoke this decision and return the student to pending?')) return;
+		const studentUserId = reviewStudent.user_id;
 		reviewing = true; reviewError = '';
 		try {
-			const res = await fetch(`/api/students/${reviewStudent.user_id}/verify`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action, reason: rejectReason }) });
+			const res = await fetch(`/api/students/${reviewStudent.user_id}/verify`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action, reason: rejectReason, verifyAnyway, note: overrideNote, confirm: action === 'revoke' }) });
 			const result = await res.json();
 			if (!res.ok) { reviewError = result.error ?? 'Could not update verification.'; return; }
-			students = students.map(s => s.user_id === reviewStudent!.user_id ? {...s, id_status: result.id_status, id_verified_at: result.id_verified_at, id_reject_reason: result.id_reject_reason} : s);
-			reviewStudent = null; rejectReason = '';
+			students = students.map(s => s.user_id === studentUserId ? {...s, id_status: result.id_status, id_verified_at: result.id_verified_at, id_reject_reason: result.id_reject_reason} : s);
+			closeReview(); rejectReason = '';
 		} catch { reviewError = 'Network error.'; } finally { reviewing = false; }
 	}
 
@@ -165,6 +203,7 @@
 </div>
 {:else}
 <div class="space-y-5">
+	{#if data.role === 'Admin'}<div class="flex justify-end"><button onclick={() => masterlistOpen = true} class="px-4 py-2 bg-essu-green text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">Masterlist</button></div>{/if}
 	<!-- Search / Filter -->
 	<div class="flex flex-col sm:flex-row gap-3">
 		<div class="flex gap-1 overflow-x-auto">
@@ -246,6 +285,7 @@
 						<div class="flex items-center justify-between">
 							<span class="text-xs text-gray-400">{new Date(s.date_registered).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
 							<div class="flex items-center gap-1">
+								<button onclick={() => openReview(s)} class="px-2 py-1 text-xs rounded-md border border-gray-200 text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30">Review</button>
 								<button onclick={() => openEdit(s)} class="p-1.5 text-gray-400 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${fullName(s)}`}>
 									<i class="fa-solid fa-pen text-sm"></i>
 								</button>
@@ -267,7 +307,7 @@
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Program</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Last S.Y.</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Email</th>
+							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Email verification</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">ID Status</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Registered</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
@@ -307,7 +347,7 @@
 								</td>
 								<td class="px-4 py-3">
 									<div class="flex items-center gap-1">
-										<button onclick={() => { reviewStudent = s; reviewError = ''; rejectReason = ''; }} class="px-2 py-1 text-xs rounded-md border border-gray-200 text-essu-green hover:bg-gray-50">Review</button>
+										<button onclick={() => openReview(s)} class="px-2 py-1 text-xs rounded-md border border-gray-200 text-essu-green hover:bg-gray-50">Review</button>
 										<button
 											onclick={() => openEdit(s)}
 											class="p-1.5 text-gray-300 hover:text-essu-green transition-colors"
@@ -335,26 +375,55 @@
 	</div>
 </div>
 
-<Modal open={!!reviewStudent} title="Review student ID" size="md" onclose={() => reviewStudent = null}>
+{#if data.role === 'Admin'}<MasterlistModal open={masterlistOpen} onclose={() => masterlistOpen = false} />{/if}
+<Modal open={!!reviewStudent} title="Review student ID" size="lg" onclose={closeReview}>
 	{#snippet body()}
 		{#if reviewStudent}
+			{@const years = age(reviewStudent.date_of_birth)}
 			<div class="space-y-4">
-				{#if students.some(s => s.user_id !== reviewStudent!.user_id && s.student_id === reviewStudent!.student_id)}<div class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Another account has the same student ID. Cross-check before deciding.</div>{/if}
+				{#if reviewLoading}<p class="text-sm text-gray-500">Loading enrollment comparison...</p>
+				{:else if reviewStudent.masterlistMatch}
+					{@const match = reviewStudent.masterlistMatch}
+					<div role="status" class="rounded-lg border p-3 text-sm { !match.found ? 'border-red-200 bg-red-50 text-red-800' : differing.length ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-green-200 bg-green-50 text-green-800'}">
+						{!match.found ? 'Student ID not found in the masterlist' : differing.length ? 'Found, but some details differ' : 'Found in the Graduate School masterlist, all fields match'}
+						{#if match.found && differing.length}<p class="mt-1 text-xs">Check: {differing.join(', ')}. Missing values require a manual check.</p>{/if}
+					</div>
+					<div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead><tr class="text-xs text-gray-500"><th class="p-2">Field</th><th class="p-2">Student account</th><th class="p-2">Masterlist</th></tr></thead><tbody>
+						{#each ['name','program','campus'] as field}
+							{@const state = match[field as 'name'|'program'|'campus']}
+							<tr class="border-t border-gray-100"><th class="p-2 capitalize"><i aria-hidden="true" class="fa-solid {state === 'match' ? 'fa-check text-essu-green' : 'fa-triangle-exclamation text-amber-600'} mr-1"></i>{field}<span class="sr-only">: {state}</span></th><td class="p-2">{field === 'name' ? [reviewStudent.first_name, reviewStudent.middle_name, reviewStudent.last_name].filter(Boolean).join(' ') : field === 'program' ? reviewStudent.program ?? 'Not collected' : reviewStudent.campus ?? 'Not collected'}</td><td class="p-2">{field === 'name' ? [match.values?.first_name, match.values?.middle_name, match.values?.last_name].filter(Boolean).join(' ') || '-' : field === 'program' ? match.values?.program ?? '-' : match.values?.campus ?? '-'}</td></tr>
+						{/each}
+					</tbody></table></div>
+				{/if}
+				<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">For Former students and Alumni, check historical enrollment records. Absence from the current masterlist alone does not establish that an ID is invalid.</div>
 				<div class="grid grid-cols-2 gap-3 text-sm">
-					<div class="col-span-2"><p class="text-xs text-gray-400">Full name</p><p class="font-medium">{fullName(reviewStudent)}</p></div>
-					<div class="col-span-2"><p class="text-xs text-gray-400">Student ID</p><p class="font-mono text-2xl font-bold tracking-wide">{reviewStudent.student_id ?? '—'}</p></div>
-					<div><p class="text-xs text-gray-400">Program</p>{reviewStudent.program ?? '—'}</div><div><p class="text-xs text-gray-400">Student type</p>{reviewStudent.student_type ?? '—'}</div>
-					<div><p class="text-xs text-gray-400">Last school year attended</p>{reviewStudent.last_school_year ?? '—'}</div><div><p class="text-xs text-gray-400">Date of birth</p>{reviewStudent.date_of_birth ?? '—'}</div>
-					<div><p class="text-xs text-gray-400">Email</p>{reviewStudent.email}</div><div><p class="text-xs text-gray-400">Date registered</p>{reviewStudent.date_registered}</div>
+					<div class="col-span-2"><p class="text-xs text-gray-400">Student ID</p><p class="font-mono text-2xl font-bold">{reviewStudent.student_id ?? '-'}</p></div>
+					<div><p class="text-xs text-gray-400">Student type</p>{reviewStudent.student_type ?? '-'}</div><div><p class="text-xs text-gray-400">Last school year attended</p>{reviewStudent.last_school_year ?? '-'}</div>
+					<div><p class="text-xs text-gray-400">Date of birth</p>{formatDate(reviewStudent.date_of_birth)}
+						{#if years !== null}<p class="mt-1 text-xs text-gray-600">Age: {years}{#if years < 21}<span class="ml-2 text-amber-700">Check date of birth</span>{/if}</p>{/if}
+					</div><div><p class="text-xs text-gray-400">Date registered</p>{formatDate(reviewStudent.date_registered)}</div>
+					<div class="col-span-2"><p class="text-xs text-gray-400">Email</p>{reviewStudent.email}</div>
 				</div>
-				{#if data.role === 'Admin'}<label class="block text-sm font-medium text-gray-700">Rejection reason<textarea bind:value={rejectReason} maxlength="300" rows="3" placeholder="Required when rejecting" class="mt-1 w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"></textarea></label>{/if}
+				{#if reviewStudent.id_status !== 'pending'}
+					<div class="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm"><p class="font-medium capitalize">Decision: {reviewStudent.id_status}</p><p class="mt-1 text-xs text-gray-600">By {reviewStudent.id_verified_by_name ?? 'Not recorded'} on {formatDate(reviewStudent.id_verified_at)}</p>{#if reviewStudent.id_reject_reason}<p class="mt-2">Reason: {reviewStudent.id_reject_reason}</p>{/if}{#if reviewStudent.id_verification_note}<p class="mt-2">Review / verification note: {reviewStudent.id_verification_note}</p>{/if}</div>
+				{:else if data.role === 'Admin' && !reviewLoading && reviewStudent.masterlistMatch}
+					{#if rejecting}
+						<div class="space-y-2"><p class="text-xs text-gray-500">Quick reasons</p><div class="flex flex-wrap gap-2">{#each ['ID not found','Name does not match','Program does not match','Not a graduate student'] as reason}<button onclick={() => rejectReason = reason} class="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">{reason}</button>{/each}</div><label class="block text-sm text-gray-700">Rejection reason<textarea bind:value={rejectReason} maxlength="300" rows="3" class="mt-1 w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"></textarea></label></div>
+					{:else if !reviewStudent.masterlistMatch.found}
+						<div class="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2"><label class="flex gap-2 text-sm text-amber-900"><input type="checkbox" bind:checked={verifyAnyway} class="accent-essu-green focus:ring-essu-green/30" />Verify anyway</label><label class="block text-sm text-gray-700">Short verification note (required)<textarea bind:value={overrideNote} maxlength="300" rows="2" class="mt-1 w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"></textarea></label></div>
+					{/if}
+				{/if}
 				{#if reviewError}<p class="text-sm text-red-700" role="alert">{reviewError}</p>{/if}
 			</div>
 		{/if}
 	{/snippet}
 	{#snippet footer()}
-		<button onclick={() => reviewStudent = null} class="px-4 py-2 text-sm border rounded-lg">Close</button>
-		{#if data.role === 'Admin'}<button onclick={() => decideId('reject')} disabled={reviewing || !rejectReason.trim()} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg disabled:opacity-50">Reject</button><button onclick={() => decideId('verify')} disabled={reviewing} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg disabled:opacity-50">Verify student</button>{/if}
+		<button onclick={closeReview} disabled={reviewing} class="px-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Close</button>
+		{#if data.role === 'Admin' && reviewStudent && !reviewLoading && reviewStudent.masterlistMatch}
+			{#if reviewStudent.id_status !== 'pending'}<button onclick={() => decideId('revoke')} disabled={reviewing} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30">Revoke verification</button>
+			{:else if rejecting}<button onclick={() => rejecting = false} disabled={reviewing} class="px-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Cancel rejection</button><button onclick={() => decideId('reject')} disabled={reviewing || !rejectReason.trim()} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Confirm rejection</button>
+			{:else}<button onclick={() => rejecting = true} disabled={reviewing} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Reject</button><button onclick={() => decideId('verify')} disabled={reviewing || (!reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()))} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Verify student</button>{/if}
+		{/if}
 	{/snippet}
 </Modal>
 
@@ -498,8 +567,8 @@
 				<!-- Verified toggle -->
 				<div class="flex items-center justify-between px-3 py-3 bg-gray-50 rounded-lg border border-gray-100">
 					<div>
-						<p class="text-sm font-medium text-gray-700">Account Verified</p>
-						<p class="text-xs text-gray-400 mt-0.5">Verified accounts can submit document requests.</p>
+						<p class="text-sm font-medium text-gray-700">Email Verified</p>
+						<p class="text-xs text-gray-400 mt-0.5">Email verification is separate from student ID approval. Requests require office ID verification.</p>
 					</div>
 					<label class="relative inline-flex items-center cursor-pointer">
 						<input

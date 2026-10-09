@@ -4,8 +4,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { markAllRead as markStoreAllRead, markOneRead, notifUnreadCount } from '$lib/stores/notifications';
-	import { onMount } from 'svelte';
-	import type { PageData } from './$types';
+		import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
 
@@ -19,6 +18,7 @@
 		isRead: boolean;
 		actionItems?: string[];
 		relatedRequestId?: string;
+		relatedStudentId?: number;
 	};
 
 	function fmtDate(d: unknown) {
@@ -40,7 +40,7 @@
 	// Status history → isRead from is_read column
 	const fromHistory: Notif[] = $derived((data.history as Record<string, unknown>[]).map(h => {
 		const status = h.new_status as string;
-		if (!h.request_id) return { id: String(h.history_id), source: 'history' as const, type: 'system' as const, title: status, message: status, date: fmtDate(h.changed_at), isRead: !!h.is_read };
+		if (!h.request_id) return { id: String(h.history_id), source: 'history' as const, type: 'system' as const, title: status, message: status, date: fmtDate(h.changed_at), isRead: !!h.is_read, relatedStudentId: status === 'Student ID review requested' ? Number(h.changed_by) : undefined };
 		const type: Notif['type'] =
 			status === 'Correction Requested' ? 'task' :
 			status === 'Approved'             ? 'system' : 'system';
@@ -76,6 +76,7 @@
 	let search = $state('');
 	let currentPage = $state(1);
 	const itemsPerPage = 5;
+	$effect(() => { activeFilter; search; currentPage = 1; });
 	let selectedNotif = $state<Notif | null>(null);
 	let detailOpen = $state(false);
 	let toastMessage = $state('');
@@ -130,7 +131,6 @@
 		}
 	}
 
-	onMount(() => { if (unreadCount > 0) void markAllNotificationsRead(); });
 
 	function viewDetail(notif: Notif) {
 		selectedNotif = notif;
@@ -255,6 +255,7 @@ task:    { icon: 'fa-solid fa-clipboard-list',       color: 'text-purple-600', b
 						</ul>
 					</div>
 				{/if}
+				{#if selectedNotif.relatedStudentId}<a href={'/staff/students?review=' + selectedNotif.relatedStudentId} class="text-sm text-essu-green underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">Review student account and note</a>{/if}
 				{#if selectedNotif.relatedRequestId}
 					<a href="/staff/requests/{selectedNotif.relatedRequestId}"
 						class="inline-flex items-center gap-2 text-sm text-essu-green hover:underline font-medium">

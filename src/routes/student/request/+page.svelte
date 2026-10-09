@@ -119,7 +119,7 @@
 
 <div class="max-w-2xl mx-auto space-y-6">
 	{#if data.idStatus !== 'verified'}
-		<div class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">You can request documents once the Graduate School office verifies your student ID.{data.idStatus === 'rejected' && data.idRejectReason ? ` Reason: ${data.idRejectReason}` : ''}</div>
+		<div class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">{data.idStatus === 'rejected' ? 'Your student ID could not be verified. Reason: ' + (data.idRejectReason ?? 'Please contact the Graduate School office.') : "Your account is waiting for verification by the Graduate School office. We check your student ID against the master's enrollment list."}</div>
 	{:else}
 	<!-- Step indicator -->
 	<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">

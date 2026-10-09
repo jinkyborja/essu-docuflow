@@ -47,7 +47,13 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const queueItems = await fetchRequestItems(queueRows.map((r) => r.request_id as string));
 	for (const row of queueRows) { row.items = queueItems.get(row.request_id as string) ?? []; row.document_name = documentNameSummary(row.items as Array<{document_id:number;name:string}>); }
 
+	const [[deliveryRows], [correctionRows]] = await Promise.all([
+		pool.execute("SELECT COUNT(*) AS n FROM requests r WHERE r.status = 'Approved' AND NOT EXISTS (SELECT 1 FROM request_status_history h WHERE h.request_id = r.request_id AND h.new_status = 'Completed')"),
+		pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status = 'Correction Requested'")
+	]);
 	const counts = {
+		awaitingDelivery: Number((deliveryRows as Array<{n:number}>)[0].n),
+		awaitingCorrections: Number((correctionRows as Array<{n:number}>)[0].n),
 		students: (totalStudents as Record<string, unknown>[])[0].n as number,
 		requests: (totalRequests as Record<string, unknown>[])[0].n as number,
 		pending:  (pendingRows   as Record<string, unknown>[])[0].n as number,

@@ -4,8 +4,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { markAllRead as markStoreAllRead, markOneRead, notifUnreadCount } from '$lib/stores/notifications';
-	import { onMount } from 'svelte';
-	import type { PageData } from './$types';
+		import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
 
@@ -29,7 +28,9 @@
 			: 'system';
 		const adminMsg = h.admin_message as string | null;
 		const message =
-			status === 'Approved'
+			status === 'Completed'
+				? `The office recorded delivery for request ${h.request_id}. You can view its timeline in My Documents.`
+			: status === 'Approved'
 				? `Your request for ${h.document_name} (${h.request_id}) has been approved. You may now download the document from My Documents.`
 			: status === 'Rejected'
 				? `Your request for ${h.document_name} (${h.request_id}) has been rejected.${adminMsg ? ' Reason: ' + adminMsg : ''}`
@@ -61,6 +62,7 @@
 	let search = $state('');
 	let currentPage = $state(1);
 	const itemsPerPage = 5;
+	$effect(() => { activeFilter; search; currentPage = 1; });
 	let selectedNotif = $state<Notif | null>(null);
 	let detailOpen = $state(false);
 	let toastMessage = $state('');
@@ -106,7 +108,6 @@
 		}
 	}
 
-	onMount(() => { if (unreadCount > 0) void markAllNotificationsRead(); });
 
 	function viewDetail(notif: Notif) {
 		selectedNotif = notif;
@@ -232,7 +233,7 @@
 					</div>
 				{/if}
 				{#if selectedNotif.relatedRequestId}
-					<a href="/student/documents" class="inline-flex items-center gap-2 text-sm text-essu-blue hover:underline font-medium">
+					<a href={'/student/documents#' + selectedNotif.relatedRequestId} class="inline-flex items-center gap-2 text-sm text-essu-blue hover:underline font-medium">
 						<i class="fa-solid fa-arrow-right text-xs"></i>
 						View request {selectedNotif.relatedRequestId}
 					</a>

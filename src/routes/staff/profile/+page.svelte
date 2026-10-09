@@ -1,4 +1,5 @@
 <script lang="ts">
+	import {formatDate} from '$lib/request-flow';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import type { PageData } from './$types';
 
@@ -225,7 +226,7 @@
 					<div><p class="text-xs text-gray-400 mb-0.5">Role</p><p class="font-medium text-gray-700">{profile.role}</p></div>
 					<div><p class="text-xs text-gray-400 mb-0.5">Position</p><p class="font-medium text-gray-700">{profile.position ?? '—'}</p></div>
 					<div><p class="text-xs text-gray-400 mb-0.5">Email</p><p class="font-medium text-gray-700">{profile.email}</p></div>
-					<div><p class="text-xs text-gray-400 mb-0.5">Date Registered</p><p class="font-medium text-gray-700">{profile.date_registered ?? '—'}</p></div>
+					<div><p class="text-xs text-gray-400 mb-0.5">Date Registered</p><p class="font-medium text-gray-700">{formatDate(profile.date_registered)}</p></div>
 				</div>
 			</div>
 		</div>

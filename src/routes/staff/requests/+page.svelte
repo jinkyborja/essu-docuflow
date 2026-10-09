@@ -6,16 +6,18 @@
 
 	const { data }: { data: PageData } = $props();
 
-	type Req = {
+	type Req = { completed_at?: string | null;
 		request_id: string; document_name: string; student_name: string;
 		student_code: string; program: string; status: string;
 		purpose: string; date_requested: string; items: Array<{document_id:number;name:string}>;
 	};
 
-	let requests = $state(data.requests as Req[]);
+	let requests = $state<Req[]>([]);
 
 	let search = $state('');
 	let filterStatus = $state('');
+	let deliveryWaiting = $state(false);
+	$effect(() => { requests = data.requests as Req[]; filterStatus = data.initialStatus; deliveryWaiting = data.deliveryWaiting; });
 
 	let deletingId = $state<string | null>(null);
 	let expanded = $state<string[]>([]);
@@ -45,7 +47,7 @@
 				r.student_code?.toLowerCase().includes(q) ||
 				(r.items ?? []).some((item) => item.name.toLowerCase().includes(q));
 			const matchStatus = !filterStatus || r.status === filterStatus;
-			return matchSearch && matchStatus;
+			return matchSearch && matchStatus && (!deliveryWaiting || (r.status === 'Approved' && !r.completed_at));
 		})
 	);
 
@@ -58,6 +60,7 @@
 </script>
 
 <div class="space-y-5">
+	<label class="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" bind:checked={deliveryWaiting} class="accent-essu-green focus:ring-essu-green/30" />Only approved requests awaiting delivery confirmation</label>
 	<!-- Stats -->
 	<div class="ui-stat-grid grid grid-cols-2 xl:grid-cols-4 gap-4">
 		<StatCard label="Pending" value={statusCounts.pending} icon="fa-solid fa-clock" color="orange" />
@@ -113,7 +116,7 @@
 							</div>
 							<Badge value={req.status.toLowerCase()} />
 						</div>
-						<p class="text-sm text-gray-700">{req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => toggleItems(req.request_id)}>+{req.items.length - 1} more</button>{/if}</p>
+						<p class="text-sm text-gray-700">{req.items?.[0]?.name ?? req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => toggleItems(req.request_id)}>+{req.items.length - 1} more</button>{/if}</p>
 						{#if expanded.includes(req.request_id)}<p class="mt-1 text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
 						<div class="flex items-center justify-between gap-2 text-xs text-gray-400">
 							<span class="font-mono">{req.request_id}</span>
