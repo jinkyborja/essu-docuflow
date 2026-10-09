@@ -28,7 +28,7 @@
 		<i class="{icon} text-xl"></i>
 	</div>
 	<div class="flex-1 min-w-0">
-		<p class="text-sm text-gray-500 truncate">{label}</p>
+		<p class="text-sm text-gray-500 leading-snug">{label}</p>
 		<p class="text-2xl font-bold text-gray-800 leading-tight">{value}</p>
 		{#if subtitle}
 			<p class="text-xs text-gray-400 mt-0.5">{subtitle}</p>

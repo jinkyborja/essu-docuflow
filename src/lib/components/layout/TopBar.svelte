@@ -38,7 +38,7 @@
 	<!-- Mobile hamburger -->
 	<button
 		onclick={() => sidebarMobileOpen.update((v) => !v)}
-		class="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+		class="lg:hidden flex h-11 w-11 shrink-0 items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
 		aria-label="Toggle navigation"
 		aria-controls="portal-navigation"
 		aria-expanded={$sidebarMobileOpen}
@@ -47,7 +47,15 @@
 	</button>
 
 	<!-- Page title -->
-	<h1 class="text-lg font-semibold text-gray-800 flex-1 truncate">{title}</h1>
+	<button
+		onclick={() => sidebarCollapsed.update((v) => !v)}
+		class="hidden lg:flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+		aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+		aria-controls="portal-navigation"
+		aria-expanded={!collapsed}
+		title="Toggle navigation (Ctrl+B)"
+	><i class="fa-solid fa-bars-staggered" aria-hidden="true"></i></button>
+	<div class="flex-1 min-w-0"><p class="topbar-workspace">ESSU DocuFlow</p><p class="text-sm font-medium text-gray-800 truncate">{title}</p></div>
 
 	<div class="flex items-center gap-2">
 		<a
@@ -84,7 +92,7 @@
 		</a>
 	</div>
 </header>
-\n+<style>
+<style>
 	.portal-notification-count { animation: notification-scale-in 150ms ease-out; }
 	@keyframes notification-scale-in { from { transform: scale(0.7); } to { transform: scale(1); } }
 	@media (prefers-reduced-motion: reduce) { .portal-notification-count { animation: none; } }

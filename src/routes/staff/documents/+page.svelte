@@ -153,11 +153,8 @@
 
 <div class="space-y-5">
 	<!-- Header -->
-	<div class="flex items-center justify-between">
-		<div>
-			<h2 class="text-lg font-semibold text-gray-800">Document Library</h2>
-			<p class="text-sm text-gray-500 mt-0.5">Manage requestable documents and their templates.</p>
-		</div>
+	<div class="page-toolbar flex items-center justify-between gap-3">
+		<p class="text-sm text-gray-500">Document catalog</p>
 		<button
 			onclick={openAdd}
 			class="flex items-center gap-2 px-4 py-2 bg-essu-green text-white rounded-lg text-sm font-medium hover:bg-essu-green-mid transition-colors"

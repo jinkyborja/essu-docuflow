@@ -106,10 +106,6 @@
 {/if}
 
 <div class="space-y-5">
-	<div>
-		<h2 class="text-lg font-semibold text-gray-800">My Document Requests</h2>
-		<p class="text-sm text-gray-500 mt-0.5">Track the status of your document requests.</p>
-	</div>
 
 	{#if requests.length === 0}
 		<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-16 text-center">

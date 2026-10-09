@@ -2,6 +2,7 @@
 	import VerificationHelp from '$lib/components/ui/VerificationHelp.svelte';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import TopBar from '$lib/components/layout/TopBar.svelte';
+	import PageIntro from '$lib/components/layout/PageIntro.svelte';
 	import { page } from '$app/stores';
 	import { sidebarCollapsed } from '$lib/stores/sidebar';
 	import { notifUnreadCount, startNotifications } from '$lib/stores/notifications';
@@ -39,14 +40,16 @@
 </script>
 
 <div class="portal-layout flex min-h-screen bg-gray-50">
+	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Sidebar items={studentNav} role="student" />
 
 	<div
-		class="flex-1 flex flex-col transition-all duration-300 {collapsed ? 'lg:ml-16' : 'lg:ml-60'}"
+		class="portal-content min-w-0 flex-1 flex flex-col transition-all duration-300 {collapsed ? 'lg:ml-16' : 'lg:ml-60'}"
 	>
 		<TopBar title={pageTitle} />
 
-		<main class="portal-main flex-1 mt-16 p-6">
+		<main id="main-content" tabindex="-1" class="portal-main flex-1 mt-16 p-6">
+			<PageIntro title={pageTitle} role="student" />
 			{#if data.layoutUser.idStatus === 'pending'}
 				<div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">Your account is waiting for verification by the Graduate School office. We check your student ID against the master's enrollment list.</div>
 			{:else if data.layoutUser.idStatus === 'rejected'}

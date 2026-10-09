@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
 
 	type NavItem = { label: string; icon: string; href: string; adminOnly?: boolean; badge?: number };
@@ -8,9 +9,18 @@
 
 	const { items, role, userRole }: Props = $props();
 
-	const collapsed  = $derived($sidebarCollapsed);
+	const collapsed  = $derived($sidebarCollapsed && !$sidebarMobileOpen);
 	const mobileOpen = $derived($sidebarMobileOpen);
 	const currentPath = $derived($page.url.pathname);
+	let navigation: HTMLElement;
+	$effect(() => {
+		if (!mobileOpen) return;
+		const previousFocus = document.activeElement as HTMLElement | null;
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		void tick().then(() => navigation?.querySelector<HTMLElement>('a[aria-current="page"], button')?.focus());
+		return () => { document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
+	});
 
 	const logoLabel = $derived(
 		role === 'staff'
@@ -29,6 +39,7 @@
 	}
 
 	function closeMobile() { sidebarMobileOpen.set(false); }
+	function handleResize() { if (window.innerWidth >= 1024 && mobileOpen) closeMobile(); }
 
 	async function logout() {
 		await fetch('/api/logout', { method: 'POST' });
@@ -36,6 +47,13 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
+		if (mobileOpen && e.key === 'Escape') { closeMobile(); return; }
+		if (mobileOpen && e.key === 'Tab') {
+			const controls = navigation.querySelectorAll<HTMLElement>('a[href], button:not([disabled])');
+			const first = controls[0], last = controls[controls.length - 1];
+			if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+			else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+		}
 		if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
 			e.preventDefault();
 			sidebarCollapsed.update((v) => !v);
@@ -43,7 +61,7 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onresize={handleResize} />
 
 <!-- Mobile backdrop -->
 {#if mobileOpen}
@@ -52,6 +70,7 @@
 
 <!-- Sidebar — same green background for both roles -->
 <aside
+	bind:this={navigation}
 	id="portal-navigation"
 	class="portal-sidebar fixed top-0 left-0 h-full z-40 flex flex-col bg-linear-to-b from-essu-green to-essu-green-mid
 		text-white shadow-xl transition-all duration-300 ease-in-out
@@ -70,6 +89,7 @@
 				<p class="text-xs leading-tight {logoSub}">{logoLabel}</p>
 			</div>
 		{/if}
+		<button type="button" onclick={closeMobile} class="ml-auto lg:hidden h-10 w-10 rounded-lg text-white/80 hover:bg-white/10" aria-label="Close navigation"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
 	</div>
 
 	<!-- Nav -->

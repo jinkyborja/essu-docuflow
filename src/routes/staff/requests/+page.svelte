@@ -106,7 +106,7 @@
 			<EmptyState message="No requests found" icon="fa-solid fa-inbox" />
 		{:else}
 			<!-- Mobile card list -->
-			<div class="md:hidden divide-y divide-gray-100">
+			<div class="xl:hidden divide-y divide-gray-100">
 				{#each filtered as req}
 					<div class="p-4 space-y-2">
 						<div class="flex items-start justify-between gap-2">
@@ -141,8 +141,8 @@
 				{/each}
 			</div>
 			<!-- Desktop table -->
-			<div class="hidden md:block overflow-x-auto">
-				<table class="w-full text-sm">
+			<div class="hidden xl:block overflow-x-auto">
+				<table class="request-list-table w-full text-sm">
 					<thead class="bg-gray-50 border-b border-gray-100">
 						<tr>
 							{#each ['Request ID', 'Student', 'Program', 'Document', 'Date', 'Status', ''] as col}

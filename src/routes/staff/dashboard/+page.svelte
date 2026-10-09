@@ -32,7 +32,7 @@
 		<a href="/staff/requests?status=Approved&amp;delivery=waiting" class="rounded-xl border border-essu-green/20 bg-white p-4 text-sm text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingDelivery} approved requests awaiting delivery confirmation</strong><span class="block mt-1 text-xs text-gray-500">Open a request and record delivery only after the student receives the document.</span></a>
 		<a href="/staff/requests?status=Correction%20Requested" class="rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-800 focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingCorrections} requests awaiting student corrections</strong><span class="block mt-1 text-xs text-gray-500">Review outstanding corrections and office messages.</span></a>
 	</div>
-	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
 		<!-- Pending approval queue -->
 		<div class="xl:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
 			<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -48,8 +48,19 @@
 			{#if data.pendingQueue.length === 0}
 				<EmptyState message="No pending requests" icon="fa-solid fa-inbox" />
 			{:else}
-				<div class="overflow-x-auto">
-					<table class="w-full text-sm">
+				<div class="md:hidden divide-y divide-gray-100">
+					{#each data.pendingQueue as req}
+						<article class="p-4 space-y-3">
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0"><p class="text-sm font-semibold">{req.first_name} {req.last_name}</p><p class="text-xs text-gray-500 mt-1">{req.request_id}</p></div>
+								<a href="/staff/requests/{req.request_id}" class="page-primary-action">Review <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+							</div>
+							<p class="text-sm text-gray-600">{req.document_name}</p>
+						</article>
+					{/each}
+				</div>
+				<div class="hidden md:block overflow-x-auto">
+					<table class="office-queue-table w-full text-sm">
 						<thead class="bg-gray-50 border-b border-gray-100">
 							<tr>
 								{#each ['Request ID', 'Student', 'Document', 'Date', 'Action'] as col}

@@ -254,10 +254,8 @@
 		<p>{periodLabel} · Generated {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} · {staffName}</p>
 	</div>
 
-	<header class="report-page-header">
+	<header class="report-page-header page-toolbar">
 		<div>
-			<p class="report-eyebrow">Registrar analytics</p>
-			<h2>Reports &amp; Analytics</h2>
 			<p class="report-subtitle">Counts refer to requests; one request can include several documents.</p>
 		</div>
 		<div class="report-heading-meta">
@@ -434,22 +432,6 @@
 		justify-content: space-between;
 		gap: 1.5rem;
 		margin: 0 0 1.4rem;
-	}
-
-	.report-eyebrow {
-		margin: 0 0 0.25rem;
-		color: #567366;
-		font-size: 0.68rem;
-		font-weight: 700;
-		letter-spacing: 0.09em;
-		text-transform: uppercase;
-	}
-
-	.report-page-header h2 {
-		margin: 0;
-		font-size: clamp(1.35rem, 2vw, 1.75rem);
-		font-weight: 700;
-		line-height: 1.2;
 	}
 
 	.report-subtitle,
@@ -684,7 +666,6 @@
 	@media (max-width: 480px) {
 		.report-kpis { grid-template-columns: 1fr; }
 		.report-kpi { min-height: 104px; }
-		.report-page-header h2 { font-size: 1.35rem; }
 		.report-donut-layout { align-items: flex-start; flex-direction: column; }
 		.report-donut { width: 132px; height: 132px; align-self: center; }
 		.report-status-legend { width: 100%; }

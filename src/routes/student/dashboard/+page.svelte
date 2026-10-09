@@ -18,32 +18,23 @@
 	);
 
 	const quickActions = [
-		{ icon: 'fa-solid fa-file-circle-plus', label: 'Request Document', href: '/student/request', color: 'bg-essu-green text-white hover:bg-essu-green-mid' },
-		{ icon: 'fa-solid fa-folder-open', label: 'My Documents', href: '/student/documents', color: 'bg-blue-600 text-white hover:bg-blue-700' },
-		{ icon: 'fa-regular fa-bell', label: 'Notifications', href: '/student/notifications', color: 'bg-purple-600 text-white hover:bg-purple-700' },
-		{ icon: 'fa-solid fa-circle-user', label: 'My Profile', href: '/student/profile', color: 'bg-gray-700 text-white hover:bg-gray-800' }
+		{ icon: 'fa-solid fa-file-circle-plus', label: 'Request Document', href: '/student/request', color: 'quick-action-primary' },
+		{ icon: 'fa-solid fa-folder-open', label: 'My Documents', href: '/student/documents', color: 'quick-action-secondary' },
+		{ icon: 'fa-regular fa-bell', label: 'Notifications', href: '/student/notifications', color: 'quick-action-secondary' },
+		{ icon: 'fa-solid fa-circle-user', label: 'My Profile', href: '/student/profile', color: 'quick-action-secondary' }
 	];
 </script>
 
 <div class="space-y-5">
-	<!-- Welcome banner -->
-	<div class="student-welcome bg-gradient-to-r from-essu-green to-essu-green-mid rounded-2xl p-6 text-white">
-		<p class="text-white/80 text-sm mb-1">Welcome back,</p>
-		<h2 class="text-2xl font-bold">{data.layoutUser.name}</h2>
-		<p class="text-white/70 text-sm mt-1">
-			{data.layoutUser.program}{data.layoutUser.studentId ? ` · ID: ${data.layoutUser.studentId}` : ''}
-		</p>
-	</div>
-
-	<div class="rounded-xl border border-gray-100 bg-white p-4 text-sm">
+	<div class="next-step-panel rounded-xl border border-gray-100 bg-white p-5 text-sm">
 		<p class="font-semibold text-gray-800">Your next step</p><p class="mt-1 text-gray-600">{data.layoutUser.idStatus !== 'verified' ? 'Check your verification banner above. You can browse Forms while the office reviews your account.' : activeRequests.some(req => req.status === 'Correction Requested') ? 'You have a request needing corrections. Open it below to update the flagged files.' : activeRequests.some(req => req.status === 'Approved') ? 'An approved document is ready. Open My Documents to download it.' : activeRequests.length ? 'Your request is waiting for office review. Track it below.' : 'Choose Request Document to start. The wizard shows the requirements and linked forms.'}</p>
 	</div>
-	<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+	<div class="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
 		<!-- Active Requests -->
 		<div class="xl:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
 			<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
 				<div>
-					<h3 class="font-semibold text-gray-800">Active Document Requests</h3>
+					<h2 class="font-semibold text-gray-800">Active Document Requests</h2>
 					<p class="text-xs text-gray-400 mt-0.5">{activeRequests.length} in progress</p>
 				</div>
 				<a href="/student/documents" class="text-sm text-essu-green font-medium hover:underline">
@@ -62,7 +53,7 @@
 			{:else}
 				<div class="divide-y divide-gray-50">
 					{#each activeRequests as req}
-						<div class="flex items-center gap-4 px-5 py-3.5">
+						<div class="dashboard-request-row flex items-center gap-4 px-5 py-3.5">
 							<div class="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
 								<i class="fa-solid fa-file text-blue-500 text-sm"></i>
 							</div>
@@ -85,7 +76,7 @@
 			<!-- Notifications snippet -->
 			<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
 				<div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-					<h3 class="font-semibold text-gray-800 text-sm">Recent Notifications</h3>
+					<h2 class="font-semibold text-gray-800 text-sm">Recent Notifications</h2>
 					<a href="/student/notifications" class="text-xs text-essu-green hover:underline">View all</a>
 				</div>
 				{#if recentNotifs.length === 0}
@@ -107,17 +98,17 @@
 
 			<!-- Quick Actions -->
 			<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-				<h3 class="font-semibold text-gray-800 mb-3 text-sm">Quick Actions</h3>
-				<div class="grid grid-cols-2 gap-2">
+				<h2 class="font-semibold text-gray-800 mb-3 text-sm">Quick Actions</h2>
+				<div class="grid grid-cols-1 gap-2">
 					{#each quickActions as action}
 						<a
 							href={action.href}
 							aria-disabled={action.href === '/student/request' && data.layoutUser.idStatus !== 'verified'}
 							onclick={(event) => { if (action.href === '/student/request' && data.layoutUser.idStatus !== 'verified') event.preventDefault(); }}
-							class="quick-action-link {action.href === '/student/request' && data.layoutUser.idStatus !== 'verified' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : action.color} flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-colors"
+							class="quick-action-link {action.href === '/student/request' && data.layoutUser.idStatus !== 'verified' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : action.color} flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors"
 						>
 							<i class="{action.icon} text-lg"></i>
-							<span class="text-xs font-medium leading-tight">{action.label}</span>
+							<span class="flex-1 text-sm font-medium">{action.label}</span><i class="fa-solid fa-arrow-right text-xs" aria-hidden="true"></i>
 						</a>
 					{/each}
 				</div>

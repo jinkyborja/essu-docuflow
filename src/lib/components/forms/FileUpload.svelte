@@ -9,7 +9,8 @@
 
 	const { label, accept = '*', required = false, file = null, onFileSelect }: Props = $props();
 
-	let inputEl: HTMLInputElement;
+	let inputEl = $state<HTMLInputElement>();
+	const labelId = $props.id();
 	let isDragging = $state(false);
 
 	function handleFileChange(e: Event) {
@@ -36,10 +37,10 @@
 </script>
 
 <div class="space-y-1.5">
-	<label class="text-sm font-medium text-gray-700">
+	<p id={labelId} class="text-sm font-medium text-gray-700">
 		{label}
 		{#if required}<span class="text-red-500 ml-0.5">*</span>{/if}
-	</label>
+	</p>
 
 	{#if file}
 		<!-- File selected state -->
@@ -58,11 +59,12 @@
 		<!-- Drop zone -->
 		<div
 			role="button"
+			aria-labelledby={labelId}
 			tabindex="0"
-			class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
+			class="ui-file-dropzone border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
 				{isDragging ? 'border-essu-green bg-green-50' : 'border-gray-200 hover:border-essu-green-light hover:bg-gray-50'}"
-			onclick={() => inputEl.click()}
-			onkeydown={(e) => e.key === 'Enter' && inputEl.click()}
+			onclick={() => inputEl?.click()}
+			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputEl?.click(); } }}
 			ondrop={handleDrop}
 			ondragover={handleDragOver}
 			ondragleave={() => (isDragging = false)}
@@ -77,6 +79,7 @@
 			bind:this={inputEl}
 			type="file"
 			{accept}
+			aria-labelledby={labelId}
 			class="hidden"
 			onchange={handleFileChange}
 		/>

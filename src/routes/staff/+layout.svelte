@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import TopBar from '$lib/components/layout/TopBar.svelte';
+	import PageIntro from '$lib/components/layout/PageIntro.svelte';
 	import { page } from '$app/stores';
 	import { sidebarCollapsed } from '$lib/stores/sidebar';
 	import { notifUnreadCount, startNotifications } from '$lib/stores/notifications';
@@ -40,21 +41,23 @@
 	};
 
 	const pageTitle = $derived(
-		titleMap[$page.url.pathname] ?? (data.role?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Staff Portal')
+		titleMap[$page.url.pathname] ?? ($page.url.pathname.startsWith('/staff/requests/') ? 'Request details' : data.role?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Staff Portal')
 	);
 	const collapsed = $derived($sidebarCollapsed);
 </script>
 
 <div class="portal-layout flex min-h-screen bg-gray-50">
+	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Sidebar items={staffNav} role="staff" userRole={data.role} />
 
 	<!-- Main content area — offset by sidebar width -->
 	<div
-		class="flex-1 flex flex-col transition-all duration-300 {collapsed ? 'lg:ml-16' : 'lg:ml-60'}"
+		class="portal-content min-w-0 flex-1 flex flex-col transition-all duration-300 {collapsed ? 'lg:ml-16' : 'lg:ml-60'}"
 	>
 		<TopBar title={pageTitle} />
 
-		<main class="portal-main flex-1 mt-16 p-6">
+		<main id="main-content" tabindex="-1" class="portal-main flex-1 mt-16 p-6">
+			<PageIntro title={pageTitle} role="staff" />
 			{@render children()}
 		</main>
 	</div>

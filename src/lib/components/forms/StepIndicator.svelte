@@ -36,7 +36,7 @@
 				{/if}
 			</div>
 			<p
-				class="text-xs mt-1.5 font-medium text-center leading-tight hidden sm:block
+				class="text-xs mt-1.5 font-medium text-center leading-tight
 					{isCurrent ? 'text-essu-green' : isCompleted ? 'text-gray-600' : 'text-gray-400'}"
 			>
 				{step.label}

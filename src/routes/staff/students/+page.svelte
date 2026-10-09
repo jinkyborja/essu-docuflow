@@ -253,7 +253,7 @@
 			</div>
 		{:else}
 			<!-- Mobile card list -->
-			<div class="md:hidden divide-y divide-gray-100">
+			<div class="xl:hidden divide-y divide-gray-100">
 				{#each filtered as s}
 					<div class="p-4 space-y-2">
 						<div class="flex items-start justify-between gap-2">
@@ -298,8 +298,8 @@
 				{/each}
 			</div>
 			<!-- Desktop table -->
-			<div class="hidden md:block overflow-x-auto">
-				<table class="w-full text-sm">
+			<div class="hidden xl:block overflow-x-auto">
+				<table class="student-list-table w-full text-sm">
 					<thead>
 						<tr class="bg-gray-50 border-b border-gray-100">
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Student</th>
