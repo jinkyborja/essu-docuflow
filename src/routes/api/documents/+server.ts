@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
-import { fetchDocumentRequirements, replaceDocumentRequirements } from '$lib/server/requirements';
+import { fetchDocumentRequirements, replaceDocumentRequirements, type RequirementSettings } from '$lib/server/requirements';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateUpload } from '$lib/server/upload-validation';
@@ -55,9 +55,15 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		templateName = templateFile.name;
 	}
 
-	let parsedReqs: Array<{ name: string; description?: string; in_person?: boolean }>;
+	let parsedReqs: Array<{ name: string; description?: string; in_person?: boolean } & RequirementSettings>;
 	try {
 		parsedReqs = JSON.parse(requirementsJson);
+		if (!Array.isArray(parsedReqs) || parsedReqs.some(item => !item || typeof item.name !== 'string' || !item.name.trim() ||
+			(item.form_id != null && (!Number.isInteger(item.form_id) || item.form_id <= 0)) ||
+			(item.needs_signature != null && typeof item.needs_signature !== 'boolean') ||
+			(item.signature_note != null && (typeof item.signature_note !== 'string' || item.signature_note.length > 200)))) {
+			return json({ error: 'Invalid requirement form or signature settings' }, { status: 400 });
+		}
 	} catch {
 		return json({ error: 'Invalid requirements payload' }, { status: 400 });
 	}
@@ -132,9 +138,15 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		if (!error) { templatePath = path; templateName = templateFile.name; }
 	}
 
-	let parsedReqs: Array<{ name: string; description?: string; in_person?: boolean }>;
+	let parsedReqs: Array<{ name: string; description?: string; in_person?: boolean } & RequirementSettings>;
 	try {
 		parsedReqs = JSON.parse(requirementsJson);
+		if (!Array.isArray(parsedReqs) || parsedReqs.some(item => !item || typeof item.name !== 'string' || !item.name.trim() ||
+			(item.form_id != null && (!Number.isInteger(item.form_id) || item.form_id <= 0)) ||
+			(item.needs_signature != null && typeof item.needs_signature !== 'boolean') ||
+			(item.signature_note != null && (typeof item.signature_note !== 'string' || item.signature_note.length > 200)))) {
+			return json({ error: 'Invalid requirement form or signature settings' }, { status: 400 });
+		}
 	} catch {
 		return json({ error: 'Invalid requirements payload' }, { status: 400 });
 	}

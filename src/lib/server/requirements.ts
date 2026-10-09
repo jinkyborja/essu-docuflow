@@ -7,8 +7,13 @@
 
 import type { PoolConnection } from 'mysql2/promise';
 import pool from './db';
+import { originalFileName } from './forms';
+export type RequirementSettings = { form_id?: number | null; needs_signature?: boolean | null; signature_note?: string | null };
+export type LinkedFormFile = { public_url: string; name: string; page_no: number };
 
-export type RequirementItem = {
+export type RequirementItem = RequirementSettings & {
+	form_title?: string | null;
+	form_files?: LinkedFormFile[];
 	name: string;
 	description: string;
 	in_person: boolean;
@@ -28,6 +33,11 @@ function toIso(value: unknown): string | null {
 function rowToItem(r: Record<string, unknown>): RequirementItem {
 	return {
 		name: r.name as string,
+		form_id: r.form_id == null ? null : Number(r.form_id),
+		needs_signature: r.needs_signature == null ? null : Boolean(r.needs_signature),
+		signature_note: (r.signature_note as string) ?? null,
+		form_title: (r.form_title as string) ?? null,
+		form_files: [],
 		description: (r.description as string) ?? '',
 		in_person: Boolean(r.in_person),
 		file_path: (r.file_path as string) ?? null,
@@ -45,10 +55,11 @@ export async function fetchDocumentRequirements(
 	if (documentIds.length === 0) return map;
 	const marks = documentIds.map(() => '?').join(',');
 	const [rows] = await pool.execute(
-		`SELECT dr.document_id, rq.name, rq.description, dr.in_person,
+		`SELECT dr.document_id, rq.name, rq.description, rq.form_id, rq.needs_signature, rq.signature_note, f.title AS form_title, dr.in_person,
 		        NULL AS file_path, NULL AS file_name, NULL AS submitted_at, FALSE AS needs_correction
 		 FROM document_requirements dr
 		 JOIN requirements rq ON rq.requirement_id = dr.requirement_id
+		 LEFT JOIN forms f ON f.form_id = rq.form_id
 		 WHERE dr.document_id IN (${marks})
 		 ORDER BY dr.document_id, dr.sort_order`,
 		documentIds
@@ -58,6 +69,7 @@ export async function fetchDocumentRequirements(
 		if (!map.has(id)) map.set(id, []);
 		map.get(id)!.push(rowToItem(r));
 	}
+	await attachFormFiles([...map.values()].flat());
 	return map;
 }
 
@@ -69,10 +81,11 @@ export async function fetchRequestRequirements(
 	if (requestIds.length === 0) return map;
 	const marks = requestIds.map(() => '?').join(',');
 	const [rows] = await pool.execute(
-		`SELECT rr.request_id, rq.name, rq.description, rr.in_person,
+		`SELECT rr.request_id, rq.name, rq.description, rq.form_id, rq.needs_signature, rq.signature_note, f.title AS form_title, rr.in_person,
 		        rr.file_path, rr.file_name, rr.submitted_at, rr.needs_correction
 		 FROM request_requirements rr
 		 JOIN requirements rq ON rq.requirement_id = rr.requirement_id
+		 LEFT JOIN forms f ON f.form_id = rq.form_id
 		 WHERE rr.request_id IN (${marks})
 		 ORDER BY rr.request_id, rr.sort_order`,
 		requestIds
@@ -82,7 +95,20 @@ export async function fetchRequestRequirements(
 		if (!map.has(id)) map.set(id, []);
 		map.get(id)!.push(rowToItem(r));
 	}
+	await attachFormFiles([...map.values()].flat());
 	return map;
+}
+
+async function attachFormFiles(items: RequirementItem[]): Promise<void> {
+	const ids = [...new Set(items.map(item => item.form_id).filter((id): id is number => id != null))];
+	if (!ids.length) return;
+	const [rows] = await pool.execute(
+		`SELECT form_id, page_no, storage_path, public_url FROM form_files WHERE form_id IN (${ids.map(() => '?').join(',')}) ORDER BY page_no, file_id`, ids
+	);
+	for (const item of items) item.form_files = (rows as Record<string, unknown>[])
+		.filter(row => Number(row.form_id) === item.form_id)
+		.map(row => ({ public_url: String(row.public_url), page_no: Number(row.page_no),
+			name: originalFileName(row.storage_path as string | null, String(row.public_url).split('/').pop() ?? 'form-file') }));
 }
 
 /** Convenience wrapper for the single-record case. */
@@ -126,9 +152,25 @@ export async function ensureRequirementIds(
 export async function replaceDocumentRequirements(
 	conn: PoolConnection,
 	documentId: number,
-	items: { name: string; description?: string; in_person?: boolean }[]
+	items: ({ name: string; description?: string; in_person?: boolean } & RequirementSettings)[]
 ): Promise<void> {
 	const ids = await ensureRequirementIds(conn, items);
+	// Only document editing writes shared settings; student submissions cannot change them.
+	for (const item of items) {
+		if (item.form_id === undefined && item.needs_signature === undefined && item.signature_note === undefined) continue;
+		const requirementId = ids.get(item.name);
+		if (requirementId == null) continue;
+		await conn.execute(
+			`UPDATE requirements SET
+				form_id = CASE WHEN ? THEN ? ELSE form_id END,
+				needs_signature = CASE WHEN ? THEN ? ELSE needs_signature END,
+				signature_note = CASE WHEN ? THEN ? ELSE signature_note END
+			 WHERE requirement_id = ?`,
+			[item.form_id !== undefined, item.form_id ?? null,
+			 item.needs_signature !== undefined, item.needs_signature == null ? null : Number(item.needs_signature),
+			 item.signature_note !== undefined, item.signature_note?.trim() || null, requirementId]
+		);
+	}
 	await conn.execute('DELETE FROM document_requirements WHERE document_id = ?', [documentId]);
 	for (const [i, item] of items.entries()) {
 		const rid = ids.get(item.name);

@@ -12,6 +12,8 @@ DROP TABLE IF EXISTS request_items;
 DROP TABLE IF EXISTS requests;
 DROP TABLE IF EXISTS documents;
 DROP TABLE IF EXISTS requirements;
+DROP TABLE IF EXISTS form_files;
+DROP TABLE IF EXISTS forms;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS programs;
 DROP TABLE IF EXISTS purposes;
@@ -173,6 +175,14 @@ CREATE TABLE form_files (
     public_url VARCHAR(1024) NOT NULL,
     FOREIGN KEY (form_id) REFERENCES forms(form_id) ON DELETE CASCADE
 );
+
+-- forms.form_id is signed INT in db.sql; no character collation applies.
+ALTER TABLE requirements
+    ADD COLUMN form_id INT NULL,
+    ADD COLUMN needs_signature BOOLEAN NULL DEFAULT 0,
+    ADD COLUMN signature_note VARCHAR(200) NULL,
+    ADD CONSTRAINT fk_requirements_form
+        FOREIGN KEY (form_id) REFERENCES forms(form_id) ON DELETE SET NULL;
 
 INSERT INTO forms (title, category, code, description, fields, download_name) VALUES
 ('Certificate of Registration', 'Registration', NULL, 'Certificate of Registration form.', JSON_ARRAY(), 'ESSU-Certificate-of-Registration'),

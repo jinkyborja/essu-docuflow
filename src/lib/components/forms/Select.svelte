@@ -13,6 +13,7 @@
 	};
 
 	interface Props {
+		id?: string;
 		options: SelectOption[];
 		value?: string;
 		placeholder?: string;
@@ -22,6 +23,7 @@
 	}
 
 	let {
+		id,
 		options,
 		value = $bindable(''),
 		placeholder = 'Select...',
@@ -114,6 +116,7 @@
 
 <div class="relative">
 	<button
+		{id}
 		bind:this={triggerEl}
 		type="button"
 		{disabled}

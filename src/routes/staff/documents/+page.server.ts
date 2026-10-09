@@ -26,5 +26,6 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const reqMap = await fetchDocumentRequirements(docs.map((d) => d.document_id as number));
 	for (const d of docs) d.requirements = reqMap.get(d.document_id as number) ?? [];
 
-	return { documents: docs };
+	const [forms] = await pool.execute('SELECT form_id, title FROM forms ORDER BY title');
+	return { documents: docs, forms: forms as Array<{ form_id: number; title: string }> };
 };

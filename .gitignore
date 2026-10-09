@@ -27,11 +27,7 @@ vite.config.ts.timestamp-*
 !database/migrations/*.sql
 *.sqlite
 *.db
-qa/**/*.local*
-
-# Local-only database provisioning, credentials, data and unfinished drafts.
-/qa/docuflow/local/
-/qa/docuflow/h09-draft/
+# Database dumps and local data.
 *.dump
 *.sql.gz
 *.sql.zip
@@ -40,4 +36,3 @@ qa/**/*.local*
 *.db-shm
 **/dumps/
 **/database-dumps/
-/qa/**/data/

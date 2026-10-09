@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { RequirementSettings } from '$lib/server/requirements';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import type { PageData } from './$types';
 
@@ -6,7 +7,7 @@
 
 	type DocRow = {
 		document_id: number; name: string; template_path: string | null;
-		template_name: string | null; requirements: Array<{ name: string; description?: string; in_person: boolean }>;
+		template_name: string | null; requirements: Array<{ name: string; description?: string; in_person: boolean } & RequirementSettings>;
 		upload_date: string; uploaded_by_name: string;
 	};
 
@@ -24,7 +25,9 @@
 	let existingTemplateName = $state<string | null>(null);
 	let removeTemplate = $state(false);
 
-	type CustomReq = { name: string; in_person: boolean };
+	type CustomReq = { name: string; description?: string; in_person: boolean; form_id: number | null; needs_signature: boolean; signature_note: string };
+	const forms = $derived(data.forms);
+	const emptySettings = () => ({ form_id: null as number | null, needs_signature: false, signature_note: '' });
 	let customReqs = $state<CustomReq[]>([]);
 
 	const PRESET_REQS = [
@@ -35,8 +38,8 @@
 		{ name: 'Request Entry Form', description: 'For TOR/certificates when grades are incomplete' },
 	];
 
-	type ReqOption = { name: string; description: string; checked: boolean; in_person: boolean };
-	let reqOptions = $state<ReqOption[]>(PRESET_REQS.map(r => ({ ...r, checked: false, in_person: false })));
+	type ReqOption = CustomReq & { description: string; checked: boolean };
+	let reqOptions = $state<ReqOption[]>(PRESET_REQS.map(r => ({ ...r, ...emptySettings(), checked: false, in_person: false })));
 
 	function openAdd() {
 		editingId = null;
@@ -46,7 +49,7 @@
 		removeTemplate = false;
 		customReqs = [];
 		saveError = '';
-		reqOptions = PRESET_REQS.map(r => ({ ...r, checked: false, in_person: false }));
+		reqOptions = PRESET_REQS.map(r => ({ ...r, ...emptySettings(), checked: false, in_person: false }));
 		modalOpen = true;
 	}
 
@@ -58,16 +61,16 @@
 		removeTemplate = false;
 		saveError = '';
 
-		const saved: Array<{ name: string; in_person: boolean }> = doc.requirements ?? [];
+		const saved: Array<{ name: string; description?: string; in_person: boolean } & RequirementSettings> = doc.requirements ?? [];
 
 		const presetNames = new Set(PRESET_REQS.map(r => r.name));
 		reqOptions = PRESET_REQS.map(r => {
 			const match = saved.find(s => s.name === r.name);
-			return { ...r, checked: !!match, in_person: match?.in_person ?? false };
+			return { ...r, checked: !!match, in_person: match?.in_person ?? false, form_id: match?.form_id ?? null, needs_signature: match?.needs_signature ?? false, signature_note: match?.signature_note ?? '' };
 		});
 		customReqs = saved
 			.filter(s => !presetNames.has(s.name))
-			.map(s => ({ name: s.name, in_person: s.in_person }));
+			.map(s => ({ ...s, form_id: s.form_id ?? null, needs_signature: s.needs_signature ?? false, signature_note: s.signature_note ?? '' }));
 
 		modalOpen = true;
 	}
@@ -75,9 +78,9 @@
 	function buildReqs() {
 		const reqs = reqOptions
 			.filter(r => r.checked)
-			.map(r => ({ name: r.name, description: r.description, in_person: r.in_person }));
+			.map(r => ({ name: r.name, description: r.description, in_person: r.in_person, form_id: r.form_id, needs_signature: r.needs_signature, signature_note: r.signature_note }));
 		for (const c of customReqs) {
-			if (c.name.trim()) reqs.push({ name: c.name.trim(), description: '', in_person: c.in_person });
+			if (c.name.trim()) reqs.push({ name: c.name.trim(), description: c.description ?? '', in_person: c.in_person, form_id: c.form_id, needs_signature: c.needs_signature, signature_note: c.signature_note });
 		}
 		return reqs;
 	}
@@ -316,6 +319,20 @@
 									<input type="checkbox" bind:checked={reqOptions[i].in_person} class="accent-orange-500" />
 									Requires in-person submission at the office
 								</label>
+								<div class="mt-3 space-y-2">
+									<label class="block text-xs text-gray-600">Linked form
+										<select bind:value={reqOptions[i].form_id} class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+											<option value={null}>None</option>
+											{#each forms as form}<option value={form.form_id}>{form.title}</option>{/each}
+										</select>
+									</label>
+									<label class="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" bind:checked={reqOptions[i].needs_signature} class="accent-essu-green focus:ring-essu-green/30" />Needs signatures</label>
+									<label class="block text-xs text-gray-600">Signature note
+										<input bind:value={reqOptions[i].signature_note} maxlength="200" placeholder="Signatures: Librarian, Cashier, Dean" class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+									</label>
+									<p class="text-xs text-gray-400">Form and signature settings apply wherever this requirement is used.</p>
+
+								</div>
 							{/if}
 						</div>
 					{/each}
@@ -342,11 +359,25 @@
 								<input type="checkbox" bind:checked={customReqs[i].in_person} class="accent-orange-500" />
 								Requires in-person submission at the office
 							</label>
+							<div class="mt-3 space-y-2">
+								<label class="block text-xs text-gray-600">Linked form
+									<select bind:value={customReqs[i].form_id} class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+										<option value={null}>None</option>
+										{#each forms as form}<option value={form.form_id}>{form.title}</option>{/each}
+									</select>
+								</label>
+								<label class="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" bind:checked={customReqs[i].needs_signature} class="accent-essu-green focus:ring-essu-green/30" />Needs signatures</label>
+								<label class="block text-xs text-gray-600">Signature note
+									<input bind:value={customReqs[i].signature_note} maxlength="200" placeholder="Signatures: Librarian, Cashier, Dean" class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+								</label>
+								<p class="text-xs text-gray-400">Form and signature settings apply wherever this requirement is used.</p>
+
+							</div>
 						</div>
 					{/each}
 					<button
 						type="button"
-						onclick={() => { customReqs = [...customReqs, { name: '', in_person: false }]; }}
+						onclick={() => { customReqs = [...customReqs, { name: '', in_person: false, ...emptySettings() }]; }}
 						class="w-full flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-essu-green/50 hover:text-essu-green hover:bg-essu-green/5 transition-all"
 					>
 						<i class="fa-solid fa-plus text-xs"></i> Add Custom Requirement

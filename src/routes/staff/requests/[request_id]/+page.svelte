@@ -6,6 +6,8 @@
 	const { data }: { data: PageData } = $props();
 
 	type Requirement = {
+		form_id?: number | null; needs_signature?: boolean | null; signature_note?: string | null;
+		form_title?: string | null; form_files?: Array<{ public_url: string; name: string; page_no: number }>;
 		name: string; description?: string; in_person: boolean;
 		file_path: string | null; file_name: string | null;
 		submitted_at: string | null; needs_correction: boolean;
@@ -165,6 +167,12 @@
 										<span class="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 border border-yellow-200 rounded-full">Needs Correction</span>
 									{/if}
 								</div>
+								{#if r.form_id}
+									<div class="mt-1 flex flex-wrap gap-2">
+										{#each r.form_files ?? [] as file}<a href={file.public_url} target="_blank" rel="noopener noreferrer" class="text-xs text-essu-green hover:underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">{r.form_title}: {file.name}</a>{/each}
+									</div>
+								{/if}
+								{#if r.signature_note}<p class="mt-1 text-xs text-gray-600">{r.signature_note}</p>{:else if r.needs_signature}<p class="mt-1 text-xs text-gray-600">Signatures required.</p>{/if}
 								{#if r.in_person}
 									<p class="text-xs text-orange-600 mt-0.5"><i class="fa-solid fa-building mr-1"></i>In-person submission required</p>
 								{:else if r.submitted_at}

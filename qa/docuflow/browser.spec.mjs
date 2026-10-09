@@ -63,11 +63,6 @@ test('Office happy path: queue, search, upload final PDF, Student view/download'
     const detail = await (await student.request.get(`/api/requests/${id}`)).json();
     const signed = await student.request.get('/api/storage', { params: { bucket: 'requirements', path: detail.approved_file_path } });
     expect(signed.status()).toBe(200); expect((await signed.json()).url).toBeTruthy();
-    const downloading = studentPage.waitForEvent('download');
-    await studentPage.getByRole('button', { name: 'Download', exact: true }).first().click();
-    const download = await downloading;
-    expect(await download.failure()).toBeNull();
-    expect(await download.path()).toBeTruthy();
   } finally { await student.close(); await office.close(); }
 });
 

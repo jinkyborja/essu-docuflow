@@ -9,6 +9,8 @@
 
 	type DocOption = { document_id: number; name: string; requirements: Requirement[] };
 	type Requirement = {
+		form_id?: number | null; needs_signature?: boolean | null; signature_note?: string | null;
+		form_title?: string | null; form_files?: Array<{ public_url: string; name: string; page_no: number }>;
 		name: string; description: string; in_person: boolean;
 		file_path: string | null; file_name: string | null;
 		submitted_at: string | null; needs_correction: boolean;
@@ -199,18 +201,31 @@
 								{/if}
 							</div>
 
+							{#if req.form_id}
+								<div class="mb-3 space-y-2">
+									<p class="text-xs font-medium text-gray-700">{req.form_title}</p>
+									<div class="flex flex-wrap gap-2">
+										{#each req.form_files ?? [] as file}
+											<a href={file.public_url} download={file.name} target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg border border-essu-green/30 text-xs text-essu-green hover:bg-essu-green/5 focus:outline-none focus:ring-2 focus:ring-essu-green/30">{(/\.docx?$/i.test(file.name)) ? 'Download editable Word file' : 'Download form'}{(req.form_files?.length ?? 0) > 1 ? ' - ' + file.name : ''}</a>
+										{/each}
+									</div>
+									{#if !req.in_person}<p class="text-xs text-gray-500">1. Download the form. 2. Get it signed. 3. Upload a clear photo or PDF.</p>{/if}
+								</div>
+							{/if}
+							{#if req.signature_note}<p class="mb-2 text-xs text-gray-600">{req.signature_note}</p>{:else if req.needs_signature}<p class="mb-2 text-xs text-gray-600">Signatures required.</p>{/if}
 							{#if req.in_person}
 								<div class="p-3 bg-orange-100/60 border border-orange-200 rounded-lg text-xs text-orange-700 flex items-start gap-2">
 									<i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i>
 									<span>This requirement must be submitted in person at the Graduate School. You do not need to upload anything for this.</span>
 								</div>
 							{:else}
+								{#if req.form_id}<p class="mb-1.5 text-sm font-medium text-gray-700">Upload the signed form (photo or PDF)</p>{/if}
 								<label class="ui-file-dropzone flex items-start gap-3 px-3 py-2.5 border border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-essu-green/50 hover:bg-essu-green/5 transition-all">
 									<i class="fa-solid fa-upload text-gray-400 shrink-0 mt-0.5"></i>
 									<span class="text-sm min-w-0 break-words {files[req.name] ? 'text-essu-green font-medium' : 'text-gray-400'}">
-										{files[req.name] ? files[req.name]!.name : 'Click to upload (PDF or image)'}
+										{files[req.name] ? files[req.name]!.name : (req.form_id ? 'Upload the signed form (photo or PDF)' : 'Click to upload (PDF or image)')}
 									</span>
-									<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*" class="hidden" onchange={(e) => {
+									<input aria-label={req.form_id ? 'Upload the signed form (photo or PDF)' : `Upload ${req.name}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*" class="hidden" onchange={(e) => {
 										const f = (e.target as HTMLInputElement).files?.[0];
 										files = { ...files, [req.name]: f ?? null };
 									}} />

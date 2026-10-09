@@ -144,7 +144,7 @@ Current bootstrap schema has **12 tables**, rather than the nine described by RE
 
 Schema and migrations describe source expectations only; production migration state was not checked. Bootstrap/seed SQL is destructive and was not run. The seed contains accounts but **no requestable document inserts**; its old truncation list also does not cover the newer child tables.
 
-### API endpoints — 21 paths, 33 methods
+### API endpoints — 21 paths, 32 methods
 
 | Endpoint | Methods | Purpose / observed intended guard |
 |---|---|---|
@@ -329,14 +329,14 @@ Cause: resubmission `src/routes/api/requests/[id]/requirements/+server.ts:70`; s
 1. In a disposable MySQL QA DB, Admin deletes a fake Student with at least one request.
 2. Expected: completion/controlled failure and pool released. Predicted actual: hangs; unrelated database work queues behind it.
 
-Cause: `src/lib/server/db.ts:11` sets `connectionLimit:1`. `src/routes/api/students/+server.ts:99` checks out the only connection, then `:109` calls `fetchRequestFilePaths`, which uses `pool.execute` (`src/lib/server/requirements.ts:177`) and waits for a second available connection. The held one is released only after the awaited call. Fix: run all reads on the checked-out connection or fetch before acquiring it; increasing pool size alone masks the design issue. No destructive live deletion was attempted.
+Cause: `src/lib/server/db.ts:11` sets `connectionLimit:1`. `src/routes/api/students/+server.ts:99` checks out the only connection, then `:109` calls `fetchRequestFilePaths`, which uses `pool.execute` (`src/lib/server/requirements.ts:197`) and waits for a second available connection. The held one is released only after the awaited call. Fix: run all reads on the checked-out connection or fetch before acquiring it; increasing pool size alone masks the design issue. No destructive live deletion was attempted.
 
 **H09 — Passwords use fast unsalted SHA-256. Source-confirmed.**
 
 1. Register two fake accounts with the same password in isolation; inspect fake stored hash or review the hash creation.
 2. Expected: independent salted adaptive hashes. Actual: deterministic identical SHA-256; a leaked database permits fast offline guessing.
 
-Cause: `src/routes/api/register/+server.ts:26`, login `:27`, accept-invite `:35`, profile `:86` / `:95`, reset `:24`. Fix: Argon2id/bcrypt with a migration path and consistent minimum policy. No password cracking or real credential use performed.
+Cause: `src/routes/api/register/+server.ts:26`, login `:27`, accept-invite `:35`, profile `:85` / `:96`, reset `:24`. Fix: Argon2id/bcrypt with a migration path and consistent minimum policy. No password cracking or real credential use performed.
 
 **H10 — Failed legacy template replacement deletes the working file and reports success. Source review.**
 
@@ -387,7 +387,7 @@ Cause: `src/routes/api/register/+server.ts:45` inserts before mail `:63`; `:75` 
 
 **L01 — Submission copy contradicts file-update behavior. Source-confirmed.** Read the final request step, then a Pending request in My Documents. Expected: accurate amendment policy. Actual: “cannot edit this request” vs Update Files. Cause: `src/routes/student/request/+page.svelte:276`, `src/routes/student/documents/+page.svelte:128`. Fix: distinguish immutable selection/purpose from editable pending files and correction workflow.
 
-**L02 — Setup/features/migration docs no longer describe current source. Source-confirmed.** Follow README's email/variable/table descriptions or FEATURES report statement; expected current architecture, actual Resend vs Brevo, nine vs twelve tables, and `.env.example` Supabase key names differ from imported static variables (`src/lib/server/supabase.ts:2`). FEATURES correctly identifies the detailed certificates report as absent, but does not mention the newer general CSV export. Migration README also claims all reruns are safe while newer migrations use plain ADD/CREATE. Fix: update docs and validate a clean disposable setup. Files: `README.md:6`, `FEATURES.md:64`, `.env.example:11`, `database/migrations/README.md:3`. No migrations were run or assumed deployed.
+**L02 — Setup/features/migration docs no longer describe current source. Source-confirmed.** Follow README's email/variable/table descriptions or FEATURES report statement; expected current architecture, actual Resend vs Brevo, nine vs twelve tables, export listed unbuilt though CSV exists, and `.env.example` Supabase key names differ from imported static variables (`src/lib/server/supabase.ts:2`). Migration README also claims all reruns are safe while newer migrations use plain ADD/CREATE. Fix: update docs and validate a clean disposable setup. Files: `README.md:7`, `FEATURES.md:68`, `.env.example:10`, `database/migrations/README.md:3`. No migrations were run or assumed deployed.
 
 ## 5. Break-test coverage and open work
 
@@ -410,7 +410,7 @@ Cause: `src/routes/api/register/+server.ts:45` inserts before mail `:63`; `:75` 
 
 The top five failure regressions are C01 (Student status mutation), C02 (other Student detail), C03 (other Student file signing), C04 (non-session JWT used as session), H01 (empty final-state resubmission).
 
-`browser.spec.mjs` + `playwright.config.mjs`: 11 test definitions across three viewport projects (33 potential browser executions), written for a separate fake-only deployment. Includes role happy paths, the five failures, login validation/network failure and responsive keyboard checks. Actual Playwright execution **was blocked**, not passed or silently skipped. Real email inbox receipt, signature authenticity, session revocation across browsers, detailed mobile form use and mid-upload interruption still require additional execution/fixtures. Browser suite intentionally does not start the ordinary dev server or target the supplied live site for mutation tests.
+`browser.spec.mjs` + `playwright.config.mjs`: 12 test definitions across three viewport projects (36 potential browser executions), written for a separate fake-only deployment. Includes role happy paths, the five failures, login validation/network failure and responsive keyboard checks. Actual Playwright execution **was blocked**, not passed or silently skipped. Real email inbox receipt, signature authenticity, session revocation across browsers, detailed mobile form use and mid-upload interruption still require additional execution/fixtures. Browser suite intentionally does not start the ordinary dev server or target the supplied live site for mutation tests.
 
 ## 6. Missing capabilities for a truly paperless service
 
