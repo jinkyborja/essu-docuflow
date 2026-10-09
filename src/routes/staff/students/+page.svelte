@@ -147,21 +147,22 @@
 	let deleting = $state(false);
 
 	async function handleDelete() {
-		if (!deleteTarget) return;
+		if (!deleteTarget || deleting) return;
+		const targetId = deleteTarget.user_id;
 		deleting = true;
 		deleteError = '';
 		try {
 			const res = await fetch('/api/students', {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ user_id: deleteTarget.user_id })
+				body: JSON.stringify({ user_id: targetId })
 			});
 			const result = await res.json().catch(() => ({}));
 			if (!res.ok) {
 				deleteError = result.error ?? 'Could not delete this student.';
 				return;
 			}
-			students = students.filter((s) => s.user_id !== deleteTarget!.user_id);
+			students = students.filter((s) => s.user_id !== targetId);
 			deleteOpen = false;
 		} catch {
 			deleteError = 'Network error. Please try again.';
@@ -605,7 +606,7 @@
 </Modal>
 
 <!-- Delete Modal -->
-<Modal open={deleteOpen} title="Delete Student" size="sm" onclose={() => (deleteOpen = false)}>
+<Modal open={deleteOpen} title="Delete Student" size="sm" onclose={() => { if (!deleting) deleteOpen = false; }}>
 	{#snippet body()}
 		{#if deleteTarget}
 			<div class="flex items-start gap-4">
@@ -632,6 +633,7 @@
 	{#snippet footer()}
 		<button
 			onclick={() => (deleteOpen = false)}
+			disabled={deleting}
 			class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
 		>
 			Cancel

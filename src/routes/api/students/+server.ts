@@ -2,7 +2,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
-import { fetchRequestFilePaths } from '$lib/server/requirements';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 
@@ -97,7 +96,16 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	// keys, so a bare DELETE on users fails for any student who ever made a
 	// request. Remove the dependent rows first, inside a transaction.
 	const conn = await pool.getConnection();
+	let filePaths: string[] = [];
+	let deletedRequests = 0;
 	try {
+		await conn.beginTransaction();
+		// Lock the account while collecting and deleting its requests.
+		const [lockedRows] = await conn.execute("SELECT user_id FROM users WHERE user_id = ? AND role = 'Student' FOR UPDATE", [user_id]);
+		if ((lockedRows as unknown[]).length === 0) {
+			await conn.rollback();
+			return json({ error: 'Student not found' }, { status: 404 });
+		}
 		const [reqRows] = await conn.execute(
 			'SELECT request_id, approved_file_path FROM requests WHERE student_id = ?',
 			[user_id]
@@ -106,12 +114,19 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 
 		// Collect the student's uploaded files so storage doesn't keep orphans.
 		const requestIds = requests.map((r) => r.request_id as string);
-		const filePaths: string[] = await fetchRequestFilePaths(requestIds);
+		// Use the checked-out connection: a pool query here waits forever when
+		// the pool has only one connection.
+		if (requestIds.length > 0) {
+			const marks = requestIds.map(() => '?').join(',');
+			const [fileRows] = await conn.execute(
+				`SELECT file_path FROM request_requirements WHERE request_id IN (${marks}) AND file_path IS NOT NULL`, requestIds
+			);
+			filePaths = (fileRows as Array<{ file_path: string }>).map(row => row.file_path);
+		}
 		for (const r of requests) {
 			if (r.approved_file_path) filePaths.push(r.approved_file_path as string);
 		}
 
-		await conn.beginTransaction();
 		if (requests.length > 0) {
 			const ids = requests.map((r) => r.request_id as string);
 			const marks = ids.map(() => '?').join(',');
@@ -127,15 +142,7 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 		}
 		await conn.execute(`DELETE FROM users WHERE user_id = ? AND role = 'Student'`, [user_id]);
 		await conn.commit();
-
-		// Storage cleanup happens after the commit — a failure here leaves orphaned
-		// files but must not undo a completed deletion.
-		if (filePaths.length > 0) {
-			const { error: storageError } = await supabase.storage.from('requirements').remove(filePaths);
-			if (storageError) console.error('Storage cleanup failed after student delete:', storageError);
-		}
-
-		return json({ success: true, deleted_requests: requests.length });
+		deletedRequests = requests.length;
 	} catch (err) {
 		await conn.rollback();
 		console.error('Student delete failed:', err);
@@ -143,4 +150,15 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	} finally {
 		conn.release();
 	}
+	// Do not hold the only DB connection during an external storage request.
+	// Cleanup failure must not turn an already committed deletion into an error.
+	if (filePaths.length > 0) {
+		try {
+			const { error: storageError } = await supabase.storage.from('requirements').remove([...new Set(filePaths)]);
+			if (storageError) console.error('Storage cleanup failed after student delete:', storageError);
+		} catch (err) {
+			console.error('Storage cleanup failed after student delete:', err);
+		}
+	}
+	return json({ success: true, deleted_requests: deletedRequests });
 };
