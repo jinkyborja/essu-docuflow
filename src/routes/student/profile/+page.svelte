@@ -1,15 +1,74 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
+	import { STUDENT_ID_PHOTO_URL_TTL, validateStudentIdPhoto } from '$lib/student-id-photo';
+	import { formatName } from '$lib/formatting';
+	import { SCHOOL_YEAR_MIN, SCHOOL_YEAR_MAX, ENROLLED_SCHOOL_YEAR_MIN, validateSchoolYear } from '$lib/school-year';
 	import {formatDate} from '$lib/request-flow';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	let profile = $state({ ...data.profile });
+	$effect(() => { profile = { ...data.profile }; });
+	let photoFile = $state<File | null>(null);
+	let photoInput = $state<HTMLInputElement>();
+	let photoUploading = $state(false);
+	let photoError = $state('');
+	let photoMessage = $state('');
+	let photoUrl = $state('');
+	let photoPreviewLoading = $state(false);
+	let photoPreviewError = $state('');
+	$effect(() => {
+		if (!photoUrl) return;
+		const timer = setTimeout(() => photoUrl = '', STUDENT_ID_PHOTO_URL_TTL * 1000);
+		return () => clearTimeout(timer);
+	});
+
+	async function uploadIdPhoto(event: Event) {
+		event.preventDefault();
+		if (photoUploading) return;
+		photoError = validateStudentIdPhoto(photoFile) ?? '';
+		photoMessage = '';
+		if (photoError || !photoFile) return;
+		photoUploading = true;
+		try {
+			const prepared = await fetch('/api/profile/id-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'prepare', name: photoFile.name, contentType: photoFile.type, size: photoFile.size }) });
+			const upload = await prepared.json();
+			if (!prepared.ok) { photoError = upload.error ?? 'Could not start the upload.'; return; }
+			const form = new FormData();
+			form.append('cacheControl', '0');
+			form.append('', photoFile);
+			const stored = await fetch(upload.uploadUrl, { method: 'PUT', body: form });
+			if (!stored.ok) { photoError = 'Could not upload the ID photo. Please try again.'; return; }
+			const response = await fetch('/api/profile/id-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'complete', uploadToken: upload.uploadToken }) });
+			const result = await response.json();
+			if (!response.ok) { photoError = result.error ?? 'Could not save the ID photo.'; return; }
+			profile.id_status = result.id_status;
+			profile.has_id_photo = true;
+			profile.id_photo_uploaded_at = result.id_photo_uploaded_at ?? profile.id_photo_uploaded_at;
+			photoUrl = ''; photoPreviewError = ''; photoFile = null;
+			if (photoInput) photoInput.value = '';
+			photoMessage = result.warning ?? 'ID photo uploaded. The Graduate School office will review it.';
+			await invalidateAll();
+		} catch { photoError = 'Could not complete the upload. Please try again.'; }
+		finally { photoUploading = false; }
+	}
+
+	async function previewIdPhoto() {
+		photoPreviewLoading = true; photoPreviewError = ''; photoUrl = '';
+		try {
+			const response = await fetch('/api/profile/id-photo');
+			const result = await response.json();
+			if (!response.ok) { photoPreviewError = result.error ?? 'Could not load the ID photo.'; return; }
+			photoUrl = result.url;
+		} catch { photoPreviewError = 'Could not load the ID photo. Please try again.'; }
+		finally { photoPreviewLoading = false; }
+	}
 
 	const fullName = $derived(
-		[profile.first_name, profile.middle_name, profile.last_name, profile.suffix]
-			.filter(Boolean).join(' ')
+		formatName(profile.first_name, profile.middle_name, profile.last_name)
 	);
+	const academicLocked = $derived(profile.id_status === 'verified');
 	const initials = $derived(
 		[profile.first_name, profile.last_name].map((n) => n[0]).join('').toUpperCase()
 	);
@@ -75,11 +134,14 @@
 	let academicError = $state('');
 	let academicLoading = $state(false);
 
+	let aStudentId = $state('');
 	let aProgram = $state('');
 	let aStudentType = $state('');
 	let aLastSchoolYear = $state('');
 
 	function openAcademic() {
+		if (academicLocked) return;
+		aStudentId     = profile.student_id ?? '';
 		aProgram       = profile.program ?? '';
 		aStudentType   = profile.student_type ?? '';
 		aLastSchoolYear = String(profile.last_school_year ?? '');
@@ -90,6 +152,9 @@
 	async function saveAcademic(e: Event) {
 		e.preventDefault();
 		academicError = '';
+		if (academicLocked) { academicError = 'Contact the Graduate School office to change these.'; return; }
+		const yearError = validateSchoolYear(aLastSchoolYear, aStudentType);
+		if (yearError) { academicError = yearError; return; }
 		academicLoading = true;
 		try {
 			const res = await fetch('/api/profile', {
@@ -97,6 +162,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					type: 'academic',
+					studentId: aStudentId.trim(),
 					program: aProgram,
 					studentType: aStudentType,
 					lastSchoolYear: Number(aLastSchoolYear)
@@ -106,6 +172,7 @@
 			if (!res.ok) {
 				academicError = data.error ?? 'Failed to save changes.';
 			} else {
+				profile.student_id       = aStudentId.trim();
 				profile.program          = aProgram;
 				profile.student_type     = aStudentType;
 				profile.last_school_year = Number(aLastSchoolYear);
@@ -209,6 +276,24 @@
 </script>
 
 <div class="max-w-4xl mx-auto space-y-5">
+	{#if profile.id_status === 'pending' || profile.id_status === 'rejected'}
+		<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-3">
+			<h3 class="font-semibold text-gray-700">School ID photo</h3>
+			<form onsubmit={uploadIdPhoto} class="space-y-3">
+				<label for="school-id-photo" class="block text-sm text-gray-600">School ID front · JPG, PNG or WebP · up to 5 MB</label>
+				<input id="school-id-photo" bind:this={photoInput} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required disabled={photoUploading} onchange={(event) => { photoFile = event.currentTarget.files?.[0] ?? null; photoError = photoFile ? validateStudentIdPhoto(photoFile) ?? '' : ''; photoMessage = ''; }} class="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-essu-green/10 file:px-3 file:py-2 file:text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+				<button type="submit" disabled={photoUploading || !photoFile || !!photoError} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid disabled:opacity-50">{photoUploading ? 'Uploading…' : profile.has_id_photo ? 'Replace ID photo' : 'Upload ID photo'}</button>
+			</form>
+			{#if photoError}<p class="text-sm text-red-700" role="alert">{photoError}</p>{/if}
+			{#if photoMessage}<p class="text-sm text-essu-green" role="status">{photoMessage}</p>{/if}
+			{#if profile.has_id_photo}
+				<p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p>
+				<button type="button" onclick={previewIdPhoto} disabled={photoPreviewLoading || photoUploading} class="text-sm text-essu-green hover:underline disabled:opacity-50">{photoPreviewLoading ? 'Loading…' : photoUrl ? 'Refresh photo preview' : 'View uploaded photo'}</button>
+				{#if photoUrl}<img src={photoUrl} alt="Your uploaded school ID front" class="max-h-64 max-w-full rounded-lg border border-gray-200 object-contain" onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview expired or could not load. Open it again.'; }} />{/if}
+			{/if}
+			{#if photoPreviewError}<p class="text-sm text-red-700" role="alert">{photoPreviewError}</p>{/if}
+		</div>
+	{/if}
 	<!-- Profile header -->
 	<div class="profile-header bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
 		<div class="flex items-center gap-5">
@@ -243,13 +328,15 @@
 				</div>
 			</div>
 
-			<!-- Academic Info — read-only -->
+			<!-- Academic Info -->
 			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
 				<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
 					<h3 class="font-semibold text-gray-700">Academic Information</h3>
-					<button onclick={openAcademic} class="text-sm text-essu-green hover:underline flex items-center gap-1">
-						<i class="fa-solid fa-pen text-xs"></i> Edit
-					</button>
+					{#if !academicLocked}
+						<button onclick={openAcademic} class="text-sm text-essu-green hover:underline flex items-center gap-1">
+							<i class="fa-solid fa-pen text-xs"></i> Edit
+						</button>
+					{/if}
 				</div>
 				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
 					<div><p class="text-xs text-gray-400">Student ID</p><p class="font-medium">{profile.student_id}</p></div>
@@ -262,6 +349,7 @@
 					</p></div>
 					<div><p class="text-xs text-gray-400">Last School Year</p><p class="font-medium">{profile.last_school_year ?? '—'}</p></div>
 					<div><p class="text-xs text-gray-400">Date Registered</p><p class="font-medium">{formatDate(profile.date_registered)}</p></div>
+					{#if academicLocked}<p class="col-span-2 text-xs text-gray-500">Contact the Graduate School office to change these.</p>{/if}
 				</div>
 			</div>
 		</div>
@@ -465,7 +553,7 @@
 </Modal>
 
 <!-- Edit Academic Info Modal -->
-<Modal open={academicOpen} title="Edit Academic Information" size="md" onclose={() => (academicOpen = false)}>
+<Modal open={academicOpen && !academicLocked} title="Edit Academic Information" size="md" onclose={() => (academicOpen = false)}>
 	{#snippet body()}
 		<form onsubmit={saveAcademic} id="academic-form" class="space-y-4">
 			{#if academicError}
@@ -473,6 +561,11 @@
 					<i class="fa-solid fa-circle-exclamation mr-1"></i>{academicError}
 				</div>
 			{/if}
+			<div>
+				<label for="academic-student-id" class="block text-sm font-medium text-gray-700 mb-1.5">Student ID</label>
+				<input id="academic-student-id" bind:value={aStudentId} type="text" maxlength="20" required
+					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+			</div>
 			<div>
 				<label class="block text-sm font-medium text-gray-700 mb-1.5">Program / Course</label>
 				<input bind:value={aProgram} type="text" required
@@ -497,7 +590,7 @@
 			</div>
 			<div>
 				<label class="block text-sm font-medium text-gray-700 mb-1.5">Last School Year Attended</label>
-				<input bind:value={aLastSchoolYear} type="number" min="1990" max="2100" required
+						<input bind:value={aLastSchoolYear} type="number" min={aStudentType === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN} max={SCHOOL_YEAR_MAX} step="1" required
 					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 			</div>
 		</form>

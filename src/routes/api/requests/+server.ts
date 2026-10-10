@@ -8,6 +8,7 @@ import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
 import { validateUpload } from '$lib/server/upload-validation';
+import { readRequirementUploads, validatePreparedRequirementFile, assertPreparedUploadsUnused, RequirementUploadError } from '$lib/server/requirement-uploads';
 
 export const GET: RequestHandler = async ({ cookies, url }) => {
 	const token = cookies.get('session');
@@ -117,9 +118,15 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		file_path: string | null; file_name: string | null;
 		submitted_at: string | null; needs_correction: boolean;
 	}> = (requirementRows as Array<Record<string, unknown>>).map((row) => ({ name: row.name as string, description: row.description as string, in_person: Boolean(row.in_person), file_path: null, file_name: null, submitted_at: null, needs_correction: false }));
+	const preparedUploads = readRequirementUploads(formData.get('uploads'), payload.userId, { requestId: null, documentIds });
+	if ([...preparedUploads.keys()].some(name => !reqs.some(req => req.name === name && !req.in_person))) return json({ error: 'Invalid upload requirement.' }, { status: 400 });
 	// Validate the entire catalog-derived batch before uploading any file.
 	for (const req of reqs) {
 		if (req.in_person) continue;
+		const prepared = preparedUploads.get(req.name);
+		const attached = formData.getAll(`file_${req.name}`);
+		if (attached.length > 1 || (prepared && attached.length)) return json({ error: `${req.name}: select one file per requirement.` }, { status: 400 });
+		if (prepared) { await validatePreparedRequirementFile(prepared); continue; }
 		const invalid = await validateUpload(formData.get(`file_${req.name}`));
 		if (invalid) return json({ error: `${req.name}: ${invalid.error}` }, { status: invalid.status });
 	}
@@ -132,6 +139,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	stage = 'upload_requirement_files';
 	for (const req of reqs) {
 		if (req.in_person) continue;
+		const prepared = preparedUploads.get(req.name);
+		if (prepared) {
+			req.file_path = prepared.path; req.file_name = prepared.name; req.submitted_at = new Date().toISOString();
+			continue;
+		}
 		const file = formData.get(`file_${req.name}`) as File | null;
 		if (file && file.size > 0) {
 			const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
@@ -177,6 +189,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	}
 	await conn.beginTransaction();
 	transactionOpen = true;
+	await assertPreparedUploadsUnused(conn, preparedUploads.values());
+	uploadedPaths.push(...[...preparedUploads.values()].map(upload => upload.path));
 	stage = 'generate_request_id';
 	const prefix = `REQ-${year}-`;
 	const [sequenceRows] = await conn.execute(
@@ -207,6 +221,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			transactionOpen = false;
 		}
 		console.error('[requests POST]', err, 'stage:', stage);
+		if (err instanceof RequirementUploadError) return json({ error: err.message }, { status: err.status });
 		const dbErr = err as { code?: string; errno?: number };
 		let code = 'REQUEST_SUBMIT_FAILED';
 		let message = 'Could not submit your request because the database rejected a write. Please retry; if it continues, contact the Graduate School.';

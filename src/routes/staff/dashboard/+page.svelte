@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { formatName, pluralize } from '$lib/formatting';
+	import { requestStatusKey, statusLabel, STATUS_COLORS } from '$lib/request-status';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -6,11 +8,11 @@
 
 	const { data }: { data: PageData } = $props();
 
-	const activityMeta: Record<string, { icon: string; color: string; bg: string }> = {
-		'Pending':              { icon: 'fa-solid fa-clock',               color: 'text-orange-500', bg: 'bg-orange-50' },
-		'Approved':             { icon: 'fa-solid fa-circle-check',        color: 'text-green-500',  bg: 'bg-green-50'  },
-		'Rejected':             { icon: 'fa-solid fa-circle-xmark',        color: 'text-red-500',    bg: 'bg-red-50'    },
-		'Correction Requested': { icon: 'fa-solid fa-rotate-left',         color: 'text-yellow-600', bg: 'bg-yellow-50' }
+	const activityIcons: Record<string, string> = {
+		pending: 'fa-solid fa-clock', correction_requested: 'fa-solid fa-rotate-left',
+		approved: 'fa-solid fa-circle-check', processing: 'fa-solid fa-gears',
+		ready_for_pickup: 'fa-solid fa-box', released: 'fa-solid fa-handshake',
+		rejected: 'fa-solid fa-circle-xmark', cancelled: 'fa-solid fa-ban'
 	};
 </script>
 
@@ -29,16 +31,16 @@
 	{/if}
 
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-		<a href="/staff/requests?status=Approved&amp;delivery=waiting" class="rounded-xl border border-essu-green/20 bg-white p-4 text-sm text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingDelivery} approved requests awaiting delivery confirmation</strong><span class="block mt-1 text-xs text-gray-500">Open a request and record delivery only after the student receives the document.</span></a>
-		<a href="/staff/requests?status=Correction%20Requested" class="rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-800 focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingCorrections} requests awaiting student corrections</strong><span class="block mt-1 text-xs text-gray-500">Review outstanding corrections and office messages.</span></a>
+		<a href="/staff/requests?status=Approved&amp;delivery=waiting" class="rounded-xl border border-essu-green/20 bg-white p-4 text-sm text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingDelivery} approved {pluralize(data.counts.awaitingDelivery, 'request')} awaiting delivery confirmation</strong><span class="block mt-1 text-xs text-gray-500">Open a request and record delivery only after the student receives the document.</span></a>
+		<a href="/staff/requests?status=Correction%20Requested" class="rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-800 focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingCorrections} {pluralize(data.counts.awaitingCorrections, 'request')} awaiting student corrections</strong><span class="block mt-1 text-xs text-gray-500">Review outstanding corrections and office messages.</span></a>
 	</div>
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-		<!-- Pending approval queue -->
+		<!-- Requests needing office action -->
 		<div class="xl:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
 			<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
 				<div>
-					<h2 class="font-semibold text-gray-800">Pending Approval Queue</h2>
-					<p class="text-xs text-gray-400 mt-0.5">{data.pendingQueue.length} requests awaiting action</p>
+					<h2 class="font-semibold text-gray-800">Needs action</h2>
+					<p class="text-xs text-gray-400 mt-0.5">{data.pendingQueue.length} {pluralize(data.pendingQueue.length, 'request')} awaiting action</p>
 				</div>
 				<a href="/staff/requests" class="text-sm text-essu-green font-medium hover:underline flex items-center gap-1">
 					View all <i class="fa-solid fa-arrow-right text-xs"></i>
@@ -46,16 +48,17 @@
 			</div>
 
 			{#if data.pendingQueue.length === 0}
-				<EmptyState message="No pending requests" icon="fa-solid fa-inbox" />
+				<EmptyState message="No requests need action" icon="fa-solid fa-inbox" />
 			{:else}
 				<div class="md:hidden divide-y divide-gray-100">
 					{#each data.pendingQueue as req}
 						<article class="p-4 space-y-3">
 							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0"><p class="text-sm font-semibold">{req.first_name} {req.last_name}</p><p class="text-xs text-gray-500 mt-1">{req.request_id}</p></div>
-								<a href="/staff/requests/{req.request_id}" class="page-primary-action">Review <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+								<div class="min-w-0"><p class="text-sm font-semibold">{formatName(req.first_name, req.middle_name, req.last_name)}</p><p class="text-xs text-gray-500 mt-1">{req.request_id}</p></div>
+								<a href="/staff/requests/{req.request_id}" class="page-primary-action">{req.action_needed} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
 							</div>
 							<p class="text-sm text-gray-600">{req.document_name}</p>
+							<Badge value={req.status as string} size="sm" />
 						</article>
 					{/each}
 				</div>
@@ -73,17 +76,17 @@
 								<tr class="hover:bg-gray-50 transition-colors">
 									<td class="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{req.request_id}</td>
 									<td class="px-4 py-3 whitespace-nowrap">
-										<p class="font-medium text-gray-800">{req.first_name} {req.last_name}</p>
+										<p class="font-medium text-gray-800">{formatName(req.first_name, req.middle_name, req.last_name)}</p>
 										<p class="text-xs text-gray-400">{req.student_id ?? '—'}{req.program ? ' · ' + req.program : ''}</p>
 									</td>
 									<td class="px-4 py-3 text-gray-600 whitespace-nowrap">{req.document_name}</td>
 									<td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
-										{new Date(req.date_requested as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+										{new Date(req.date_requested as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 									</td>
 									<td class="px-4 py-3">
 										<a href="/staff/requests/{req.request_id}"
 											class="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors">
-											<i class="fa-solid fa-eye text-[10px]"></i> Review
+											<i class="fa-solid fa-eye text-[10px]"></i> {req.action_needed}
 										</a>
 									</td>
 								</tr>
@@ -106,18 +109,19 @@
 				{:else}
 					<div class="divide-y divide-gray-50">
 						{#each data.recentActivity as item}
-							{@const meta = activityMeta[item.new_status as string] ?? { icon: 'fa-solid fa-gear', color: 'text-gray-500', bg: 'bg-gray-50' }}
+							{@const status = requestStatusKey(item.new_status as string)}
+							{@const color = status ? STATUS_COLORS[status].color : '#64748b'}
 							<div class="flex items-start gap-3 px-5 py-3">
-								<div class="w-8 h-8 rounded-lg {meta.bg} {meta.color} flex items-center justify-center shrink-0 mt-0.5">
-									<i class="{meta.icon} text-xs"></i>
+								<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={`color:${color};background:${color}18`}>
+									<i class="{activityIcons[status ?? ''] ?? 'fa-solid fa-gear'} text-xs"></i>
 								</div>
 								<div class="min-w-0">
 									<p class="text-sm font-medium text-gray-700 leading-tight truncate">
-										{item.document_name}: {item.new_status}
+										{item.document_name}: {statusLabel(item.new_status as string)}
 									</p>
 									<p class="text-xs text-gray-400 mt-0.5">
-										{item.first_name} {item.last_name} ·
-										{new Date(item.changed_at as string).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}
+										{formatName(item.first_name, item.middle_name, item.last_name)} ·
+										{new Date(item.changed_at as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 									</p>
 								</div>
 							</div>

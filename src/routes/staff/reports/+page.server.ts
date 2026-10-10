@@ -10,12 +10,14 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	if (!token) redirect(302, '/login');
 	try {
 		const p = (await verifySession(token, JWT_SECRET));
-		if (p.role === 'Student') redirect(302, '/student/dashboard');
+		if (!['Admin', 'Staff'].includes(p.role)) redirect(302, '/student/dashboard');
 	} catch { redirect(302, '/login'); }
 
 	const [requests] = await pool.execute(
-		`SELECT r.request_id, r.status, r.date_requested
+		`SELECT r.request_id, r.status, r.date_requested,
+		        p.status AS payment_status, p.or_number
 		 FROM requests r
+		 LEFT JOIN request_payments p ON p.request_id = r.request_id
 		 ORDER BY r.date_requested DESC`
 	);
 	const requestRows = requests as Array<Record<string, unknown>>;

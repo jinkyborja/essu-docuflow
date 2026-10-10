@@ -1,3 +1,4 @@
+import { formatName } from '$lib/formatting';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import pool from '$lib/server/db';
@@ -16,7 +17,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const [rows] = await pool.execute(
 		`SELECT d.document_id, d.name, d.template_path, d.template_name,
 		        d.upload_date,
-		        CONCAT(u.first_name, ' ', u.last_name) AS uploaded_by_name
+		        u.first_name, u.middle_name, u.last_name
 		 FROM documents d
 		 JOIN users u ON d.uploaded_by = u.user_id
 		 ORDER BY d.upload_date DESC`
@@ -24,7 +25,10 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
 	const docs = rows as Record<string, unknown>[];
 	const reqMap = await fetchDocumentRequirements(docs.map((d) => d.document_id as number));
-	for (const d of docs) d.requirements = reqMap.get(d.document_id as number) ?? [];
+	for (const d of docs) {
+		d.uploaded_by_name = formatName(d.first_name, d.middle_name, d.last_name);
+		d.requirements = reqMap.get(d.document_id as number) ?? [];
+	}
 
 	const [forms] = await pool.execute('SELECT form_id, title FROM forms ORDER BY title');
 	return { documents: docs, forms: forms as Array<{ form_id: number; title: string }> };

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { pluralize } from '$lib/formatting';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -98,7 +99,7 @@
 	<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
 		<div class="px-5 py-4 border-b border-gray-100">
 			<p class="text-sm text-gray-500">
-				<span class="font-medium text-gray-800">{filtered.length}</span> requests found
+				<span class="font-medium text-gray-800">{filtered.length}</span> {pluralize(filtered.length, 'request')} found
 			</p>
 		</div>
 
@@ -120,7 +121,7 @@
 						{#if expanded.includes(req.request_id)}<p class="mt-1 text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
 						<div class="flex items-center justify-between gap-2 text-xs text-gray-400">
 							<span class="font-mono">{req.request_id}</span>
-							<span>{new Date(req.date_requested).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+							<span>{new Date(req.date_requested).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span>
 						</div>
 						<div class="flex items-center gap-2 pt-1">
 							<a href="/staff/requests/{req.request_id}" class="text-xs px-2.5 py-1.5 bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors">
@@ -159,9 +160,9 @@
 									<p class="text-xs text-gray-400">{req.student_code ?? '—'}</p>
 								</td>
 								<td class="px-4 py-3 text-gray-600">{req.program ?? '—'}</td>
-								<td class="px-4 py-3 text-gray-700 whitespace-nowrap">{req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => toggleItems(req.request_id)}>+{req.items.length - 1} more</button>{/if}{#if expanded.includes(req.request_id)}<div class="mt-1 whitespace-normal text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</div>{/if}</td>
+								<td class="px-4 py-3 text-gray-700 whitespace-nowrap">{req.items?.[0]?.name ?? req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => toggleItems(req.request_id)}>+{req.items.length - 1} more</button>{/if}{#if expanded.includes(req.request_id)}<div class="mt-1 whitespace-normal text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</div>{/if}</td>
 								<td class="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
-									{new Date(req.date_requested).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+									{new Date(req.date_requested).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
 								<td class="px-4 py-3"><Badge value={req.status.toLowerCase()} /></td>
 								<td class="px-4 py-3">

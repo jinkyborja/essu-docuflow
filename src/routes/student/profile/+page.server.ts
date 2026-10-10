@@ -20,7 +20,8 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const [rows] = await pool.execute(
 		`SELECT first_name, middle_name, last_name, suffix, date_of_birth,
 		        email, student_id, program, student_type, last_school_year,
-		        date_registered, id_status, id_verified_at, id_reject_reason
+		        date_registered, id_status, id_verified_at, id_reject_reason,
+		        id_photo_path, id_photo_uploaded_at
 		 FROM users WHERE user_id = ?`,
 		[payload.userId]
 	);
@@ -48,7 +49,9 @@ export const load: PageServerLoad = async ({ cookies }) => {
 			date_registered:  fmt(u.date_registered),
 			id_status: u.id_status as string,
 			id_verified_at: fmt(u.id_verified_at),
-			id_reject_reason: u.id_reject_reason as string | null
+			id_reject_reason: u.id_reject_reason as string | null,
+			has_id_photo: Boolean(u.id_photo_path),
+			id_photo_uploaded_at: u.id_photo_uploaded_at instanceof Date ? u.id_photo_uploaded_at.toISOString() : (u.id_photo_uploaded_at as string | null) ?? null
 		}
 	};
 };

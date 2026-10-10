@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SCHOOL_YEAR_MIN, SCHOOL_YEAR_MAX, ENROLLED_SCHOOL_YEAR_MIN, validateSchoolYear } from '$lib/school-year';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { graduatePrograms } from '$lib/data/programs';
@@ -94,6 +95,8 @@
 		error = '';
 		studentIdError = '';
 		if (!firstName || !lastName || !dateOfBirth || !email || !program || !studentType || !lastSchoolYear || !password || !confirmPassword) { error = 'Please fill in all required fields.'; return; }
+		const yearError = validateSchoolYear(lastSchoolYear, studentType);
+		if (yearError) { error = yearError; return; }
 		if (dateOfBirth < DOB_MIN || dateOfBirth > DOB_MAX) {
 			error = `Date of birth must be between ${DOB_MIN.slice(0, 4)} and ${DOB_MAX.slice(0, 4)}.`;
 			return;
@@ -180,7 +183,7 @@
 								<div class="field span-2"><label for="signup-email">Email Address</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg><input id="signup-email" bind:value={email} type="email" placeholder="yourname@essu.edu.ph" required /></div></div>
 								<div class="field span-2"><label for="signup-program">Program / Course</label><div class="field-wrap"><svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9.5 12 4l10 5.5-10 5.5L2 9.5Z"/><path d="M6 12v5c3.5 2.5 8.5 2.5 12 0v-5M22 10v6"/></svg><Select id="signup-program" bind:value={program} options={graduatePrograms} placeholder="Select your program..." ariaLabel="Program or course" /></div></div>
 								<div class="field"><label for="signup-student-type">Student Type</label><div class="field-wrap"><svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.2a3.5 3.5 0 0 1 0 6.6M17 14a6 6 0 0 1 4.5 5.8"/></svg><Select id="signup-student-type" bind:value={studentType} options={studentTypes} placeholder="Select your student type..." ariaLabel="Student type" /></div></div>
-								<div class="field"><label for="signup-year">Last School Year Attended</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><input id="signup-year" bind:value={lastSchoolYear} type="number" placeholder="e.g. 2024" min="1990" max="2100" required /></div></div>
+								<div class="field"><label for="signup-year">Last School Year Attended</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><input id="signup-year" bind:value={lastSchoolYear} type="number" placeholder="e.g. 2024" min={studentType === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN} max={SCHOOL_YEAR_MAX} step="1" required /></div></div>
 								<div class="field"><label for="signup-password">Password</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="signup-password" bind:value={password} type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" required minlength="8" autocomplete="new-password" /><button type="button" class="visibility-button" aria-label={showPassword ? 'Hide password' : 'Show password'} onclick={() => (showPassword = !showPassword)}><i class="fa-solid {showPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
 								<div class="field"><label for="signup-confirm">Confirm</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="signup-confirm" bind:value={confirmPassword} type={showConfirmPassword ? 'text' : 'password'} placeholder="Repeat password" required autocomplete="new-password" /><button type="button" class="visibility-button" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'} onclick={() => (showConfirmPassword = !showConfirmPassword)}><i class="fa-solid {showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
 								<div class="review-warning span-2"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><p>Please review all your information carefully before submitting. Your <strong>name, student ID, and program</strong> must match your official school records exactly, as these cannot be changed after registration.</p></div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatName, pluralize } from '$lib/formatting';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import type { PageData } from './$types';
 
@@ -7,6 +8,7 @@
 	type StaffMember = {
 		user_id: number;
 		first_name: string;
+		middle_name: string | null;
 		last_name: string;
 		email: string;
 		role: 'Staff' | 'Admin';
@@ -131,7 +133,7 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20">
-			{staffList.length} members
+			{staffList.length} {pluralize(staffList.length, 'member')}
 		</span>
 		<button
 			onclick={openInvite}
@@ -159,7 +161,7 @@
 						</div>
 						<div class="flex-1 min-w-0">
 							<div class="flex items-center gap-2">
-								<p class="font-medium text-gray-800 text-sm">{member.first_name} {member.last_name}</p>
+								<p class="font-medium text-gray-800 text-sm">{formatName(member.first_name, member.middle_name, member.last_name)}</p>
 								<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">
 									{member.role}
 								</span>
@@ -170,10 +172,10 @@
 							{/if}
 						</div>
 						<div class="flex items-center gap-1 shrink-0">
-						<p class="text-xs text-gray-400 mr-1">{new Date(member.date_registered).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-						<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${member.first_name} ${member.last_name}`}><i class="fa-solid fa-pen text-sm"></i></button>
+						<p class="text-xs text-gray-400 mr-1">{new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
+						<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${formatName(member.first_name, member.middle_name, member.last_name)}`}><i class="fa-solid fa-pen text-sm"></i></button>
 						{#if member.user_id !== currentUserId}
-							<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${member.first_name} ${member.last_name}`}><i class="fa-solid fa-trash text-sm"></i></button>
+							<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${formatName(member.first_name, member.middle_name, member.last_name)}`}><i class="fa-solid fa-trash text-sm"></i></button>
 						{/if}
 					</div>
 					</div>
@@ -200,7 +202,7 @@
 											{member.first_name[0]}{member.last_name[0]}
 										</div>
 										<div>
-											<p class="font-medium text-gray-800">{member.first_name} {member.last_name}</p>
+											<p class="font-medium text-gray-800">{formatName(member.first_name, member.middle_name, member.last_name)}</p>
 											<p class="text-xs text-gray-400">{member.email}</p>
 										</div>
 									</div>
@@ -218,13 +220,13 @@
 									</span>
 								</td>
 								<td class="px-4 py-3 text-gray-500 text-xs">
-									{new Date(member.date_registered).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+									{new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
 								<td class="px-4 py-3">
 									<div class="flex items-center gap-1">
-										<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${member.first_name} ${member.last_name}`}><i class="fa-solid fa-pen text-sm"></i></button>
+										<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${formatName(member.first_name, member.middle_name, member.last_name)}`}><i class="fa-solid fa-pen text-sm"></i></button>
 										{#if member.user_id !== currentUserId}
-											<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${member.first_name} ${member.last_name}`}><i class="fa-solid fa-trash text-sm"></i></button>
+											<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${formatName(member.first_name, member.middle_name, member.last_name)}`}><i class="fa-solid fa-trash text-sm"></i></button>
 										{/if}
 									</div>
 								</td>
@@ -297,7 +299,7 @@
 				</div>
 				<p class="text-sm text-gray-700">
 					Are you sure you want to delete
-					<span class="font-semibold">{deleteTarget.first_name} {deleteTarget.last_name}</span>?
+					<span class="font-semibold">{formatName(deleteTarget.first_name, deleteTarget.middle_name, deleteTarget.last_name)}</span>?
 					This will permanently remove their account.
 					<span class="font-medium text-red-600">This cannot be undone.</span>
 				</p>

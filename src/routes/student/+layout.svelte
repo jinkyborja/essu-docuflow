@@ -51,9 +51,13 @@
 		<main id="main-content" tabindex="-1" class="portal-main flex-1 mt-16 p-6">
 			<PageIntro title={pageTitle} role="student" />
 			{#if data.layoutUser.idStatus === 'pending'}
-				<div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">Your account is waiting for verification by the Graduate School office. We check your student ID against the master's enrollment list.</div>
+				<div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">Your account is waiting for verification by the Graduate School office. We check your student ID against the master's enrollment list.
+					{#if ['/student/dashboard', '/student/profile'].includes($page.url.pathname)}<p class="mt-2 font-medium">Upload a clear photo of your school ID (front)</p>{#if $page.url.pathname === '/student/dashboard'}<a href="/student/profile" class="mt-1 inline-block text-essu-green underline">Upload on My Profile</a>{/if}{/if}
+				</div>
 			{:else if data.layoutUser.idStatus === 'rejected'}
-				<div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">Your student ID could not be verified. Reason: {data.layoutUser.idRejectReason ?? 'Please contact the Graduate School office.'}<VerificationHelp /></div>
+				<div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">Your student ID could not be verified. Reason: {data.layoutUser.idRejectReason ?? 'Please contact the Graduate School office.'}<VerificationHelp />
+					{#if ['/student/dashboard', '/student/profile'].includes($page.url.pathname)}<p class="mt-2 font-medium">Upload a clear photo of your school ID (front)</p>{#if $page.url.pathname === '/student/dashboard'}<a href="/student/profile" class="mt-1 inline-block text-essu-green underline">Upload on My Profile</a>{/if}{/if}
+				</div>
 			{/if}
 			{@render children()}
 		</main>

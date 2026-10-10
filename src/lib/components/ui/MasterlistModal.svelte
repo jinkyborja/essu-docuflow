@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatName } from '$lib/formatting';
 	import { untrack } from 'svelte';
 	import Modal from './Modal.svelte';
 	import type { MasterlistRow } from '$lib/server/masterlist';
@@ -70,7 +71,7 @@
 			</form>
 			<div class="overflow-x-auto border border-gray-100 rounded-lg">
 				<table class="w-full text-xs text-left"><thead class="bg-gray-50"><tr>{#each ['Student ID','Name','Program','Campus','Status','School year','Action'] as label}<th class="p-2">{label}</th>{/each}</tr></thead>
-					<tbody>{#each rows as row}<tr class="border-t border-gray-100"><td class="p-2 font-mono">{row.student_id}</td><td class="p-2">{row.last_name}, {row.first_name} {row.middle_name ?? ''}</td><td class="p-2">{row.program}</td><td class="p-2">{row.campus ?? '-'}</td><td class="p-2">{row.status ?? '-'}</td><td class="p-2">{row.school_year ?? '-'}</td><td class="p-2"><button onclick={() => remove(row)} disabled={busy || loading} class="text-red-600 focus:outline-none focus:ring-2 focus:ring-essu-green/30" aria-label={'Delete ' + row.student_id}>Delete</button></td></tr>{/each}</tbody>
+					<tbody>{#each rows as row}<tr class="border-t border-gray-100"><td class="p-2 font-mono">{row.student_id}</td><td class="p-2">{formatName(row.first_name, row.middle_name, row.last_name)}</td><td class="p-2">{row.program}</td><td class="p-2">{row.campus ?? '-'}</td><td class="p-2">{row.status ?? '-'}</td><td class="p-2">{row.school_year ?? '-'}</td><td class="p-2"><button onclick={() => remove(row)} disabled={busy || loading} class="text-red-600 focus:outline-none focus:ring-2 focus:ring-essu-green/30" aria-label={'Delete ' + row.student_id}>Delete</button></td></tr>{/each}</tbody>
 				</table>
 				{#if !rows.length}<p class="p-4 text-sm text-gray-500">{loading ? 'Loading...' : 'No entries found.'}</p>{/if}
 			</div>

@@ -1,3 +1,4 @@
+import { formatName } from '$lib/formatting';
 import { redirect, error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import pool from '$lib/server/db';
@@ -19,7 +20,7 @@ export const load: PageServerLoad = async ({ cookies, params }) => {
 		        r.admin_message, r.approved_file_path, r.approved_file_name,
 		        r.date_requested, r.document_id,
 		        u.user_id AS student_user_id,
-		        CONCAT(u.first_name, IF(u.middle_name IS NOT NULL, CONCAT(' ', u.middle_name), ''), ' ', u.last_name) AS student_name,
+		        u.first_name, u.middle_name, u.last_name,
 		        u.student_id AS student_code, u.program, u.student_type,
 		        u.email AS student_email, u.last_school_year
 		 FROM requests r
@@ -33,7 +34,7 @@ export const load: PageServerLoad = async ({ cookies, params }) => {
 
 	const [histRows] = await pool.execute(
 		`SELECT h.old_status, h.new_status, h.changed_at,
-		        CONCAT(u.first_name, ' ', u.last_name) AS changed_by_name
+		        u.first_name, u.middle_name, u.last_name
 		 FROM request_status_history h
 		 LEFT JOIN users u ON h.changed_by = u.user_id
 		 WHERE h.request_id = ?
@@ -42,12 +43,13 @@ export const load: PageServerLoad = async ({ cookies, params }) => {
 	);
 
 	const req = list[0];
+	req.student_name = formatName(req.first_name, req.middle_name, req.last_name);
 	const items = (await fetchRequestItems([req.request_id as string])).get(req.request_id as string) ?? [];
 	req.items = items; req.document_name = documentNameSummary(items);
 	const requirements = await fetchOneRequestRequirements(req.request_id as string);
 
 	return {
 		request: { ...req, items, requirements },
-		history: histRows as Record<string, unknown>[]
+		history: (histRows as Record<string, unknown>[]).map(row => ({ ...row, changed_by_name: formatName(row.first_name, row.middle_name, row.last_name) || null }))
 	};
 };

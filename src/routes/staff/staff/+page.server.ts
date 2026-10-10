@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 	}
 
 	const [rows] = await pool.execute(
-		`SELECT user_id, first_name, last_name, email, role, position, date_registered
+		`SELECT user_id, first_name, middle_name, last_name, email, role, position, date_registered
 		 FROM users
 		 WHERE role IN ('Staff', 'Admin')
 		 ORDER BY role ASC, last_name ASC`

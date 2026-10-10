@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { pluralize } from '$lib/formatting';
+	import { REQUEST_STATUSES, requestStatusKey, statusLabel, STATUS_COLORS, type RequestStatus } from '$lib/request-status';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import { page } from '$app/stores';
@@ -6,7 +8,7 @@
 
 	const { data }: { data: PageData } = $props();
 
-	type Row = { request_id: string; status: string; date_requested: string; document_name: string; items: Array<{document_id:number;name:string}> };
+	type Row = { request_id: string; status: string; date_requested: string; document_name: string; items: Array<{document_id:number;name:string}>; payment_status?: string | null; or_number?: string | null };
 	type DocStat = { document_name: string; total: number; approved: number; rejected: number };
 	type DateWindow = { start: Date | null; end: Date };
 	type TrendBucket = { key: string; label: string; value: number };
@@ -15,15 +17,26 @@
 	let customStart = $state('');
 	let customEnd = $state('');
 
-	const now = new Date();
 	const allRows = $derived(data.requests as Row[]);
+	const manilaDayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
+	function calendarDate(date: Date) {
+		if (Number.isNaN(date.getTime())) return new Date(Number.NaN);
+		const parts = manilaDayFormat.formatToParts(date);
+		const part = (type: string) => parts.find(item => item.type === type)?.value;
+		return new Date(`${part('year')}-${part('month')}-${part('day')}T00:00:00Z`);
+	}
+	const approvedStatuses: RequestStatus[] = ['approved', 'processing', 'ready_for_pickup', 'released'];
+	function requirementsApproved(status: string) {
+		const key = requestStatusKey(status);
+		return key !== null && approvedStatuses.includes(key);
+	}
 
 	function startOfDay(date: Date) {
-		return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+		return new Date(calendarDate(date).getTime() - 8 * 60 * 60 * 1000);
 	}
 
 	function endOfDay(date: Date) {
-		return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+		return new Date(startOfDay(date).getTime() + 86400000 - 1);
 	}
 
 	function dateWindow(range: string): DateWindow {
@@ -31,25 +44,25 @@
 		if (range === 'all') return { start: null, end };
 		if (range === 'today') return { start: startOfDay(end), end };
 		if (range === '7d') {
-			const start = startOfDay(end);
-			start.setDate(start.getDate() - 6);
-			return { start, end };
+			return { start: new Date(startOfDay(end).getTime() - 6 * 86400000), end };
 		}
 		if (range === '30d') {
-			const start = startOfDay(end);
-			start.setDate(start.getDate() - 29);
-			return { start, end };
+			return { start: new Date(startOfDay(end).getTime() - 29 * 86400000), end };
 		}
-		if (range === 'month') return { start: new Date(end.getFullYear(), end.getMonth(), 1), end };
+		if (range === 'month') {
+			const start = calendarDate(end); start.setUTCDate(1);
+			return { start: startOfDay(start), end };
+		}
 		if (range === 'school-year') {
-			const schoolYear = end.getMonth() >= 7 ? end.getFullYear() : end.getFullYear() - 1;
-			return { start: new Date(schoolYear, 7, 1), end };
+			const local = calendarDate(end);
+			const schoolYear = local.getUTCMonth() >= 7 ? local.getUTCFullYear() : local.getUTCFullYear() - 1;
+			return { start: new Date(`${schoolYear}-08-01T00:00:00+08:00`), end };
 		}
 		if (range === 'custom') {
 			if (!customStart || !customEnd) return { start: new Date(Number.NaN), end };
 			return {
-				start: startOfDay(new Date(`${customStart}T00:00:00`)),
-				end: endOfDay(new Date(`${customEnd}T00:00:00`))
+				start: startOfDay(new Date(`${customStart}T00:00:00+08:00`)),
+				end: endOfDay(new Date(`${customEnd}T00:00:00+08:00`))
 			};
 		}
 		return { start: null, end };
@@ -63,12 +76,11 @@
 	const selectedWindow = $derived(dateWindow(timeRange));
 	const filtered = $derived(allRows.filter((row) => inWindow(row, selectedWindow)));
 	const total = $derived(filtered.length);
-	const pending = $derived(filtered.filter((row) => row.status === 'Pending').length);
-	const approved = $derived(filtered.filter((row) => row.status === 'Approved').length);
-	const rejected = $derived(filtered.filter((row) => row.status === 'Rejected').length);
-	const correctionRequested = $derived(filtered.filter((row) => row.status === 'Correction Requested').length);
-	const resolved = $derived(approved + rejected);
-	const approvalRate = $derived(resolved ? (approved / resolved) * 100 : 0);
+	const statusCounts = $derived(Object.fromEntries(REQUEST_STATUSES.map(status => [status, filtered.filter(row => requestStatusKey(row.status) === status).length])) as Record<RequestStatus, number>);
+	const accepted = $derived(approvedStatuses.reduce((sum, status) => sum + statusCounts[status], 0));
+	const rejected = $derived(statusCounts.rejected);
+	const resolved = $derived(accepted + rejected);
+	const approvalRate = $derived(resolved ? (accepted / resolved) * 100 : 0);
 	const rejectionRate = $derived(resolved ? (rejected / resolved) * 100 : 0);
 
 	const periodOptions = [
@@ -83,7 +95,7 @@
 
 	const periodLabel = $derived(
 		timeRange === 'custom' && customStart && customEnd
-			? `${new Date(`${customStart}T00:00:00`).toLocaleDateString()} – ${new Date(`${customEnd}T00:00:00`).toLocaleDateString()}`
+			? `${formatDate(`${customStart}T00:00:00+08:00`)} – ${formatDate(`${customEnd}T00:00:00+08:00`)}`
 			: periodOptions.find((option) => option.value === timeRange)?.label ?? 'All time'
 	);
 
@@ -94,10 +106,10 @@
 		return { start: new Date(end.getTime() - duration), end };
 	});
 	const previousRows = $derived(previousWindow ? allRows.filter((row) => inWindow(row, previousWindow)) : []);
-	const previousApproved = $derived(previousRows.filter((row) => row.status === 'Approved').length);
-	const previousRejected = $derived(previousRows.filter((row) => row.status === 'Rejected').length);
-	const previousResolved = $derived(previousApproved + previousRejected);
-	const previousApprovalRate = $derived(previousResolved ? (previousApproved / previousResolved) * 100 : 0);
+	const previousAccepted = $derived(previousRows.filter(row => requirementsApproved(row.status)).length);
+	const previousRejected = $derived(previousRows.filter(row => requestStatusKey(row.status) === 'rejected').length);
+	const previousResolved = $derived(previousAccepted + previousRejected);
+	const previousApprovalRate = $derived(previousResolved ? (previousAccepted / previousResolved) * 100 : 0);
 
 	function percentChange(current: number, previous: number): number | null {
 		if (previous === 0) return current === 0 ? 0 : null;
@@ -112,11 +124,7 @@
 	}
 
 	const totalDelta = $derived(previousWindow ? percentChange(total, previousRows.length) : null);
-	const pendingDelta = $derived(previousWindow ? percentChange(pending, previousRows.filter((row) => row.status === 'Pending').length) : null);
-	const approvedDelta = $derived(previousWindow ? percentChange(approved, previousApproved) : null);
-	const rejectedDelta = $derived(previousWindow ? percentChange(rejected, previousRejected) : null);
-	const correctionDelta = $derived(previousWindow ? percentChange(correctionRequested, previousRows.filter((row) => row.status === 'Correction Requested').length) : null);
-	const approvalRateDelta = $derived(previousWindow ? approvalRate - previousApprovalRate : null);
+	const approvalRateDelta = $derived(previousWindow && resolved && previousResolved ? approvalRate - previousApprovalRate : null);
 
 	function buildDocStats(rows: Row[]): DocStat[] {
 		const counts = new Map<string, DocStat>();
@@ -124,8 +132,8 @@
 			for (const doc of row.items ?? []) {
 				const item = counts.get(doc.name) ?? { document_name: doc.name, total: 0, approved: 0, rejected: 0 };
 				item.total += 1;
-				if (row.status === 'Approved') item.approved += 1;
-				if (row.status === 'Rejected') item.rejected += 1;
+				if (requirementsApproved(row.status)) item.approved += 1;
+				if (requestStatusKey(row.status) === 'rejected') item.rejected += 1;
 				counts.set(doc.name, item);
 			}
 		}
@@ -134,12 +142,16 @@
 
 	const docStats = $derived(buildDocStats(filtered));
 	const topDocuments = $derived(docStats.slice(0, 5));
-	const statusBreakdown = $derived([
-		{ label: 'Approved', count: approved, color: '#28724d', share: total ? (approved / total) * 100 : 0 },
-		{ label: 'Pending', count: pending, color: '#96600b', share: total ? (pending / total) * 100 : 0 },
-		{ label: 'Rejected', count: rejected, color: '#a93e3b', share: total ? (rejected / total) * 100 : 0 },
-		{ label: 'Correction Requested', count: correctionRequested, color: '#8b6811', share: total ? (correctionRequested / total) * 100 : 0 }
-	]);
+	const statusIcons: Record<RequestStatus, string> = {
+		pending: 'fa-regular fa-clock', correction_requested: 'fa-solid fa-rotate-left',
+		approved: 'fa-solid fa-circle-check', processing: 'fa-solid fa-gears',
+		ready_for_pickup: 'fa-solid fa-box', released: 'fa-solid fa-handshake',
+		rejected: 'fa-solid fa-circle-xmark', cancelled: 'fa-solid fa-ban'
+	};
+	const statusBreakdown = $derived(REQUEST_STATUSES.map(key => ({
+		key, label: statusLabel(key), icon: statusIcons[key], count: statusCounts[key],
+		color: STATUS_COLORS[key].color, share: total ? (statusCounts[key] / total) * 100 : 0
+	})));
 	const statusGradient = $derived.by(() => {
 		let edge = 0;
 		const stops = statusBreakdown.map((item) => {
@@ -152,28 +164,27 @@
 
 	function bucketConfig(): { unit: 'day' | 'week' | 'month'; start: Date; end: Date } {
 		const range = selectedWindow;
-		let start = range.start ? new Date(range.start) : new Date(range.end.getFullYear(), range.end.getMonth() - 11, 1);
+		const monthStart = calendarDate(range.end); monthStart.setUTCMonth(monthStart.getUTCMonth() - 11, 1);
+		const start = range.start ? new Date(range.start) : startOfDay(monthStart);
 		const end = new Date(range.end);
 		const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
 		const unit = ['today', '7d', '30d'].includes(timeRange) || (timeRange === 'custom' && days <= 35)
 			? 'day'
 			: timeRange === 'custom' && days <= 150 ? 'week' : 'month';
-		if (!range.start) start = new Date(range.end.getFullYear(), range.end.getMonth() - 11, 1);
 		return { unit, start, end };
 	}
 
 	function bucketKey(date: Date, unit: 'day' | 'week' | 'month') {
-		if (unit === 'month') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-		if (unit === 'day') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-		const monday = startOfDay(date);
-		monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-		return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+		const local = calendarDate(date);
+		if (unit === 'month') return `${local.getUTCFullYear()}-${String(local.getUTCMonth() + 1).padStart(2, '0')}`;
+		if (unit === 'week') local.setUTCDate(local.getUTCDate() - ((local.getUTCDay() + 6) % 7));
+		return `${local.getUTCFullYear()}-${String(local.getUTCMonth() + 1).padStart(2, '0')}-${String(local.getUTCDate()).padStart(2, '0')}`;
 	}
 
 	function bucketLabel(date: Date, unit: 'day' | 'week' | 'month') {
-		if (unit === 'month') return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-		if (unit === 'week') return `Week of ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
-		return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+		if (unit === 'month') return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
+		if (unit === 'week') return `Week of ${date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}`;
+		return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
 	}
 
 	const trendBuckets = $derived.by((): TrendBucket[] => {
@@ -187,16 +198,16 @@
 			}
 		}
 		const buckets: TrendBucket[] = [];
-		const cursor = new Date(start);
-		if (unit === 'week') cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7));
-		else if (unit === 'month') cursor.setDate(1);
+		const cursor = calendarDate(start);
+		if (unit === 'week') cursor.setUTCDate(cursor.getUTCDate() - ((cursor.getUTCDay() + 6) % 7));
+		else if (unit === 'month') cursor.setUTCDate(1);
 		let guard = 0;
-		while (cursor <= end && guard < 400) {
+		while (startOfDay(cursor) <= end && guard < 400) {
 			const key = bucketKey(cursor, unit);
 			buckets.push({ key, label: bucketLabel(cursor, unit), value: counts.get(key) ?? 0 });
-			if (unit === 'day') cursor.setDate(cursor.getDate() + 1);
-			else if (unit === 'week') cursor.setDate(cursor.getDate() + 7);
-			else cursor.setMonth(cursor.getMonth() + 1);
+			if (unit === 'day') cursor.setUTCDate(cursor.getUTCDate() + 1);
+			else if (unit === 'week') cursor.setUTCDate(cursor.getUTCDate() + 7);
+			else cursor.setUTCMonth(cursor.getUTCMonth() + 1);
 			guard += 1;
 		}
 		return buckets;
@@ -215,7 +226,7 @@
 
 	function formatDate(value: string) {
 		const date = new Date(value);
-		return isNaN(date.getTime()) ? '—' : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+		return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
 	}
 
 	function tryWiderPeriod() {
@@ -224,8 +235,8 @@
 
 	function exportCsv() {
 		const csvRows = [
-			['Request ID', 'Document', 'Status', 'Date Requested'],
-			...recentExportRows().map((row) => [row.request_id, row.document_name, row.status, row.date_requested])
+			['Request ID', 'Document', 'Status', 'Date Requested', 'Payment Status', 'O.R. Number'],
+			...recentExportRows().map((row) => [row.request_id, row.document_name, statusLabel(row.status), formatDate(row.date_requested), row.payment_status ?? '', row.or_number ?? ''])
 		];
 		const csv = csvRows.map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\r\n');
 		const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -251,7 +262,7 @@
 <div class="report-layout">
 	<div class="report-print-meta" aria-hidden="true">
 		<p class="report-print-title">ESSU DocuFlow · Reports &amp; Analytics</p>
-		<p>{periodLabel} · Generated {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} · {staffName}</p>
+		<p>{periodLabel} · Generated {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })} · {staffName}</p>
 	</div>
 
 	<header class="report-page-header page-toolbar">
@@ -259,7 +270,6 @@
 			<p class="report-subtitle">Counts refer to requests; one request can include several documents.</p>
 		</div>
 		<div class="report-heading-meta">
-			<span class="report-period-chip"><i class="fa-regular fa-calendar" aria-hidden="true"></i>{periodLabel}</span>
 			<div class="report-toolbar" aria-label="Report controls">
 				<label class="sr-only" for="report-period">Report period</label>
 				<select id="report-period" bind:value={timeRange}>
@@ -296,32 +306,22 @@
 		<section class="report-kpis" aria-label="Request key performance indicators">
 			<article class="report-kpi report-kpi-total">
 				<div class="report-kpi-icon"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></div>
-				<div class="report-kpi-copy"><p>Total Requests</p><strong>{total}</strong><span>{total ? '100% of selected requests' : 'No requests'}</span></div>
+				<div class="report-kpi-copy"><p>Total Requests</p><strong>{total}</strong><span>{total ? `100% of selected ${pluralize(total, 'request')}` : 'No requests'}</span></div>
 				{#if totalDelta !== null}<small class:positive={totalDelta <= 0} class:negative={totalDelta > 0} aria-label={deltaLabel(total, previousRows.length)}><i class="fa-solid {totalDelta > 0 ? 'fa-arrow-up' : totalDelta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(totalDelta).toFixed(0)}%</small>{/if}
 			</article>
-			<article class="report-kpi report-kpi-pending">
-				<div class="report-kpi-icon"><i class="fa-regular fa-clock" aria-hidden="true"></i></div>
-				<div class="report-kpi-copy"><p>Pending</p><strong>{pending}</strong><span>{total ? `${((pending / total) * 100).toFixed(0)}% of total` : 'No requests'}</span></div>
-				{#if pendingDelta !== null}<small class:positive={pendingDelta <= 0} class:negative={pendingDelta > 0} aria-label={deltaLabel(pending, previousRows.filter((row) => row.status === 'Pending').length)}><i class="fa-solid {pendingDelta > 0 ? 'fa-arrow-up' : pendingDelta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(pendingDelta).toFixed(0)}%</small>{/if}
-			</article>
-			<article class="report-kpi report-kpi-approved">
-				<div class="report-kpi-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
-				<div class="report-kpi-copy"><p>Approved</p><strong>{approved}</strong><span>{total ? `${((approved / total) * 100).toFixed(0)}% of total` : 'No requests'}</span></div>
-				{#if approvedDelta !== null}<small class:positive={approvedDelta >= 0} class:negative={approvedDelta < 0} aria-label={deltaLabel(approved, previousApproved)}><i class="fa-solid {approvedDelta > 0 ? 'fa-arrow-up' : approvedDelta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(approvedDelta).toFixed(0)}%</small>{/if}
-			</article>
-			<article class="report-kpi report-kpi-rejected">
-				<div class="report-kpi-icon"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i></div>
-				<div class="report-kpi-copy"><p>Rejected</p><strong>{rejected}</strong><span>{total ? `${((rejected / total) * 100).toFixed(0)}% of total` : 'No requests'}</span></div>
-				{#if rejectedDelta !== null}<small class:positive={rejectedDelta <= 0} class:negative={rejectedDelta > 0} aria-label={deltaLabel(rejected, previousRejected)}><i class="fa-solid {rejectedDelta > 0 ? 'fa-arrow-up' : rejectedDelta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(rejectedDelta).toFixed(0)}%</small>{/if}
-			</article>
-			<article class="report-kpi report-kpi-correction">
-				<div class="report-kpi-icon"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></div>
-				<div class="report-kpi-copy"><p>Correction Requested</p><strong>{correctionRequested}</strong><span>{total ? `${((correctionRequested / total) * 100).toFixed(0)}% of total` : 'No requests'}</span></div>
-				{#if correctionDelta !== null}<small class:positive={correctionDelta <= 0} class:negative={correctionDelta > 0} aria-label={deltaLabel(correctionRequested, previousRows.filter((row) => row.status === 'Correction Requested').length)}><i class="fa-solid {correctionDelta > 0 ? 'fa-arrow-up' : correctionDelta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(correctionDelta).toFixed(0)}%</small>{/if}
-			</article>
+			{#each statusBreakdown as status}
+				{@const previousCount = previousRows.filter(row => requestStatusKey(row.status) === status.key).length}
+				{@const delta = previousWindow ? percentChange(status.count, previousCount) : null}
+				{@const improvesWithIncrease = approvedStatuses.includes(status.key)}
+				<article class="report-kpi">
+					<div class="report-kpi-icon" style={`color:${status.color};background:${status.color}18`}><i class={status.icon} aria-hidden="true"></i></div>
+					<div class="report-kpi-copy"><p>{status.label}</p><strong>{status.count}</strong><span>{total ? `${status.share.toFixed(0)}% of total` : 'No requests'}</span></div>
+					{#if delta !== null}<small class:positive={improvesWithIncrease ? delta >= 0 : delta <= 0} class:negative={improvesWithIncrease ? delta < 0 : delta > 0} aria-label={deltaLabel(status.count, previousCount)}><i class="fa-solid {delta > 0 ? 'fa-arrow-up' : delta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(delta).toFixed(0)}%</small>{/if}
+				</article>
+			{/each}
 			<article class="report-kpi report-kpi-rate">
 				<div class="report-kpi-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>
-				<div class="report-kpi-copy"><p>Approval Rate (resolved requests)</p><strong>{approvalRate.toFixed(0)}%</strong><span>{resolved} resolved · {rejectionRate.toFixed(0)}% rejected</span></div>
+				<div class="report-kpi-copy"><p>Approval Rate (resolved requests)</p><strong>{resolved ? `${approvalRate.toFixed(0)}%` : '—'}</strong><span>{resolved} resolved · {resolved ? `${rejectionRate.toFixed(0)}%` : '—'} rejected</span></div>
 				{#if approvalRateDelta !== null}<small class:positive={approvalRateDelta >= 0} class:negative={approvalRateDelta < 0} aria-label={`${Math.abs(approvalRateDelta).toFixed(0)} percentage points vs previous period`}><i class="fa-solid {approvalRateDelta > 0 ? 'fa-arrow-up' : approvalRateDelta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(approvalRateDelta).toFixed(0)} pts</small>{/if}
 			</article>
 		</section>
@@ -331,12 +331,12 @@
 		<section class="report-grid report-grid-primary">
 			<article class="report-card report-trend-card">
 				<header class="report-card-header">
-					<div><h3>Requests Over Time</h3><p>{timeRange === 'all' ? 'Monthly · last 12 months' : `${trendBuckets.length} ${bucketConfig().unit === 'day' ? 'daily' : bucketConfig().unit === 'week' ? 'weekly' : 'monthly'} intervals`}</p></div>
-					<span class="report-chart-total">{trendTotal} requests</span>
+					<div><h3>Requests Over Time</h3><p>{timeRange === 'all' ? 'Monthly · last 12 months' : `${trendBuckets.length} ${bucketConfig().unit === 'day' ? 'daily' : bucketConfig().unit === 'week' ? 'weekly' : 'monthly'} ${pluralize(trendBuckets.length, 'interval')}`}</p></div>
+					<span class="report-chart-total">{trendTotal} {pluralize(trendTotal, 'request')}</span>
 				</header>
 				{#if trendBuckets.length}
 					<div class="report-trend-plot">
-						<svg viewBox="0 0 720 220" preserveAspectRatio="none" role="img" aria-label={`Requests over time, with ${trendTotal} requests across ${trendBuckets.length} intervals`}>
+						<svg viewBox="0 0 720 220" preserveAspectRatio="none" role="img" aria-label={`Requests over time, with ${trendTotal} ${pluralize(trendTotal, 'request')} across ${trendBuckets.length} ${pluralize(trendBuckets.length, 'interval')}`}>
 							<line x1="10" y1="190" x2="710" y2="190" class="chart-axis" />
 							<line x1="10" y1="110" x2="710" y2="110" class="chart-gridline" />
 							<line x1="10" y1="30" x2="710" y2="30" class="chart-gridline" />
@@ -345,7 +345,7 @@
 							{#each trendBuckets as bucket, index}
 								{@const x = trendBuckets.length > 1 ? (index / (trendBuckets.length - 1)) * 700 + 10 : 360}
 								{@const y = 190 - (bucket.value / trendMax) * 160}
-								<circle cx={x} cy={y} r="3.5" class="chart-point"><title>{bucket.label}: {bucket.value} requests</title></circle>
+								<circle cx={x} cy={y} r="3.5" class="chart-point"><title>{`${bucket.label}: ${bucket.value} ${pluralize(bucket.value, 'request')}`}</title></circle>
 							{/each}
 						</svg>
 					</div>
@@ -382,7 +382,7 @@
 						{#each docStats as stat}
 							<div class="report-document-row">
 								<div class="report-document-label"><span title={stat.document_name}>{stat.document_name}</span><strong>{stat.total}</strong></div>
-								<div class="report-document-track" role="img" aria-label={`${stat.document_name}: ${stat.total} requests, ${total ? ((stat.total / total) * 100).toFixed(0) : 0}% of total`}><span style={`width:${total ? (stat.total / total) * 100 : 0}%`}></span></div>
+							<div class="report-document-track" role="img" aria-label={`${stat.document_name}: ${stat.total} ${pluralize(stat.total, 'request')}, ${total ? ((stat.total / total) * 100).toFixed(0) : 0}% of total`}><span style={`width:${total ? (stat.total / total) * 100 : 0}%`}></span></div>
 								<small>{total ? ((stat.total / total) * 100).toFixed(0) : 0}%</small>
 							</div>
 						{/each}
@@ -448,7 +448,6 @@
 		gap: 0.55rem;
 	}
 
-	.report-period-chip,
 	.report-chart-total {
 		display: inline-flex;
 		align-items: center;
@@ -568,10 +567,6 @@
 	.report-kpi > small { position: absolute; right: 0.75rem; bottom: 0.72rem; display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.62rem; font-weight: 700; }
 	.report-kpi > small.positive { color: #236746; }
 	.report-kpi > small.negative { color: #a13c38; }
-	.report-kpi-pending .report-kpi-icon { background: #f5ebd6; color: #80540e; }
-	.report-kpi-approved .report-kpi-icon { background: #e0efe4; color: #28724d; }
-	.report-kpi-rejected .report-kpi-icon { background: #f7e8e6; color: #a93e3b; }
-	.report-kpi-correction .report-kpi-icon { background: #f5edd8; color: #806213; }
 	.report-kpi-rate .report-kpi-icon { background: #e7eef1; color: #315f76; }
 
 	.report-comparison-note { margin: 0.6rem 0 1.15rem; color: #75847c; font-size: 0.67rem; text-align: right; }
@@ -679,7 +674,7 @@
 
 	@media print {
 		:global(body) { background: #fff !important; color: #111 !important; }
-		:global(.portal-sidebar), :global(.portal-topbar), .report-toolbar, .report-period-chip, .report-comparison-note { display: none !important; }
+		:global(.portal-sidebar), :global(.portal-topbar), .report-toolbar, .report-comparison-note { display: none !important; }
 		:global(.portal-main) { max-width: none !important; margin: 0 !important; padding: 0 !important; }
 		.report-layout { color: #111; }
 		.report-print-meta { display: block; margin-bottom: 1rem; border-bottom: 1px solid #888; padding-bottom: 0.5rem; }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatName } from '$lib/formatting';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -22,7 +23,7 @@
 	};
 
 	function fmtDate(d: unknown) {
-		return new Date(d as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+		return new Date(d as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
 	}
 
 	// New unreviewed pending requests → type 'request', isRead from staff_viewed
@@ -31,7 +32,7 @@
 		source: 'request' as const,
 		type: 'request' as const,
 		title: `New Request: ${r.document_name}`,
-		message: `${r.first_name} ${r.last_name} submitted a new request for ${r.document_name} (${r.request_id}).`,
+		message: `${formatName(r.first_name, r.middle_name, r.last_name)} submitted a new request for ${r.document_name} (${r.request_id}).`,
 		date: fmtDate(r.date_requested),
 		isRead: !!(r.staff_viewed),
 		relatedRequestId: r.request_id as string
@@ -46,9 +47,9 @@
 			status === 'Approved'             ? 'system' : 'system';
 		const adminMsg = h.admin_message as string | null;
 		const message =
-			status === 'Approved'             ? `${h.first_name} ${h.last_name}'s request for ${h.document_name} (${h.request_id}) was approved.` :
-			status === 'Rejected'             ? `${h.first_name} ${h.last_name}'s request for ${h.document_name} (${h.request_id}) was rejected.${adminMsg ? ' Note: ' + adminMsg : ''}` :
-			status === 'Correction Requested' ? `Correction requested for ${h.first_name} ${h.last_name}'s request (${h.request_id}).${adminMsg ? ' ' + adminMsg : ''}` :
+			status === 'Approved'             ? `${formatName(h.first_name, h.middle_name, h.last_name)}'s request for ${h.document_name} (${h.request_id}) was approved.` :
+			status === 'Rejected'             ? `${formatName(h.first_name, h.middle_name, h.last_name)}'s request for ${h.document_name} (${h.request_id}) was rejected.${adminMsg ? ' Note: ' + adminMsg : ''}` :
+			status === 'Correction Requested' ? `Correction requested for ${formatName(h.first_name, h.middle_name, h.last_name)}'s request (${h.request_id}).${adminMsg ? ' ' + adminMsg : ''}` :
 			                                    `${h.document_name} request (${h.request_id}) status changed to ${status}.`;
 		return {
 			id: String(h.history_id),

@@ -6,14 +6,26 @@ import { fetchDocumentRequirements, replaceDocumentRequirements, type Requiremen
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateUpload } from '$lib/server/upload-validation';
+import { formatName } from '$lib/formatting';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ cookies }) => {
+	const token = cookies.get('session');
+	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
+	try {
+		const payload = await verifySession(token, JWT_SECRET);
+		if (!['Student', 'Staff', 'Admin'].includes(payload.role)) return json({ error: 'Forbidden' }, { status: 403 });
+	} catch { return json({ error: 'Unauthorized' }, { status: 401 }); }
 	const [rows] = await pool.execute(
-		'SELECT document_id, name, template_path, template_name, upload_date FROM documents ORDER BY upload_date DESC'
+		`SELECT d.document_id, d.name, d.template_path, d.template_name, d.upload_date,
+		        u.first_name, u.middle_name, u.last_name
+		 FROM documents d JOIN users u ON u.user_id = d.uploaded_by ORDER BY d.upload_date DESC`
 	);
 	const docs = rows as Record<string, unknown>[];
 	const reqMap = await fetchDocumentRequirements(docs.map((d) => d.document_id as number));
-	for (const d of docs) d.requirements = reqMap.get(d.document_id as number) ?? [];
+	for (const d of docs) {
+		d.uploaded_by_name = formatName(d.first_name, d.middle_name, d.last_name);
+		d.requirements = reqMap.get(d.document_id as number) ?? [];
+	}
 	return json(docs);
 };
 

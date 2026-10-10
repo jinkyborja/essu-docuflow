@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { pluralize } from '$lib/formatting';
+	import { validateRequirementFileMetadata } from '$lib/requirement-files';
+	import { uploadRequirementFiles } from '$lib/upload-requirement-files';
 	import StepIndicator from '$lib/components/forms/StepIndicator.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { goto } from '$app/navigation';
@@ -34,6 +37,7 @@
 
 	// Files per requirement (keyed by requirement name)
 	let files = $state<Record<string, File | null>>({});
+	let fileErrors = $state<Record<string, string>>({});
 
 	// Requirements now arrive as rows from the server, already ordered.
 	const requirements = $derived.by(() => {
@@ -50,7 +54,7 @@
 		if (currentStep === 1) return selectedDocs.length > 0;
 		if (currentStep === 2) {
 			// All non-in-person requirements must have a file
-			return requirements.every(r => r.in_person || !!files[r.name]);
+			return requirements.every(r => r.in_person || (!!files[r.name] && !fileErrors[r.name]));
 		}
 		return !!purpose.trim();
 	});
@@ -88,19 +92,16 @@
 			fd.append('purpose', purpose.trim());
 			fd.append('requirements', JSON.stringify(reqs));
 
-			for (const r of reqs) {
-				if (!r.in_person && files[r.name]) {
-					fd.append(`file_${r.name}`, files[r.name]!);
-				}
-			}
+			const uploadFiles = Object.fromEntries(reqs.filter(r => !r.in_person).map(r => [r.name, files[r.name] ?? null]));
+			fd.append('uploads', JSON.stringify(await uploadRequirementFiles(uploadFiles, { documentIds: selectedDocs.map(doc => doc.document_id) })));
 
 			const res = await fetch('/api/requests', { method: 'POST', body: fd });
 			const result = await res.json();
 			if (!res.ok) { submitError = result.error ?? 'Submission failed.'; return; }
 			submittedId = result.request_id;
 			successOpen = true;
-		} catch {
-			submitError = 'Network error. Please try again.';
+		} catch (error) {
+			submitError = error instanceof Error ? error.message : 'Network error. Please try again.';
 		} finally {
 			submitting = false;
 		}
@@ -111,6 +112,7 @@
 		selectedDocs = [];
 		purpose = '';
 		files = {};
+		fileErrors = {};
 		submitError = '';
 		successOpen = false;
 		submittedId = '';
@@ -119,7 +121,7 @@
 
 <div class="request-workspace max-w-3xl mx-auto space-y-5">
 	{#if data.idStatus !== 'verified'}
-		<div class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">{data.idStatus === 'rejected' ? 'Your student ID could not be verified. Reason: ' + (data.idRejectReason ?? 'Please contact the Graduate School office.') : "Your account is waiting for verification by the Graduate School office. We check your student ID against the master's enrollment list."}</div>
+		<a href="/student/forms" class="page-primary-action"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Browse forms</a>
 	{:else}
 	<!-- Step indicator -->
 	<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
@@ -158,7 +160,7 @@
 								<p class="font-semibold text-sm text-gray-800">{doc.name}</p>
 							</div>
 							{#if reqs.length > 0}
-								<p class="text-xs text-gray-400">{reqs.length} requirement{reqs.length !== 1 ? 's' : ''}</p>
+								<p class="text-xs text-gray-400">{reqs.length} {pluralize(reqs.length, 'requirement')}</p>
 							{:else}
 								<p class="text-xs text-gray-400">No requirements</p>
 							{/if}
@@ -167,7 +169,7 @@
 				</div>
 			{/if}
 			<div class="sticky bottom-0 mt-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm" aria-live="polite">
-				<p class="text-sm font-semibold text-gray-700">{selectedDocs.length} {selectedDocs.length === 1 ? 'document' : 'documents'} selected</p>
+				<p class="text-sm font-semibold text-gray-700">{selectedDocs.length} {pluralize(selectedDocs.length, 'document')} selected</p>
 				<div class="mt-2 flex flex-wrap gap-2">{#each selectedDocs as doc}<span class="inline-flex items-center gap-1 rounded-full bg-essu-green/10 px-3 py-1 text-xs text-essu-green">{doc.name}<button type="button" aria-label={`Remove ${doc.name}`} onclick={() => removeDoc(doc.document_id)} class="rounded-full px-1 hover:bg-essu-green/10"><i class="fa-solid fa-xmark"></i></button></span>{/each}</div>
 			</div>
 
@@ -209,27 +211,34 @@
 											<a href={file.public_url} download={file.name} target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg border border-essu-green/30 text-xs text-essu-green hover:bg-essu-green/5 focus:outline-none focus:ring-2 focus:ring-essu-green/30">{(/\.docx?$/i.test(file.name)) ? 'Download editable Word file' : 'Download form'}{(req.form_files?.length ?? 0) > 1 ? ' - ' + file.name : ''}</a>
 										{/each}
 									</div>
-									{#if !req.in_person}<p class="text-xs text-gray-500">1. Download the form. 2. Get it signed. 3. Upload a clear photo or PDF.</p>{/if}
 								</div>
 							{/if}
-							{#if req.signature_note}<p class="mb-2 text-xs text-gray-600">{req.signature_note}</p>{:else if req.needs_signature}<p class="mb-2 text-xs text-gray-600">Signatures required.</p>{/if}
+							{#if req.needs_signature}
+								<div class="mb-3 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+									<i class="fa-solid fa-circle-info mt-0.5 shrink-0" aria-hidden="true"></i>
+									<span>Get this form signed by: {req.signature_note?.trim() || 'the required signatories'}, then upload a photo or PDF of the signed form.</span>
+								</div>
+							{/if}
 							{#if req.in_person}
 								<div class="p-3 bg-orange-100/60 border border-orange-200 rounded-lg text-xs text-orange-700 flex items-start gap-2">
 									<i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i>
 									<span>This requirement must be submitted in person at the Graduate School. You do not need to upload anything for this.</span>
 								</div>
 							{:else}
-								{#if req.form_id}<p class="mb-1.5 text-sm font-medium text-gray-700">Upload the signed form (photo or PDF)</p>{/if}
+								{#if req.form_id}<p class="mb-1.5 text-sm font-medium text-gray-700">{req.needs_signature ? 'Upload the signed form (photo or PDF)' : 'Upload the completed form (photo or PDF)'}</p>{/if}
 								<label class="ui-file-dropzone flex items-start gap-3 px-3 py-2.5 border border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-essu-green/50 hover:bg-essu-green/5 transition-all">
 									<i class="fa-solid fa-upload text-gray-400 shrink-0 mt-0.5"></i>
 									<span class="text-sm min-w-0 break-words {files[req.name] ? 'text-essu-green font-medium' : 'text-gray-400'}">
-										{files[req.name] ? files[req.name]!.name : (req.form_id ? 'Upload the signed form (photo or PDF)' : 'Click to upload (PDF or image)')}
+										{files[req.name] ? files[req.name]!.name : (req.form_id ? req.needs_signature ? 'Upload the signed form (photo or PDF)' : 'Upload the completed form (photo or PDF)' : 'Click to upload (PDF or image)')}
 									</span>
-									<input aria-label={req.form_id ? 'Upload the signed form (photo or PDF)' : `Upload ${req.name}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*" class="hidden" onchange={(e) => {
+									<input aria-label={req.form_id ? req.needs_signature ? 'Upload the signed form (photo or PDF)' : 'Upload the completed form (photo or PDF)' : `Upload ${req.name}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*" class="hidden" onchange={(e) => {
 										const f = (e.target as HTMLInputElement).files?.[0];
-										files = { ...files, [req.name]: f ?? null };
+										const invalid = f ? validateRequirementFileMetadata(f.name, f.type, f.size) : null;
+										fileErrors = { ...fileErrors, [req.name]: invalid ?? '' };
+										files = { ...files, [req.name]: invalid ? null : f ?? null };
 									}} />
 								</label>
+								{#if fileErrors[req.name]}<p class="mt-2 text-xs text-red-700" role="alert">{fileErrors[req.name]}</p>{/if}
 							{/if}
 						</div>
 					{/each}
@@ -266,7 +275,7 @@
 					<div class="flex justify-between gap-4">
 						<span class="text-gray-500">Requirements</span>
 						<span class="font-medium text-gray-800 text-right">
-							{requirements.filter(r => !r.in_person).length} file{requirements.filter(r => !r.in_person).length !== 1 ? 's' : ''} to upload
+							{requirements.filter(r => !r.in_person).length} {pluralize(requirements.filter(r => !r.in_person).length, 'file')} to upload
 							{requirements.filter(r => r.in_person).length > 0 ? ` + ${requirements.filter(r => r.in_person).length} in-person` : ''}
 						</span>
 					</div>

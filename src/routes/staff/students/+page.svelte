@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { formatName, pluralize } from '$lib/formatting';
+	import { SCHOOL_YEAR_MIN, SCHOOL_YEAR_MAX, ENROLLED_SCHOOL_YEAR_MIN, validateSchoolYear } from '$lib/school-year';
 	import {onMount} from 'svelte';
 	import MasterlistModal from '$lib/components/ui/MasterlistModal.svelte';
 	import type { MasterlistMatch } from '$lib/server/masterlist';
@@ -9,6 +11,7 @@
 	const { data }: { data: PageData } = $props();
 
 	type Student = {
+		has_id_photo?: boolean; id_photo_url?: string | null; id_photo_uploaded_at?: string | null;
 		campus?: string | null; masterlistMatch?: MasterlistMatch; id_verified_by_name?: string | null; id_verification_note?: string | null;
 		user_id: number;
 		first_name: string;
@@ -34,12 +37,16 @@
 	let statusTab = $state<'pending'|'verified'|'rejected'|'all'>((new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('status') as 'pending'|'verified'|'rejected') || 'all');
 	let reviewStudent = $state<Student | null>(null);
 	let rejectReason = $state('');
+	let revoking = $state(false);
 	let masterlistOpen = $state(false), reviewLoading = $state(false), rejecting = $state(false), verifyAnyway = $state(false), overrideNote = $state('');
 	let reviewVersion = 0;
+	let photoPreviewError = $state(false);
+	let photoRefreshing = $state(false);
 	const differing = $derived(reviewStudent?.masterlistMatch ? (['name', 'program', 'campus'] as const).filter(key => reviewStudent!.masterlistMatch![key] !== 'match') : []);
-	async function openReview(student: Student) {
+	async function openReview(student: Student, revoke = false) {
 		const version = ++reviewVersion;
-		reviewStudent = {...student}; reviewLoading = true; reviewError = ''; rejectReason = ''; rejecting = false; verifyAnyway = false; overrideNote = '';
+		photoPreviewError = false;
+		reviewStudent = {...student}; reviewLoading = true; reviewError = ''; rejectReason = ''; rejecting = false; revoking = revoke && data.role === 'Admin' && student.id_status === 'verified'; verifyAnyway = false; overrideNote = '';
 		try {
 			const res = await fetch('/api/students/' + student.user_id);
 			const result = await res.json();
@@ -50,9 +57,27 @@
 		finally { if (version === reviewVersion) reviewLoading = false; }
 	}
 	function closeReview() { reviewVersion++; reviewStudent = null; reviewLoading = false; }
+	async function refreshIdPhoto() {
+		if (!reviewStudent || photoRefreshing) return;
+		const studentId = reviewStudent.user_id, version = reviewVersion;
+		photoRefreshing = true;
+		try {
+			const response = await fetch('/api/students/' + studentId);
+			const result = await response.json();
+			if (version !== reviewVersion || reviewStudent?.user_id !== studentId) return;
+			if (!response.ok) { photoPreviewError = true; return; }
+			reviewStudent = { ...reviewStudent, ...result };
+			photoPreviewError = false;
+		} catch { if (version === reviewVersion) photoPreviewError = true; }
+		finally { photoRefreshing = false; }
+	}
+	function openRevoke(student: Student) {
+		if (data.role !== 'Admin' || student.id_status !== 'verified') return;
+		void openReview(student, true);
+	}
 	function formatDate(value: string | null) {
 		if (!value) return '-'; const date = new Date(value);
-		return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Manila' });
+		return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
 	}
 	function age(value: string | null): number | null {
 		if (!value) return null; const birth = new Date(value);
@@ -89,8 +114,9 @@
 	});
 
 	async function decideId(action: 'verify'|'reject'|'revoke') {
-		if (!reviewStudent || reviewLoading || !reviewStudent.masterlistMatch) return;
-		if (action === 'revoke' && !confirm('Revoke this decision and return the student to pending?')) return;
+		if (data.role !== 'Admin' || !reviewStudent || reviewLoading || reviewing || !reviewStudent.masterlistMatch) return;
+		if (action === 'verify' && (!reviewStudent.has_id_photo || !reviewStudent.id_photo_url || photoPreviewError || photoRefreshing)) { reviewError = 'Load the uploaded school ID photo before verification.'; return; }
+		if ((action === 'reject' || action === 'revoke') && !rejectReason.trim()) { reviewError = 'A reason is required.'; return; }
 		const studentUserId = reviewStudent.user_id;
 		reviewing = true; reviewError = '';
 		try {
@@ -125,6 +151,8 @@
 		e.preventDefault();
 		if (!editStudent) return;
 		saveError = '';
+		const yearError = validateSchoolYear(editStudent.last_school_year, editStudent.student_type);
+		if (yearError) { saveError = yearError; return; }
 		saving = true;
 		try {
 			const res = await fetch('/api/students', {
@@ -172,11 +200,7 @@
 	}
 
 	function fullName(s: Student) {
-		const parts = [s.first_name];
-		if (s.middle_name) parts.push(s.middle_name[0] + '.');
-		parts.push(s.last_name);
-		if (s.suffix) parts.push(s.suffix);
-		return parts.join(' ');
+		return formatName(s.first_name, s.middle_name, s.last_name);
 	}
 
 	const typeColors: Record<string, string> = {
@@ -213,7 +237,7 @@
 			{/each}
 		</div>
 		<span class="inline-flex items-center self-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20 whitespace-nowrap shrink-0">
-			{filtered.length}{filtered.length !== students.length ? ` / ${students.length}` : ''} students
+			{filtered.length}{filtered.length !== students.length ? ` / ${students.length}` : ''} {pluralize(filtered.length !== students.length ? students.length : filtered.length, 'student')}
 		</span>
 		<div class="relative flex-1">
 			<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
@@ -284,9 +308,10 @@
 							<span class="truncate">{@html highlight(s.program, search.trim())}</span>
 						</div>
 						<div class="flex items-center justify-between">
-							<span class="text-xs text-gray-400">{new Date(s.date_registered).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+							<span class="text-xs text-gray-400">{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span>
 							<div class="flex items-center gap-1">
-								<button onclick={() => openReview(s)} class="px-2 py-1 text-xs rounded-md border border-gray-200 text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30">Review</button>
+								<button onclick={() => openReview(s)} class="px-2 py-1 text-xs rounded-md border border-gray-200 text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30">{s.id_status === 'verified' ? 'View' : 'Review'}</button>
+								{#if data.role === 'Admin' && s.id_status === 'verified'}<button onclick={() => openRevoke(s)} class="px-2 py-1 text-xs rounded-md border border-red-200 text-red-700 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Revoke</button>{/if}
 								<button onclick={() => openEdit(s)} class="p-1.5 text-gray-400 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${fullName(s)}`}>
 									<i class="fa-solid fa-pen text-sm"></i>
 								</button>
@@ -344,11 +369,12 @@
 								</td>
 								<td class="px-4 py-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {s.id_status === 'verified' ? 'bg-green-100 text-green-700' : s.id_status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}">{s.id_status}</span></td>
 								<td class="px-4 py-3 text-gray-500 text-xs">
-									{new Date(s.date_registered).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+									{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
 								<td class="px-4 py-3">
 									<div class="flex items-center gap-1">
-										<button onclick={() => openReview(s)} class="px-2 py-1 text-xs rounded-md border border-gray-200 text-essu-green hover:bg-gray-50">Review</button>
+										<button onclick={() => openReview(s)} class="px-2 py-1 text-xs rounded-md border border-gray-200 text-essu-green hover:bg-gray-50">{s.id_status === 'verified' ? 'View' : 'Review'}</button>
+										{#if data.role === 'Admin' && s.id_status === 'verified'}<button onclick={() => openRevoke(s)} class="px-2 py-1 text-xs rounded-md border border-red-200 text-red-700 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Revoke</button>{/if}
 										<button
 											onclick={() => openEdit(s)}
 											class="p-1.5 text-gray-300 hover:text-essu-green transition-colors"
@@ -377,7 +403,7 @@
 </div>
 
 {#if data.role === 'Admin'}<MasterlistModal open={masterlistOpen} onclose={() => masterlistOpen = false} />{/if}
-<Modal open={!!reviewStudent} title="Review student ID" size="lg" onclose={closeReview}>
+<Modal open={!!reviewStudent} title={revoking ? 'Revoke student ID verification' : reviewStudent?.id_status === 'verified' ? 'View student ID' : 'Review student ID'} size="lg" onclose={closeReview}>
 	{#snippet body()}
 		{#if reviewStudent}
 			{@const years = age(reviewStudent.date_of_birth)}
@@ -392,11 +418,12 @@
 					<div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead><tr class="text-xs text-gray-500"><th class="p-2">Field</th><th class="p-2">Student account</th><th class="p-2">Masterlist</th></tr></thead><tbody>
 						{#each ['name','program','campus'] as field}
 							{@const state = match[field as 'name'|'program'|'campus']}
-							<tr class="border-t border-gray-100"><th class="p-2 capitalize"><i aria-hidden="true" class="fa-solid {state === 'match' ? 'fa-check text-essu-green' : 'fa-triangle-exclamation text-amber-600'} mr-1"></i>{field}<span class="sr-only">: {state}</span></th><td class="p-2">{field === 'name' ? [reviewStudent.first_name, reviewStudent.middle_name, reviewStudent.last_name].filter(Boolean).join(' ') : field === 'program' ? reviewStudent.program ?? 'Not collected' : reviewStudent.campus ?? 'Not collected'}</td><td class="p-2">{field === 'name' ? [match.values?.first_name, match.values?.middle_name, match.values?.last_name].filter(Boolean).join(' ') || '-' : field === 'program' ? match.values?.program ?? '-' : match.values?.campus ?? '-'}</td></tr>
+							<tr class="border-t border-gray-100"><th class="p-2 capitalize"><i aria-hidden="true" class="fa-solid {state === 'match' ? 'fa-check text-essu-green' : 'fa-triangle-exclamation text-amber-600'} mr-1"></i>{field}<span class="sr-only">: {state}</span></th><td class="p-2">{field === 'name' ? formatName(reviewStudent.first_name, reviewStudent.middle_name, reviewStudent.last_name) : field === 'program' ? reviewStudent.program ?? 'Not collected' : reviewStudent.campus ?? 'Not collected'}</td><td class="p-2">{field === 'name' ? formatName(match.values?.first_name, match.values?.middle_name, match.values?.last_name) || '-' : field === 'program' ? match.values?.program ?? '-' : match.values?.campus ?? '-'}</td></tr>
 						{/each}
 					</tbody></table></div>
 				{/if}
 				<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">For Former students and Alumni, check historical enrollment records. Absence from the current masterlist alone does not establish that an ID is invalid.</div>
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<div class="grid grid-cols-2 gap-3 text-sm">
 					<div class="col-span-2"><p class="text-xs text-gray-400">Student ID</p><p class="font-mono text-2xl font-bold">{reviewStudent.student_id ?? '-'}</p></div>
 					<div><p class="text-xs text-gray-400">Student type</p>{reviewStudent.student_type ?? '-'}</div><div><p class="text-xs text-gray-400">Last school year attended</p>{reviewStudent.last_school_year ?? '-'}</div>
@@ -405,9 +432,26 @@
 					</div><div><p class="text-xs text-gray-400">Date registered</p>{formatDate(reviewStudent.date_registered)}</div>
 					<div class="col-span-2"><p class="text-xs text-gray-400">Email</p>{reviewStudent.email}</div>
 				</div>
+				{#if data.role === 'Admin'}
+					<div class="rounded-lg border border-gray-200 p-3 space-y-2">
+						<p class="text-sm font-medium text-gray-700">School ID photo (front)</p>
+						{#if reviewLoading}<p class="text-sm text-gray-500">Loading ID photo…</p>
+						{:else if !reviewStudent.has_id_photo}<p class="text-sm text-gray-500">No ID photo uploaded</p>
+						{:else}
+							{#if reviewStudent.id_photo_url && !photoPreviewError}<img src={reviewStudent.id_photo_url} alt="Uploaded school ID front" class="max-h-64 w-full rounded-lg object-contain" onerror={() => photoPreviewError = true} />
+							{:else}<p class="text-sm text-gray-500">ID photo preview expired or unavailable.</p>{/if}
+							<p class="text-xs text-gray-500">Uploaded: {formatDate(reviewStudent.id_photo_uploaded_at ?? null)}</p>
+							<button type="button" onclick={refreshIdPhoto} disabled={photoRefreshing || reviewing} class="text-xs text-essu-green hover:underline disabled:opacity-50">{photoRefreshing ? 'Loading…' : 'Refresh photo preview'}</button>
+						{/if}
+					</div>
+				{/if}
+				</div>
 				{#if reviewStudent.id_status !== 'pending'}
 					<div class="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm"><p class="font-medium capitalize">Decision: {reviewStudent.id_status}</p><p class="mt-1 text-xs text-gray-600">By {reviewStudent.id_verified_by_name ?? 'Not recorded'} on {formatDate(reviewStudent.id_verified_at)}</p>{#if reviewStudent.id_reject_reason}<p class="mt-2">Reason: {reviewStudent.id_reject_reason}</p>{/if}{#if reviewStudent.id_verification_note}<p class="mt-2">Review / verification note: {reviewStudent.id_verification_note}</p>{/if}</div>
-				{:else if data.role === 'Admin' && !reviewLoading && reviewStudent.masterlistMatch}
+				{/if}
+				{#if revoking && data.role === 'Admin'}
+					<label class="block text-sm text-gray-700">Revocation reason (required)<textarea bind:value={rejectReason} required maxlength="300" rows="3" class="mt-1 w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"></textarea></label>
+				{:else if reviewStudent.id_status !== 'verified' && data.role === 'Admin' && !reviewLoading && reviewStudent.masterlistMatch}
 					{#if rejecting}
 						<div class="space-y-2"><p class="text-xs text-gray-500">Quick reasons</p><div class="flex flex-wrap gap-2">{#each ['ID not found','Name does not match','Program does not match','Not a graduate student'] as reason}<button onclick={() => rejectReason = reason} class="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">{reason}</button>{/each}</div><label class="block text-sm text-gray-700">Rejection reason<textarea bind:value={rejectReason} maxlength="300" rows="3" class="mt-1 w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"></textarea></label></div>
 					{:else if !reviewStudent.masterlistMatch.found}
@@ -421,9 +465,11 @@
 	{#snippet footer()}
 		<button onclick={closeReview} disabled={reviewing} class="px-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Close</button>
 		{#if data.role === 'Admin' && reviewStudent && !reviewLoading && reviewStudent.masterlistMatch}
-			{#if reviewStudent.id_status !== 'pending'}<button onclick={() => decideId('revoke')} disabled={reviewing} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30">Revoke verification</button>
-			{:else if rejecting}<button onclick={() => rejecting = false} disabled={reviewing} class="px-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Cancel rejection</button><button onclick={() => decideId('reject')} disabled={reviewing || !rejectReason.trim()} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Confirm rejection</button>
-			{:else}<button onclick={() => rejecting = true} disabled={reviewing} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Reject</button><button onclick={() => decideId('verify')} disabled={reviewing || (!reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()))} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Verify student</button>{/if}
+			{#if revoking && reviewStudent.id_status === 'verified'}<button onclick={() => decideId('revoke')} disabled={reviewing || !rejectReason.trim()} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Confirm revocation</button>
+			{:else if reviewStudent.id_status !== 'verified'}
+				{#if rejecting}<button onclick={() => rejecting = false} disabled={reviewing} class="px-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Cancel rejection</button><button onclick={() => decideId('reject')} disabled={reviewing || !rejectReason.trim()} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Confirm rejection</button>
+				{:else}<button onclick={() => rejecting = true} disabled={reviewing} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Reject</button><button onclick={() => decideId('verify')} disabled={reviewing || photoRefreshing || !reviewStudent.has_id_photo || !reviewStudent.id_photo_url || photoPreviewError || (!reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()))} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Verify student</button>{/if}
+			{/if}
 		{/if}
 	{/snippet}
 </Modal>
@@ -558,8 +604,9 @@
 					<input
 						bind:value={editStudent.last_school_year}
 						type="number"
-						min="2000"
-						max="2099"
+						min={editStudent.student_type === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN}
+						max={SCHOOL_YEAR_MAX}
+						step="1"
 						required
 						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 					/>

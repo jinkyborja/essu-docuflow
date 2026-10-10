@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	if (!token) redirect(302, '/login');
 	try {
 		const p = (await verifySession(token, JWT_SECRET));
-		if (p.role === 'Student') redirect(302, '/student/dashboard');
+		if (!['Admin', 'Staff'].includes(p.role)) redirect(302, '/student/dashboard');
 	} catch { redirect(302, '/login'); }
 
 	const [[totalStudents], [totalRequests], [pendingRows], [approvedRows], [pendingIds], [pendingQueue], [recentActivity]] =
@@ -21,24 +21,29 @@ export const load: PageServerLoad = async ({ cookies }) => {
 			pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status = 'Approved'"),
 			pool.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'Student' AND id_status = 'pending'"),
 			pool.execute(
-				`SELECT r.request_id, r.date_requested, r.purpose,
-				        u.first_name, u.last_name, u.student_id, u.program
+				`SELECT r.request_id, r.date_requested, r.purpose, r.status, p.status AS payment_status,
+				        CASE WHEN r.status = 'Pending' THEN 'Review requirements'
+				             WHEN r.status = 'processing' THEN 'Mark ready for pickup'
+				             ELSE 'Verify payment' END AS action_needed,
+				        u.first_name, u.middle_name, u.last_name, u.student_id, u.program
 				 FROM requests r
 				 JOIN users u ON r.student_id = u.user_id
-				 WHERE r.status = 'Pending'
+				 LEFT JOIN request_payments p ON p.request_id = r.request_id
+				 WHERE r.archived_at IS NULL AND (r.status IN ('Pending', 'processing')
+				   OR (r.status = 'Approved' AND p.status = 'submitted'))
 				 ORDER BY r.date_requested ASC
 				 LIMIT 5`
 			),
 			pool.execute(
 				`SELECT h.history_id, h.request_id, h.new_status, h.changed_at,
 				        GROUP_CONCAT(DISTINCT d.name ORDER BY d.name SEPARATOR ' + ') AS document_name,
-				        u.first_name, u.last_name
+				        u.first_name, u.middle_name, u.last_name
 				 FROM request_status_history h
 				 JOIN requests r ON h.request_id = r.request_id
 				 JOIN request_items ri ON ri.request_id = r.request_id
 				 JOIN documents d ON ri.document_id = d.document_id
 				 JOIN users u ON r.student_id = u.user_id
-				 GROUP BY h.history_id, h.request_id, h.new_status, h.changed_at, u.first_name, u.last_name
+				 GROUP BY h.history_id, h.request_id, h.new_status, h.changed_at, u.first_name, u.middle_name, u.last_name
 				 ORDER BY h.changed_at DESC
 				 LIMIT 5`
 			)
@@ -49,7 +54,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
 	const [[deliveryRows], [correctionRows]] = await Promise.all([
 		pool.execute("SELECT COUNT(*) AS n FROM requests r WHERE r.status = 'Approved' AND NOT EXISTS (SELECT 1 FROM request_status_history h WHERE h.request_id = r.request_id AND h.new_status = 'Completed')"),
-		pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status = 'Correction Requested'")
+		pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status IN ('Correction Requested', 'correction_requested')")
 	]);
 	const counts = {
 		awaitingDelivery: Number((deliveryRows as Array<{n:number}>)[0].n),

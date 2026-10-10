@@ -21,7 +21,7 @@
 
 	function mapHistory(h: Record<string, unknown>): Notif {
 		const status = h.new_status as string;
-		if (!h.request_id) return { id: String(h.history_id), type: 'system', title: status, message: status, date: new Date(h.changed_at as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }), isRead: !!h.student_read };
+		if (!h.request_id) return { id: String(h.history_id), type: 'system', title: status, message: status, date: new Date(h.changed_at as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' }), isRead: !!h.student_read };
 		const type: Notif['type'] =
 			status === 'Approved' ? 'request'
 			: status === 'Correction Requested' ? 'task'
@@ -43,7 +43,7 @@
 			type,
 			title: `${h.document_name}: ${status}`,
 			message,
-			date: new Date(h.changed_at as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }),
+			date: new Date(h.changed_at as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' }),
 			isRead: !!(h.student_read),
 			actionItems: status === 'Correction Requested' && adminMsg ? [adminMsg] : undefined,
 			relatedRequestId: h.request_id as string

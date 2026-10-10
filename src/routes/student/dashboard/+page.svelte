@@ -13,7 +13,7 @@
 		data.recentHistory.map((h) => ({
 			id: String(h.history_id),
 			title: h.request_id ? `${h.document_name ?? 'Document request'}: ${h.new_status}` : String(h.new_status),
-			date: new Date(h.changed_at as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+			date: new Date(h.changed_at as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })
 		}))
 	);
 
@@ -60,7 +60,7 @@
 							<div class="flex-1 min-w-0">
 								<p class="text-sm font-medium text-gray-800">{req.items?.[0]?.name ?? req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => expandedRequests = expandedRequests.includes(req.request_id) ? expandedRequests.filter((id) => id !== req.request_id) : [...expandedRequests, req.request_id]}>+{req.items.length - 1} more</button>{/if}</p>
 								{#if expandedRequests.includes(req.request_id)}<p class="text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
-								<p class="text-xs text-gray-400">{req.request_id} · {new Date(req.date_requested as string).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+								<p class="text-xs text-gray-400">{req.request_id} · {new Date(req.date_requested as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
 							</div>
 							<div class="shrink-0">
 								<Badge value={(req.status as string).toLowerCase()} size="sm" /><a href={'/student/documents#' + req.request_id} class="block mt-2 text-xs text-essu-green underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">{req.status === 'Correction Requested' ? 'Upload corrections' : req.status === 'Approved' ? 'Get document' : 'Track request'}</a>

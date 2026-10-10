@@ -1,3 +1,4 @@
+import { formatName } from '$lib/formatting';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import pool from '$lib/server/db';
@@ -34,7 +35,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const firstName = u.first_name as string;
 	const middleName = (u.middle_name as string | null) ?? null;
 	const lastName = u.last_name as string;
-	const fullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
+	const fullName = formatName(firstName, middleName, lastName);
 	const initials = [firstName, lastName]
 		.filter(Boolean)
 		.map((n) => n[0])

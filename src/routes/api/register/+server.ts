@@ -5,6 +5,8 @@ import pool from '$lib/server/db';
 import { signJwt } from '$lib/server/jwt';
 import { sendEmail } from '$lib/server/email';
 import { JWT_SECRET } from '$env/static/private';
+import { formatName } from '$lib/formatting';
+import { validateSchoolYear } from '$lib/school-year';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const { firstName, middleName, lastName, suffix, dateOfBirth, email, studentId, program, studentType, lastSchoolYear, password } = await request.json();
@@ -12,6 +14,8 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!firstName || !lastName || !dateOfBirth || !email || !studentId || !program || !studentType || !lastSchoolYear || !password) {
 		return json({ error: 'Missing required fields' }, { status: 400 });
 	}
+	const yearError = validateSchoolYear(lastSchoolYear, studentType);
+	if (yearError) return json({ error: yearError }, { status: 400 });
 
 	const [existing] = await pool.execute('SELECT user_id FROM users WHERE email = ?', [email]);
 	if ((existing as unknown[]).length > 0) {
@@ -24,7 +28,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	const passwordHash = createHash('sha256').update(password).digest('hex');
-	const fullName = [firstName, middleName, lastName, suffix].filter(Boolean).join(' ');
+	const fullName = formatName(firstName, middleName, lastName);
 
 	const validTypes = ['Enrolled', 'Former', 'Alumni'];
 	if (!validTypes.includes(studentType)) {

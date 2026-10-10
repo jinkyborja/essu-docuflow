@@ -1,3 +1,4 @@
+import { formatName } from '$lib/formatting';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import {attachRequestJourney} from '$lib/server/request-journey';
@@ -16,7 +17,7 @@ export const load: PageServerLoad = async ({ cookies, url }) => {
 
 	const [rows] = await pool.execute(
 		`SELECT r.request_id,
-		        CONCAT(u.first_name, IF(u.middle_name IS NOT NULL, CONCAT(' ', u.middle_name), ''), ' ', u.last_name) AS student_name,
+		        u.first_name, u.middle_name, u.last_name,
 		        u.student_id AS student_code, u.program,
 		        r.status, r.purpose, r.date_requested
 		 FROM requests r
@@ -26,7 +27,7 @@ export const load: PageServerLoad = async ({ cookies, url }) => {
 
 	const requests = rows as Array<Record<string, unknown>>;
 	const itemMap = await fetchRequestItems(requests.map((r) => r.request_id as string));
-	for (const row of requests) { row.items = itemMap.get(row.request_id as string) ?? []; row.document_name = documentNameSummary(row.items as Array<{document_id:number;name:string}>); }
+	for (const row of requests) { row.student_name = formatName(row.first_name, row.middle_name, row.last_name); row.items = itemMap.get(row.request_id as string) ?? []; row.document_name = documentNameSummary(row.items as Array<{document_id:number;name:string}>); }
 	await attachRequestJourney(requests);
 	return { requests, initialStatus: url.searchParams.get('status') ?? '', deliveryWaiting: url.searchParams.get('delivery') === 'waiting' };
 };

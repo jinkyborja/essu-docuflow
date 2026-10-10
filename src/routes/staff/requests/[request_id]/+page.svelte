@@ -125,7 +125,7 @@
 				<Badge value={currentStatus.toLowerCase()} />
 			</div>
 			<p class="text-xs text-gray-400 mt-0.5">
-				Submitted {new Date(req.date_requested).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+				Submitted {new Date(req.date_requested).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 			</p>
 		</div>
 	</div>
@@ -191,7 +191,7 @@
 									<p class="text-xs text-orange-600 mt-0.5"><i class="fa-solid fa-building mr-1"></i>In-person submission required</p>
 								{:else if r.submitted_at}
 									<p class="text-xs text-gray-400 mt-0.5">
-										Submitted {new Date(r.submitted_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })} · {r.file_name}
+										Submitted {new Date(r.submitted_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })} · {r.file_name}
 									</p>
 								{:else}
 									<p class="text-xs text-gray-400 mt-0.5">Not yet submitted</p>
@@ -266,7 +266,7 @@
 						<div class="w-2 h-2 rounded-full bg-essu-green mt-1.5 shrink-0"></div>
 						<div>
 							<p class="font-medium text-gray-700">Request submitted</p>
-							<p class="text-xs text-gray-400">{new Date(req.date_requested).toLocaleDateString('en-PH')}</p>
+							<p class="text-xs text-gray-400">{new Date(req.date_requested).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
 						</div>
 					</div>
 					{#each history as h}
@@ -275,7 +275,7 @@
 							<div>
 								<p class="font-medium text-gray-700">{h.old_status} → {h.new_status}</p>
 								<p class="text-xs text-gray-400">
-									{new Date(h.changed_at).toLocaleDateString('en-PH')}
+									{new Date(h.changed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 									{h.changed_by_name ? `· by ${h.changed_by_name}` : ''}
 								</p>
 							</div>

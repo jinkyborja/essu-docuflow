@@ -129,8 +129,8 @@
 
 	// Requirements arrive as rows from the server; nothing to parse.
 	function parseReqs(
-		reqs: Array<{ name: string; in_person: boolean }> | null | undefined
-	): Array<{ name: string; in_person: boolean }> {
+		reqs: DocRow['requirements'] | null | undefined
+	): DocRow['requirements'] {
 		return reqs ?? [];
 	}
 
@@ -183,7 +183,7 @@
 								<h3 class="font-semibold text-gray-800 truncate">{doc.name}</h3>
 								<p class="text-xs text-gray-400 mt-0.5">
 									Added by {doc.uploaded_by_name} ·
-									{new Date(doc.upload_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+									{new Date(doc.upload_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</p>
 							</div>
 						</div>
@@ -229,6 +229,8 @@
 										{req.in_person ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-blue-50 border-blue-200 text-blue-700'}">
 										<i class="fa-solid {req.in_person ? 'fa-building' : 'fa-upload'} text-xs"></i>
 										{req.name}
+										{#if req.form_id}<i class="fa-solid fa-link text-xs" title="Linked form" aria-label="Linked form"></i>{/if}
+										{#if req.needs_signature}<i class="fa-solid fa-signature text-xs" title="Signatures required" aria-label="Signatures required"></i>{/if}
 									</span>
 								{/each}
 							</div>

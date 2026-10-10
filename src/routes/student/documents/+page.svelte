@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { canUpdateRequirementFiles, requirementNeedsCorrection, validateRequirementFileMetadata } from '$lib/requirement-files';
+	import { uploadRequirementFiles } from '$lib/upload-requirement-files';
 	import RequestJourney from '$lib/components/ui/RequestJourney.svelte';
 	import type {JourneyEvent} from '$lib/request-flow';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -73,11 +75,8 @@
 		try {
 			const fd = new FormData();
 			const reqs = resubmitReq.requirements;
-			for (const r of reqs) {
-				if (!r.in_person && resubmitFiles[r.name]) {
-					fd.append(`file_${r.name}`, resubmitFiles[r.name]!);
-				}
-			}
+			const uploadFiles = Object.fromEntries(reqs.filter(r => !r.in_person).map(r => [r.name, resubmitFiles[r.name] ?? null]));
+			fd.append('uploads', JSON.stringify(await uploadRequirementFiles(uploadFiles, { requestId: resubmitReq.request_id })));
 			const res = await fetch(`/api/requests/${resubmitReq.request_id}/requirements`, {
 				method: 'PATCH', body: fd
 			});
@@ -89,8 +88,8 @@
 			requestsOverride = await listRes.json();
 			resubmitOpen = false;
 			showToast('Requirements resubmitted successfully.');
-		} catch {
-			resubmitError = 'Network error.';
+		} catch (error) {
+			resubmitError = error instanceof Error ? error.message : 'Network error.';
 		} finally {
 			resubmitting = false;
 		}
@@ -119,8 +118,8 @@
 		<div class="space-y-4">
 			{#each requests as req}
 				{@const reqs = req.requirements}
-				{@const needsCorrection = req.status === 'Correction Requested'}
-				{@const canResubmit = needsCorrection || req.status === 'Pending'}
+				{@const needsCorrection = requirementNeedsCorrection(req.status)}
+				{@const canResubmit = canUpdateRequirementFiles(req.status)}
 				<div id={req.request_id} class="bg-white rounded-xl border border-gray-100 shadow-sm scroll-mt-24 {needsCorrection ? 'border-yellow-300' : ''}">
 					<div class="px-4 sm:px-5 py-4 flex items-start justify-between gap-3 flex-wrap border-b border-gray-100">
 						<div class="min-w-0">
@@ -129,7 +128,7 @@
 								{#if expandedItems.includes(req.request_id)}<p class="mt-1 text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
 								<Badge value={req.completed_at ? 'completed' : req.status.toLowerCase()} />
 							</div>
-							<p class="text-xs text-gray-400 font-mono break-all">{req.request_id} · {new Date(req.date_requested).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+							<p class="text-xs text-gray-400 font-mono break-all">{req.request_id} · {new Date(req.date_requested).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
 						</div>
 						{#if canResubmit}
 							<button
@@ -256,7 +255,9 @@
 								</span>
 								<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*" class="hidden" onchange={(e) => {
 									const f = (e.target as HTMLInputElement).files?.[0];
-									resubmitFiles = { ...resubmitFiles, [r.name]: f ?? null };
+									const invalid = f ? validateRequirementFileMetadata(f.name, f.type, f.size) : null;
+									resubmitError = invalid ? `${r.name}: ${invalid}` : '';
+									resubmitFiles = { ...resubmitFiles, [r.name]: invalid ? null : f ?? null };
 								}} />
 							</label>
 						</div>
@@ -267,7 +268,7 @@
 	{/snippet}
 	{#snippet footer()}
 		<button onclick={() => resubmitOpen = false} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-		<button onclick={submitResubmission} disabled={resubmitting || !Object.values(resubmitFiles).some(Boolean) || (resubmitReq?.status === 'Correction Requested' && resubmitReq.requirements.some(item => item.needs_correction && !item.in_person && !resubmitFiles[item.name]))} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid disabled:opacity-60 flex items-center gap-2">
+		<button onclick={submitResubmission} disabled={resubmitting || !Object.values(resubmitFiles).some(Boolean) || (resubmitReq && requirementNeedsCorrection(resubmitReq.status) && resubmitReq.requirements.some(item => item.needs_correction && !item.in_person && !resubmitFiles[item.name]))} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid disabled:opacity-60 flex items-center gap-2">
 			{#if resubmitting}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
 			Resubmit
 		</button>

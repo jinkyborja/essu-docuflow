@@ -6,6 +6,8 @@ import { fetchOneRequestRequirements, replaceRequestRequirements } from '$lib/se
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateUpload } from '$lib/server/upload-validation';
+import { canUpdateRequirementFiles, requirementNeedsCorrection } from '$lib/requirement-files';
+import { readRequirementUploads, validatePreparedRequirementFile, assertPreparedUploadsUnused, RequirementUploadError } from '$lib/server/requirement-uploads';
 
 export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	const token = cookies.get('session');
@@ -28,27 +30,35 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	if (list.length === 0) return json({ error: 'Not found' }, { status: 404 });
 	if (list[0].student_id !== payload.userId) return json({ error: 'Forbidden' }, { status: 403 });
 	const initialStatus = list[0].status;
-	if (!['Pending', 'Correction Requested'].includes(initialStatus)) {
+	if (!canUpdateRequirementFiles(initialStatus)) {
 		return json({ error: 'Files can only be updated while pending or when corrections are requested.' }, { status: 409 });
 	}
 
 	const formData = await request.formData();
 	const reqs = await fetchOneRequestRequirements(params.id);
+	let preparedUploads: ReturnType<typeof readRequirementUploads>;
+	try { preparedUploads = readRequirementUploads(formData.get('uploads'), payload.userId, { requestId: params.id, documentIds: [] }); }
+	catch (error) { return json({ error: error instanceof Error ? error.message : 'Invalid requirement uploads.' }, { status: 400 }); }
+	if ([...preparedUploads.keys()].some(name => !reqs.some(req => req.name === name && !req.in_person))) return json({ error: 'Invalid upload requirement.' }, { status: 400 });
 	const uploads = new Map<string, File>();
 	for (const req of reqs) {
 		if (req.in_person) continue;
+		const attached = formData.getAll(`file_${req.name}`);
+		if (attached.length > 1 || (preparedUploads.has(req.name) && attached.length)) return json({ error: `${req.name}: select one file per requirement.` }, { status: 400 });
 		const file = formData.get(`file_${req.name}`);
 		if (file instanceof File && file.size > 0) uploads.set(req.name, file);
 	}
-	if (uploads.size === 0) {
+	if (uploads.size === 0 && preparedUploads.size === 0) {
 		return json({ error: 'Upload at least one requirement file before resubmitting.' }, { status: 400 });
 	}
-	if (initialStatus === 'Correction Requested' && reqs.some((req) => !req.in_person && req.needs_correction && !uploads.has(req.name))) {
+	if (requirementNeedsCorrection(initialStatus) && reqs.some((req) => !req.in_person && req.needs_correction && !uploads.has(req.name) && !preparedUploads.has(req.name))) {
 		return json({ error: 'Upload corrected files for all flagged requirements before resubmitting.' }, { status: 400 });
 	}
 
 	const uploadErrors: string[] = [];
 	const uploadedPaths: string[] = [];
+	try { for (const prepared of preparedUploads.values()) await validatePreparedRequirementFile(prepared); }
+	catch (error) { return json({ error: error instanceof Error ? error.message : 'Invalid uploaded file.' }, { status: error instanceof RequirementUploadError ? error.status : 502 }); }
 	for (const [name, file] of uploads) {
 		const invalid = await validateUpload(file);
 		if (invalid) return json({ error: `${name}: ${invalid.error}` }, { status: invalid.status });
@@ -56,6 +66,12 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 
 	for (const req of reqs) {
 		if (req.in_person) continue;
+		const prepared = preparedUploads.get(req.name);
+		if (prepared) {
+			req.file_path = prepared.path; req.file_name = prepared.name;
+			req.submitted_at = new Date().toISOString(); req.needs_correction = false;
+			continue;
+		}
 		const file = uploads.get(req.name);
 		if (file) {
 			const ext = file.name.split('.').pop();
@@ -104,10 +120,12 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 			await conn.rollback();
 			return json({ error: 'Forbidden' }, { status: 403 });
 		}
-		if (current.status !== initialStatus || !['Pending', 'Correction Requested'].includes(current.status)) {
+		if (current.status !== initialStatus || !canUpdateRequirementFiles(current.status)) {
 			await conn.rollback();
 			return json({ error: 'The request changed while uploading. Refresh and try again.' }, { status: 409 });
 		}
+		await assertPreparedUploadsUnused(conn, preparedUploads.values());
+		uploadedPaths.push(...[...preparedUploads.values()].map(upload => upload.path));
 		await replaceRequestRequirements(conn, params.id, reqs);
 		await conn.execute(
 			'UPDATE requests SET status = ?, admin_message = NULL WHERE request_id = ?',
@@ -119,6 +137,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	} catch (err) {
 		await conn.rollback();
 		console.error('Resubmit failed:', err);
+		if (err instanceof RequirementUploadError) return json({ error: err.message }, { status: err.status });
 		return json({ error: 'Could not save your resubmission. Please try again.' }, { status: 500 });
 	} finally {
 		conn.release();

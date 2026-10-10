@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatName } from '$lib/formatting';
 	import {formatDate} from '$lib/request-flow';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import type { PageData } from './$types';
@@ -7,7 +8,7 @@
 	let profile = $state({ ...data.profile });
 
 	const fullName = $derived(
-		[profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ')
+		formatName(profile.first_name, profile.middle_name, profile.last_name)
 	);
 	const initials = $derived(
 		[profile.first_name, profile.last_name].map((n) => n[0]).join('').toUpperCase()

@@ -6,7 +6,7 @@ const ts = require('typescript');
 function load(path, imports = {}) {
 	const exports = {};
 	const kit = { json: (body, init = {}) => ({ body, status: init.status ?? 200 }), error: (status, message) => { throw Object.assign(new Error(message), {status}); } };
-	vm.runInNewContext(ts.transpileModule(fs.readFileSync(path, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText, {exports, require: name => imports[name] ?? (name === '@sveltejs/kit' ? kit : require(name)), Buffer, Date, File, TextDecoder, URL, console: {error() {}}});
+	vm.runInNewContext(ts.transpileModule(fs.readFileSync(path, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText, {exports, require: name => imports[name] ?? (name === '@sveltejs/kit' ? kit : ['$lib/formatting', '$lib/school-year'].includes(name) ? load(name.replace('$lib/', 'src/lib/') + '.ts') : require(name)), Buffer, Date, File, TextDecoder, URL, console: {error() {}}});
 	return exports;
 }
 const logic = load('src/lib/server/masterlist.ts', {'./jwt': {verifySession: async token => ({userId: 9, role: token})}, '$env/static/private': {JWT_SECRET: 'test-secret'}});
@@ -65,7 +65,7 @@ test('Import rolls back on write failure and rejects invalid headers or files ab
 function decisions(studentStatus='pending', found=false) {
 	const writes=[];let committed=false,rolledBack=false;
 	const conn={beginTransaction:async()=>{},commit:async()=>{committed=true;},rollback:async()=>{rolledBack=true;},release(){},execute:async(sql,args)=>{
-		if(sql.startsWith('SELECT user_id')) return [[{user_id:1,student_id:'26-0001',id_status:studentStatus}]];
+		if(sql.startsWith('SELECT user_id')) return [[{user_id:1,student_id:'26-0001',id_status:studentStatus,id_photo_path:'1/11111111-1111-4111-8111-111111111111.jpg'}]];
 		if(sql.startsWith('SELECT id')) return [found ? [{id:1}] : []];
 		writes.push({sql,args});return [{}];
 	}};
@@ -77,11 +77,12 @@ test('Missing ID requires explicit override and note; note is stored; found ID r
 	const override=decisions();assert.equal((await override.call({action:'verify',verifyAnyway:true,note:'Checked paper list'})).status,200);assert.equal(override.writes[0].args[3],'Checked paper list');assert.equal(override.state().committed,true);
 	const found=decisions('pending',true);assert.equal((await found.call({action:'verify'})).status,200);assert.equal(found.writes[0].args[0],'verified');
 });
-test('Decisions require Admin; prior decisions must be revoked; confirmed revocation returns pending',async()=>{
+test('Decisions require Admin; verified IDs require revocation with a reason and become rejected',async()=>{
 	for(const role of ['Staff','Student']) assert.equal((await decisions().call({action:'verify'},role)).status,403);
 	assert.equal((await decisions('verified',true).call({action:'verify'})).status,409);
 	assert.equal((await decisions('rejected').call({action:'revoke'})).status,400);
-	const d=decisions('verified');assert.equal((await d.call({action:'revoke',confirm:true})).status,200);assert.equal(d.writes[0].args[0],'pending');
+	assert.equal((await decisions('verified').call({action:'revoke',confirm:true})).status,400);
+	const d=decisions('verified');assert.equal((await d.call({action:'revoke',confirm:true,reason:'Incorrect ID'})).status,200);assert.equal(d.writes[0].args[0],'rejected');assert.equal(d.writes[0].args[2],'Incorrect ID');
 	assert.equal((await decisions().call({action:'reject'})).status,400);
 	const reject=decisions();assert.equal((await reject.call({action:'reject',reason:'ID not found'})).status,200);assert.equal(reject.writes[0].args[2],'ID not found');
 });
@@ -95,7 +96,7 @@ test('Registration always inserts pending, ignoring any supplied verified ID sta
 test('Pending and rejected students remain unable to create requests (403 before uploads)', async () => {
 	for (const status of ['pending','rejected']) {
 		let formRead = false;
-		const endpoint=load('src/routes/api/requests/+server.ts', {'$lib/server/db':{default:{execute:async()=>[[{id_status:status}]]}},'$lib/server/jwt':{verifySession:async()=>({userId:1,role:'Student'})},'$env/static/private':{JWT_SECRET:'test-secret'},'$lib/server/supabase':{supabase:{}},'$lib/server/requirements':{},'$lib/server/request-items':{},'$lib/server/upload-validation':{},'$lib/server/request-journey':{}});
+		const endpoint=load('src/routes/api/requests/+server.ts', {'$lib/server/db':{default:{execute:async()=>[[{id_status:status}]]}},'$lib/server/jwt':{verifySession:async()=>({userId:1,role:'Student'})},'$env/static/private':{JWT_SECRET:'test-secret'},'$lib/server/supabase':{supabase:{}},'$lib/server/requirements':{},'$lib/server/request-items':{},'$lib/server/upload-validation':{},'$lib/server/request-journey':{},'$lib/server/requirement-uploads':{}});
 		const result=await endpoint.POST({cookies:cookies('Student'),request:{formData:async()=>{formRead=true;throw new Error('Must not accept uploads');}}});
 		assert.equal(result.status,403);assert.equal(result.body.code,'ID_NOT_VERIFIED');assert.equal(formRead,false);
 	}
@@ -123,7 +124,7 @@ test('Request guidance and date display explain every next action', () => {
 	assert.match(flow.nextStep('Approved',false,false), /release instructions/);
 	assert.match(flow.nextStep('Rejected'), /reason/);
 	assert.match(flow.nextStep('Approved',true,true), /Delivery recorded/);
-	assert.equal(flow.formatDate('2008-12-18'), 'December 18, 2008');
+	assert.equal(flow.formatDate('2008-12-18'), 'Dec 18, 2008');
 	assert.equal(flow.formatDate(null),'Not recorded');
 });
 function delivery(status='Approved', duplicate=false) {

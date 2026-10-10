@@ -4,6 +4,7 @@ import pool from '$lib/server/db';
 import { supabase } from '$lib/server/supabase';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
+import { validateSchoolYear } from '$lib/school-year';
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
@@ -51,6 +52,8 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 	if (student_type != null && !validTypes.includes(student_type)) {
 		return json({ error: 'Invalid student type' }, { status: 400 });
 	}
+	const yearError = validateSchoolYear(last_school_year, student_type);
+	if (yearError) return json({ error: yearError }, { status: 400 });
 
 	await pool.execute(
 		`UPDATE users

@@ -37,6 +37,7 @@ function fixture({ requests = [{request_id: 'REQ-1', approved_file_path: 'approv
 		'$lib/server/db': {default:pool},
 		'$lib/server/supabase': {supabase:{storage}},
 		'$lib/server/jwt': {verifySession:async role => ({userId:9,role})},
+		'$lib/school-year': {validateSchoolYear: () => null},
 		'$env/static/private': {JWT_SECRET:'test'}
 	};
 	const code = ts.transpileModule(fs.readFileSync('src/routes/api/students/+server.ts','utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;

@@ -1,3 +1,4 @@
+import { formatName } from '$lib/formatting';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { verifySession } from '$lib/server/jwt';
@@ -19,7 +20,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 
 	const [[rows], [notifRows]] = await Promise.all([
 		pool.execute(
-			'SELECT first_name, last_name, position FROM users WHERE user_id = ?',
+			'SELECT first_name, middle_name, last_name, position FROM users WHERE user_id = ?',
 			[payload!.userId]
 		),
 		pool.execute(
@@ -32,7 +33,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 	const u = (rows as Record<string, unknown>[])[0];
 	if (!u) redirect(302, '/login');
 
-	const name = `${u.first_name} ${u.last_name}`;
+	const name = formatName(u.first_name, u.middle_name, u.last_name);
 	const initials = `${(u.first_name as string)[0]}${(u.last_name as string)[0]}`.toUpperCase();
 	const notifCount = ((notifRows as Record<string, unknown>[])[0].n as number) ?? 0;
 

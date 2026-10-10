@@ -1,3 +1,4 @@
+import { formatName } from '$lib/formatting';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
@@ -74,7 +75,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	// Get current request
 	const [rows] = await pool.execute(
 		`SELECT r.*, u.email AS student_email,
-		        CONCAT(u.first_name, ' ', u.last_name) AS student_name,
+		        u.first_name, u.middle_name, u.last_name,
 		        NULL AS document_name
 		 FROM requests r
 		 JOIN users u ON r.student_id = u.user_id
@@ -189,7 +190,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 
 	// Send email
 	const studentEmail = currentReq.student_email as string;
-	const studentName = currentReq.student_name as string;
+	const studentName = formatName(currentReq.first_name, currentReq.middle_name, currentReq.last_name);
 	const documentName = documentNames;
 
 	let emailSubject = '';
