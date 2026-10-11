@@ -125,6 +125,43 @@ test('Masterlist search is parameterized, paginated and restricted; delete valid
 	assert.equal(queries.at(-1).sql,'DELETE FROM enrollment_masterlist WHERE id = ?');
 });
 
+test('Deleting all masterlist entries requires an Admin and explicit boolean confirmation before any database call', async () => {
+	const queries = [];
+	const endpoint = load('src/routes/api/masterlist/+server.ts', {'$lib/server/db': {default: {execute: async sql => { queries.push(sql); return [{affectedRows: 3}]; }}}, '$lib/server/masterlist': admin()});
+	for (const [role, status] of [[null, 401], ['Staff', 403], ['Student', 403]]) {
+		let bodyRead = false;
+		await assert.rejects(() => endpoint.DELETE({cookies: cookies(role), request: {json: async () => { bodyRead = true; return {confirm: true}; }}}), e => e.status === status);
+		assert.equal(bodyRead, false);
+	}
+	for (const body of [null, {}, {confirm: false}, {confirm: 'true'}, {confirm: 1}]) {
+		assert.equal((await endpoint.DELETE({cookies: cookies('Admin'), request: {json: async () => body}})).status, 400);
+	}
+	assert.equal((await endpoint.DELETE({cookies: cookies('Admin'), request: {json: async () => { throw new SyntaxError('Invalid JSON'); }}})).status, 400);
+	assert.equal(queries.length, 0);
+});
+
+test('Confirmed bulk deletion clears every masterlist entry regardless of filters, preserves users and is safe on an empty list', async () => {
+	const state = {masterlist: [{id: 1}, {id: 2}, {id: 21}], users: [{user_id: 8, id_status: 'verified'}], queries: []};
+	const endpoint = load('src/routes/api/masterlist/+server.ts', {'$lib/server/db': {default: {execute: async sql => {
+		state.queries.push(sql);
+		assert.equal(sql, 'DELETE FROM enrollment_masterlist');
+		const affectedRows = state.masterlist.length; state.masterlist = []; return [{affectedRows}];
+	}}}, '$lib/server/masterlist': admin()});
+	const event = {cookies: cookies('Admin'), url: new URL('http://localhost/api/masterlist?search=Juan&page=2'), request: {json: async () => ({confirm: true})}};
+	const result = await endpoint.DELETE(event);
+	assert.equal(result.status, 200); assert.equal(result.body.success, true); assert.equal(result.body.deleted, 3);
+	assert.equal(state.masterlist.length, 0); assert.deepEqual(state.users, [{user_id: 8, id_status: 'verified'}]);
+	assert.equal((await endpoint.DELETE(event)).body.deleted, 0);
+	assert.equal(state.queries.length, 2);
+});
+
+test('Bulk deletion reports database failures without claiming success or exposing database details', async () => {
+	const endpoint = load('src/routes/api/masterlist/+server.ts', {'$lib/server/db': {default: {execute: async () => { throw new Error('Private database details'); }}}, '$lib/server/masterlist': admin()});
+	const result = await endpoint.DELETE({cookies: cookies('Admin'), request: {json: async () => ({confirm: true})}});
+	assert.equal(result.status, 500); assert.equal(result.body.success, undefined); assert.match(result.body.error, /Could not delete/);
+	assert.doesNotMatch(result.body.error, /Private database/);
+});
+
 test('Request guidance and date display explain every next action', () => {
 	const flow=load('src/lib/request-flow.ts');
 	assert.match(flow.nextStep('Pending'), /Waiting for office review/);

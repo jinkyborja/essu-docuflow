@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import type { ResultSetHeader } from 'mysql2';
 import pool from '$lib/server/db';
 import { requireMasterlistAdmin } from '$lib/server/masterlist';
 export const GET: RequestHandler = async ({ cookies, url }) => {
@@ -13,4 +14,17 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 	const [counts] = await pool.execute('SELECT COUNT(*) AS total FROM enrollment_masterlist ' + where, args);
 	const [rows] = await pool.execute('SELECT * FROM enrollment_masterlist ' + where + ' ORDER BY last_name, first_name, id LIMIT ? OFFSET ?', [...args, String(limit), String((page - 1) * limit)]);
 	return json({ rows, total: Number((counts as Array<{total: number}>)[0].total), page, limit });
+};
+
+export const DELETE: RequestHandler = async ({ cookies, request }) => {
+	await requireMasterlistAdmin(cookies);
+	const body = await request.json().catch(() => null);
+	if (body?.confirm !== true) return json({ error: 'Confirm deletion of all masterlist entries.' }, { status: 400 });
+	try {
+		const [result] = await pool.execute('DELETE FROM enrollment_masterlist');
+		return json({ success: true, deleted: (result as ResultSetHeader).affectedRows });
+	} catch (err) {
+		console.error('Could not clear enrollment masterlist:', err);
+		return json({ error: 'Could not delete masterlist entries. Please try again.' }, { status: 500 });
+	}
 };
