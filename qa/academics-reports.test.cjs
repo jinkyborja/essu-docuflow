@@ -56,7 +56,7 @@ test('Verified academics cannot be changed, including direct submissions and a c
 test('Pending/rejected students edit all four academic fields on their own account; duplicate IDs are clear', async () => {
 	for (const idStatus of ['pending', 'rejected']) {
 		const f = academicEndpoint({ idStatus }); assert.equal((await f.run()).status, 200);
-		assert.deepEqual(Array.from(f.writes[0].args), ['26-0007', 'Master of Arts', 'Enrolled', year, 7]);
+		assert.deepEqual(Array.from(f.writes[0].args), ['26-0007', 'Master of Arts', 'Enrolled', year, null, 7]);
 		assert.match(f.writes[0].sql, /student_id = COALESCE\(\?, student_id\), program = \?, student_type = \?, last_school_year = \?/);
 		assert.equal((await f.run({ ...academic, studentId: undefined })).status, 200); assert.equal(f.writes.at(-1).args[0], null);
 	}
@@ -71,6 +71,16 @@ test('Academic edits validate IDs/years and reject office/unknown roles without 
 	for (const patch of [{ studentId: '' }, { studentId: 123 }, { studentId: 'X'.repeat(21) }, { lastSchoolYear: year + 1 }, { lastSchoolYear: year - 2 }, { studentType: 'Other' }]) {
 		const f = academicEndpoint(); assert.equal((await f.run({ ...academic, ...patch })).status, 400); assert.equal(f.queries.length, 0);
 	}
+});
+
+test('Unverified students may add their campus; omitted campuses are preserved and invalid campuses are rejected', async () => {
+	const f = academicEndpoint();
+	assert.equal((await f.run({ ...academic, campus: 'Guiuan' })).status, 200);
+	assert.equal(f.writes[0].args.at(-2), 'Guiuan');
+	assert.match(f.writes[0].sql, /campus = COALESCE\(\?, campus\)/);
+	const invalid = academicEndpoint();
+	assert.equal((await invalid.run({ ...academic, campus: 'Unknown' })).status, 400);
+	assert.equal(invalid.queries.length, 0);
 });
 
 test('Admin pencil editing remains allowed for a verified student', async () => {

@@ -68,8 +68,12 @@ SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 SUPABASE_SECRET_KEY=sb_secret_...
 ```
 
-**Supabase** needs two Storage buckets: `requirements` (student uploads and
-released documents) and `templates` (blank forms students download).
+**Supabase** needs three Storage buckets: `requirements` (student uploads and
+released documents), `templates` (blank forms students download), and private
+`student-ids` (front school ID photos; JPG, PNG or WebP, up to 5 MB).
+Signup collects the student's campus and ID photo. Apply
+`database/migrations/2026-10-11-student-campus.sql` and
+`database/migrations/2026-10-11-student-id-photos.sql` before using this flow.
 
 **Resend** must have the sender domain verified. The sender lives in one place,
 `src/lib/server/email.ts` — if mail silently stops, that domain is the first

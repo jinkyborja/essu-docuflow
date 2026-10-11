@@ -6,7 +6,7 @@ const ts = require('typescript');
 function load(path, imports = {}) {
 	const exports = {};
 	const kit = { json: (body, init = {}) => ({ body, status: init.status ?? 200 }), error: (status, message) => { throw Object.assign(new Error(message), {status}); } };
-	vm.runInNewContext(ts.transpileModule(fs.readFileSync(path, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText, {exports, require: name => imports[name] ?? (name === '@sveltejs/kit' ? kit : ['$lib/formatting', '$lib/school-year'].includes(name) ? load(name.replace('$lib/', 'src/lib/') + '.ts') : require(name)), Buffer, Date, File, TextDecoder, URL, console: {error() {}}});
+	vm.runInNewContext(ts.transpileModule(fs.readFileSync(path, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText, {exports, require: name => imports[name] ?? (name === '@sveltejs/kit' ? kit : name.startsWith('$lib/') ? load(name.replace('$lib/', 'src/lib/') + '.ts', imports) : require(name)), Buffer, Date, File, TextDecoder, URL, console: {error() {}}});
 	return exports;
 }
 const logic = load('src/lib/server/masterlist.ts', {'./jwt': {verifySession: async token => ({userId: 9, role: token})}, '$env/static/private': {JWT_SECRET: 'test-secret'}});
@@ -87,9 +87,18 @@ test('Decisions require Admin; verified IDs require revocation with a reason and
 	const reject=decisions();assert.equal((await reject.call({action:'reject',reason:'ID not found'})).status,200);assert.equal(reject.writes[0].args[2],'ID not found');
 });
 test('Registration always inserts pending, ignoring any supplied verified ID status',async()=>{
-	const queries=[];const pool={execute:async(sql,args)=>{queries.push({sql,args});return [[]];}};
-	const endpoint=load('src/routes/api/register/+server.ts',{'$lib/server/db':{default:pool},'$lib/server/jwt':{signJwt:()=> 'test'},'$lib/server/email':{sendEmail:async()=>{}},'$env/static/private':{JWT_SECRET:'test-secret'}});
-	const result=await endpoint.POST({request:{url:'http://localhost/api/register',json:async()=>({firstName:'Juan',lastName:'Cruz',dateOfBirth:'2000-01-01',email:'test@example.invalid',studentId:'26-0001',program:'Master of IT',studentType:'Enrolled',lastSchoolYear:2026,password:'test-password',id_status:'verified'})}});
+	const queries=[];const execute=async(sql,args)=>{queries.push({sql,args});return [[]];};
+	const pool={execute,getConnection:async()=>({execute,beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release(){}})};
+	const photo=new File([Buffer.from('89504e470d0a1a0a', 'hex')], 'id.png', {type:'image/png'});
+	const endpoint=load('src/routes/api/register/+server.ts', {
+		'$lib/server/db': {default:pool},
+		'$lib/server/jwt': {signJwt:()=> 'test'},
+		'$lib/server/email': {sendEmail:async()=>{}},
+		'$env/static/private': {JWT_SECRET:'test-secret'},
+		'$lib/server/signup-id-photo': {validateSignupPhotoIdentity:()=>null,readSignupIdPhotoUploadToken:()=>({path:'signup/fake.png',contentType:photo.type,size:photo.size})},
+		'$lib/server/supabase': {supabase:{storage:{from:()=>({download:async()=>({data:photo,error:null})})}}}
+	});
+	const result=await endpoint.POST({request:{url:'http://localhost/api/register',json:async()=>({firstName:'Juan',lastName:'Cruz',dateOfBirth:'2000-01-01',email:'test@example.invalid',studentId:'26-0001',program:'Master of IT',campus:'Guiuan',studentType:'Enrolled',lastSchoolYear:2026,password:'test-password',id_status:'verified'})}});
 	assert.equal(result.status,200);assert.match(queries.find(q=>q.sql.includes('INSERT INTO users')).sql, /FALSE, 'pending'/);assert.ok(queries.every(q=>!q.sql.startsWith('UPDATE users')));
 });
 

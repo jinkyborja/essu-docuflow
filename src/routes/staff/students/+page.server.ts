@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
 	const [rows] = await pool.execute(
 		`SELECT user_id, first_name, middle_name, last_name, suffix, email,
-	        student_id, program, student_type, last_school_year, verified, id_status, id_verified_at, id_reject_reason,
+	        student_id, program, campus, student_type, last_school_year, verified, id_status, id_verified_at, id_reject_reason,
 	        date_of_birth, date_registered
 		 FROM users
 		 WHERE role = 'Student'

@@ -5,6 +5,7 @@ import { supabase } from '$lib/server/supabase';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateSchoolYear } from '$lib/school-year';
+import { isCampus } from '$lib/data/campuses';
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
@@ -21,7 +22,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
 
 	const [rows] = await pool.execute(
 		`SELECT user_id, first_name, middle_name, last_name, suffix, email,
-		        student_id, program, student_type, last_school_year, verified, id_status, id_verified_at, id_reject_reason, date_of_birth, date_registered
+		        student_id, program, campus, student_type, last_school_year, verified, id_status, id_verified_at, id_reject_reason, date_of_birth, date_registered
 		 FROM users
 		 WHERE role = 'Student'
 		 ORDER BY last_name ASC`
@@ -46,7 +47,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 	const body = await request.json();
 	const {
 		user_id, first_name, middle_name, last_name, suffix,
-		email, student_id, program, student_type, last_school_year, verified
+		email, student_id, program, campus, student_type, last_school_year, verified
 	} = body;
 	const validTypes = ['Enrolled', 'Former', 'Alumni'];
 	if (student_type != null && !validTypes.includes(student_type)) {
@@ -54,16 +55,17 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 	}
 	const yearError = validateSchoolYear(last_school_year, student_type);
 	if (yearError) return json({ error: yearError }, { status: 400 });
+	if (campus != null && !isCampus(campus)) return json({ error: 'Select an ESSU campus.' }, { status: 400 });
 
 	await pool.execute(
 		`UPDATE users
 		 SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?,
 		     email = ?, student_id = ?, program = ?, student_type = ?,
-		     last_school_year = ?, verified = ?
+		     last_school_year = ?, verified = ?, campus = IF(?, ?, campus)
 		 WHERE user_id = ? AND role = 'Student'`,
 		[first_name, middle_name ?? null, last_name, suffix ?? null,
 		 email, student_id ?? null, program ?? null, student_type ?? null,
-		 last_school_year ?? null, verified ? 1 : 0, user_id]
+		 last_school_year ?? null, verified ? 1 : 0, campus !== undefined, campus ?? null, user_id]
 	);
 
 	return json({ success: true });

@@ -2,6 +2,7 @@
 	import { formatName, pluralize } from '$lib/formatting';
 	import { SCHOOL_YEAR_MIN, SCHOOL_YEAR_MAX, ENROLLED_SCHOOL_YEAR_MIN, validateSchoolYear } from '$lib/school-year';
 	import {onMount} from 'svelte';
+	import { campuses } from '$lib/data/campuses';
 	import MasterlistModal from '$lib/components/ui/MasterlistModal.svelte';
 	import type { MasterlistMatch } from '$lib/server/masterlist';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -584,6 +585,13 @@
 							required
 							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 						/>
+					</div>
+					<div>
+						<label for="edit-student-campus" class="block text-sm font-medium text-gray-700 mb-1.5">Campus</label>
+						<select id="edit-student-campus" bind:value={editStudent.campus} class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+							<option value={null}>Not collected</option>
+							{#each campuses as option}<option value={option.value}>{option.label}</option>{/each}
+						</select>
 					</div>
 					<div>
 						<label class="block text-sm font-medium text-gray-700 mb-1.5">

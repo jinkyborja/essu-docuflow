@@ -5,6 +5,7 @@ import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateSchoolYear } from '$lib/school-year';
+import { isCampus } from '$lib/data/campuses';
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
@@ -103,7 +104,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 
 	if (body.type === 'academic') {
 		if (payload.role !== 'Student') return json({ error: 'Forbidden' }, { status: 403 });
-		const { program, studentType, lastSchoolYear, studentId } = body;
+		const { program, studentType, lastSchoolYear, studentId, campus } = body;
 		if (!program || !studentType || !lastSchoolYear) {
 			return json({ error: 'Missing required fields' }, { status: 400 });
 		}
@@ -114,6 +115,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		}
 		const yearError = validateSchoolYear(lastSchoolYear, studentType);
 		if (yearError) return json({ error: yearError }, { status: 400 });
+		if (campus !== undefined && !isCampus(campus)) return json({ error: 'Select your ESSU campus.' }, { status: 400 });
 		if (studentId !== undefined && (typeof studentId !== 'string' || !studentId.trim() || studentId.trim().length > 20)) {
 			return json({ error: 'Student ID is required and must be 20 characters or fewer.' }, { status: 400 });
 		}
@@ -121,9 +123,9 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		try {
 			// Keep the verification guard in the write itself, including concurrent verification.
 			const [result] = await pool.execute(
-				`UPDATE users SET student_id = COALESCE(?, student_id), program = ?, student_type = ?, last_school_year = ?
+				`UPDATE users SET student_id = COALESCE(?, student_id), program = ?, student_type = ?, last_school_year = ?, campus = COALESCE(?, campus)
 				 WHERE user_id = ? AND role = 'Student' AND id_status IN ('pending', 'rejected')`,
-				[studentId?.trim() ?? null, program, studentType, Number(lastSchoolYear), payload.userId]
+				[studentId?.trim() ?? null, program, studentType, Number(lastSchoolYear), campus ?? null, payload.userId]
 			);
 			if ((result as { affectedRows: number }).affectedRows === 0) {
 				return json({ error: 'Contact the Graduate School office to change these.' }, { status: 403 });

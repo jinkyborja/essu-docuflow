@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
 	const [rows] = await pool.execute(
 		`SELECT first_name, middle_name, last_name, suffix, date_of_birth,
-		        email, student_id, program, student_type, last_school_year,
+		        email, student_id, program, campus, student_type, last_school_year,
 		        date_registered, id_status, id_verified_at, id_reject_reason,
 		        id_photo_path, id_photo_uploaded_at
 		 FROM users WHERE user_id = ?`,
@@ -44,6 +44,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 			email:           u.email as string,
 			student_id:      u.student_id as string,
 			program:         u.program as string,
+			campus:          (u.campus as string | null) ?? null,
 			student_type:    u.student_type as string | null,
 			last_school_year: u.last_school_year as number | null,
 			date_registered:  fmt(u.date_registered),

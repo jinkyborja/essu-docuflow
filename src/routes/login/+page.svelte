@@ -3,6 +3,8 @@
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { graduatePrograms } from '$lib/data/programs';
+	import { campuses, isCampus } from '$lib/data/campuses';
+	import { validateStudentIdPhoto } from '$lib/student-id-photo';
 	import { studentTypes, nameSuffixes } from '$lib/data/student-types';
 	import Select from '$lib/components/forms/Select.svelte';
 
@@ -39,6 +41,18 @@
 	let studentId = $state('');
 	let studentIdError = $state('');
 	let program = $state('');
+	let campus = $state('');
+	let idPhoto = $state<File | null>(null);
+	let idPhotoError = $state('');
+	let idPhotoPreview = $state('');
+	let signupProgress = $state('');
+	let uploadedPhoto: { file: File; email: string; studentId: string; token: string; expiresAt: number } | null = null;
+	$effect(() => {
+		if (!browser || !idPhoto || idPhotoError) { idPhotoPreview = ''; return; }
+		const preview = URL.createObjectURL(idPhoto);
+		idPhotoPreview = preview;
+		return () => URL.revokeObjectURL(preview);
+	});
 	let studentType = $state('');
 	let lastSchoolYear = $state('');
 	let rememberMe = $state(false);
@@ -94,7 +108,11 @@
 		if (!browser) return;
 		error = '';
 		studentIdError = '';
+		if (loading) return;
 		if (!firstName || !lastName || !dateOfBirth || !email || !program || !studentType || !lastSchoolYear || !password || !confirmPassword) { error = 'Please fill in all required fields.'; return; }
+		if (!isCampus(campus)) { error = 'Select your ESSU campus.'; return; }
+		idPhotoError = validateStudentIdPhoto(idPhoto) ?? '';
+		if (idPhotoError || !idPhoto) return;
 		const yearError = validateSchoolYear(lastSchoolYear, studentType);
 		if (yearError) { error = yearError; return; }
 		if (dateOfBirth < DOB_MIN || dateOfBirth > DOB_MAX) {
@@ -106,23 +124,42 @@
 			return;
 		}
 		if (password !== confirmPassword) { error = 'Passwords do not match.'; return; }
+		const selectedPhoto = idPhoto;
+		const registration = { firstName, middleName, lastName, suffix: suffix || null, dateOfBirth, email: email.trim().toLowerCase(), studentId, program, campus, studentType, lastSchoolYear: Number(lastSchoolYear), password };
 		loading = true;
 		try {
+			if (!uploadedPhoto || uploadedPhoto.file !== selectedPhoto || uploadedPhoto.email !== registration.email || uploadedPhoto.studentId !== registration.studentId || uploadedPhoto.expiresAt <= Date.now()) {
+				signupProgress = 'Uploading ID photo…';
+				const prepared = await fetch('/api/register/id-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: registration.email, studentId: registration.studentId, name: selectedPhoto.name, contentType: selectedPhoto.type, size: selectedPhoto.size }) });
+				const upload = await prepared.json();
+				if (!prepared.ok) { error = upload.error ?? 'Could not start the ID photo upload.'; return; }
+				const form = new FormData();
+				form.append('cacheControl', '0');
+				form.append('', selectedPhoto);
+				const stored = await fetch(upload.uploadUrl, { method: 'PUT', body: form });
+				if (!stored.ok) { error = 'Could not upload the ID photo. Please try again.'; return; }
+				uploadedPhoto = { file: selectedPhoto, email: registration.email, studentId: registration.studentId, token: upload.uploadToken, expiresAt: Date.now() + upload.expiresIn * 1000 - 30000 };
+			}
+			signupProgress = 'Creating account…';
 			const res = await fetch('/api/register', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ firstName, middleName, lastName, suffix: suffix || null, dateOfBirth, email, studentId, program, studentType, lastSchoolYear: Number(lastSchoolYear), password })
+				body: JSON.stringify({ ...registration, idPhotoUploadToken: uploadedPhoto.token })
 			});
 			const data = await res.json();
-			if (!res.ok) {
+			if (!res.ok && !data.accountCreated) {
 				error = data.error ?? 'Registration failed. Please try again.';
 			} else {
+				email = registration.email;
+				error = data.accountCreated ? data.error : '';
+				idPhoto = null; uploadedPhoto = null;
 				mode = 'check-email';
 			}
 		} catch {
 			error = 'Network error. Please try again.';
 		} finally {
 			loading = false;
+			signupProgress = '';
 		}
 	}
 </script>
@@ -152,7 +189,7 @@
 				{/if}
 
 				{#if mode === 'check-email'}
-					<div class="result-state"><div class="result-icon"><i class="fa-solid fa-envelope-circle-check" aria-hidden="true"></i></div><h2>Check your email</h2><p>We sent a verification link to <strong>{email}</strong>. Click it to activate your account. The link expires in 24 hours.</p><button type="button" class="text-action" onclick={() => { mode = 'login'; error = ''; }}>Back to Sign In</button></div>
+					<div class="result-state"><div class="result-icon"><i class="fa-solid fa-envelope-circle-check" aria-hidden="true"></i></div><h2>{error ? 'Account created' : 'Check your email'}</h2>{#if error}<div class="alert" role="alert">{error}</div>{:else}<p>We sent a verification link to <strong>{email}</strong>. Click it to activate your account. The link expires in 24 hours.</p><p>Your school ID photo was submitted for administrator review.</p>{/if}<button type="button" class="text-action" onclick={() => { mode = 'login'; error = ''; }}>Back to Sign In</button></div>
 				{:else if mode === 'forgot'}
 					<div class="form-heading secondary-heading"><span class="gold-bar"></span><h1>Forgot your password?</h1><p>Enter your email and we'll send you a reset link.</p></div>
 					<form onsubmit={handleForgotPassword} class="access-form compact-form">
@@ -182,15 +219,23 @@
 								<div class="field"><label for="signup-id">Student ID</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5.5 16a3 3 0 0 1 5 0M13 10h5M13 14h5"/></svg><input id="signup-id" value={studentId} type="text" placeholder="00-0000" maxlength="7" inputmode="numeric" oninput={(e) => { studentId = formatStudentId(e.currentTarget.value, (e as unknown as InputEvent).inputType?.startsWith('delete')); e.currentTarget.value = studentId; studentIdError = ''; }} />{#if studentIdError}<small class="field-error">{studentIdError}</small>{/if}</div></div>
 								<div class="field span-2"><label for="signup-email">Email Address</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg><input id="signup-email" bind:value={email} type="email" placeholder="yourname@essu.edu.ph" required /></div></div>
 								<div class="field span-2"><label for="signup-program">Program / Course</label><div class="field-wrap"><svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9.5 12 4l10 5.5-10 5.5L2 9.5Z"/><path d="M6 12v5c3.5 2.5 8.5 2.5 12 0v-5M22 10v6"/></svg><Select id="signup-program" bind:value={program} options={graduatePrograms} placeholder="Select your program..." ariaLabel="Program or course" /></div></div>
+								<div class="field span-2"><label for="signup-campus">Campus</label><div class="field-wrap"><svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-6 9 6M5 10v10M10 10v10M14 10v10M19 10v10M3 20h18"/></svg><Select id="signup-campus" bind:value={campus} options={campuses} placeholder="Select your ESSU campus..." ariaLabel="Campus" disabled={loading} /></div></div>
 								<div class="field"><label for="signup-student-type">Student Type</label><div class="field-wrap"><svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.2a3.5 3.5 0 0 1 0 6.6M17 14a6 6 0 0 1 4.5 5.8"/></svg><Select id="signup-student-type" bind:value={studentType} options={studentTypes} placeholder="Select your student type..." ariaLabel="Student type" /></div></div>
 								<div class="field"><label for="signup-year">Last School Year Attended</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><input id="signup-year" bind:value={lastSchoolYear} type="number" placeholder="e.g. 2024" min={studentType === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN} max={SCHOOL_YEAR_MAX} step="1" required /></div></div>
+								<div class="field span-2 signup-photo">
+									<label for="signup-id-photo">School ID photo (front)</label>
+									<p id="signup-photo-help">Upload a clear photo showing your name and Student ID. JPG, PNG or WebP, up to 5 MB.</p>
+									<input id="signup-id-photo" type="file" accept="image/jpeg,image/png,image/webp" required disabled={loading} aria-describedby="signup-photo-help" aria-invalid={!!idPhotoError} onchange={(event) => { idPhoto = event.currentTarget.files?.[0] ?? null; idPhotoError = validateStudentIdPhoto(idPhoto) ?? ''; uploadedPhoto = null; }} />
+									{#if idPhotoError}<small class="field-error" role="alert">{idPhotoError}</small>{/if}
+									{#if idPhotoPreview}<img src={idPhotoPreview} alt="Selected school ID front" />{/if}
+								</div>
 								<div class="field"><label for="signup-password">Password</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="signup-password" bind:value={password} type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" required minlength="8" autocomplete="new-password" /><button type="button" class="visibility-button" aria-label={showPassword ? 'Hide password' : 'Show password'} onclick={() => (showPassword = !showPassword)}><i class="fa-solid {showPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
 								<div class="field"><label for="signup-confirm">Confirm</label><div class="input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="signup-confirm" bind:value={confirmPassword} type={showConfirmPassword ? 'text' : 'password'} placeholder="Repeat password" required autocomplete="new-password" /><button type="button" class="visibility-button" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'} onclick={() => (showConfirmPassword = !showConfirmPassword)}><i class="fa-solid {showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
 								<div class="review-warning span-2"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><p>Please review all your information carefully before submitting. Your <strong>name, student ID, and program</strong> must match your official school records exactly, as these cannot be changed after registration.</p></div>
 							</div>
 							{#if error}<div class="alert" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>{error}</span></div>{/if}
 						</div>
-						<div class="form-actions"><button type="submit" disabled={loading} class="primary-button auth-submit">{#if loading}<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>{/if}Create Account <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div>
+						<div class="form-actions"><button type="submit" disabled={loading} class="primary-button auth-submit">{#if loading}<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>{/if}{loading ? signupProgress || 'Creating account…' : 'Create Account'} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div>
 					</form>
 				{/if}
 			</div>
@@ -200,6 +245,7 @@
 </div>
 
 <style>
+	.signup-photo{padding:14px;border:1.5px solid var(--line);border-radius:12px;background:var(--field-bg)}.signup-photo p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}.signup-photo input{max-width:100%;font:400 13px Poppins,system-ui,sans-serif}.signup-photo input::file-selector-button{margin-right:10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--green-800);font:600 12px Poppins,system-ui,sans-serif;cursor:pointer}.signup-photo img{width:100%;max-height:180px;object-fit:contain;border-radius:8px}.signup-photo input:focus-visible{outline:3px solid var(--green-700);outline-offset:3px}
 	.login-page{--green-900:#0b3322;--green-800:#0f4a31;--green-700:#1f6b4a;--gold-500:#f2b705;--gold-600:#d9a400;--ink:#10261c;--muted:#5b6f64;--line:#cfd9d3;--surface:#fff;--field-bg:#f7faf8;min-height:100svh;position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;color:var(--ink);font-family:Poppins,system-ui,sans-serif}
 	.login-page:before{position:fixed;z-index:-1;inset:-24px;content:'';background:linear-gradient(rgba(11,51,34,.88),rgba(11,51,34,.88)),url('/login-bg.png') center/cover no-repeat,var(--green-900);filter:blur(10px);transform:scale(1.04)}
 	.login-card{width:min(1080px,94vw);height:min(700px,92vh);display:grid;grid-template-columns:5fr 6fr;overflow:hidden;border-radius:24px;background:var(--surface);box-shadow:0 30px 80px rgba(0,0,0,.4)}

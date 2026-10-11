@@ -20,7 +20,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 
 	const [[rows], [notifRows]] = await Promise.all([
 		pool.execute(
-			'SELECT first_name, middle_name, last_name, program, student_id, id_status, id_reject_reason FROM users WHERE user_id = ?',
+			'SELECT first_name, middle_name, last_name, program, student_id, id_status, id_reject_reason, id_photo_path FROM users WHERE user_id = ?',
 			[payload!.userId]
 		),
 		pool.execute(
@@ -46,7 +46,8 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 			program: (u.program as string | null) ?? 'Student',
 			studentId: (u.student_id as string | null) ?? ''
 			,idStatus: (u.id_status as string) ?? 'pending',
-			idRejectReason: (u.id_reject_reason as string | null) ?? null
+			idRejectReason: (u.id_reject_reason as string | null) ?? null,
+			hasIdPhoto: Boolean(u.id_photo_path)
 		}
 	};
 };

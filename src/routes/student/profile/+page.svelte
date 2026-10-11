@@ -4,6 +4,7 @@
 	import { formatName } from '$lib/formatting';
 	import { SCHOOL_YEAR_MIN, SCHOOL_YEAR_MAX, ENROLLED_SCHOOL_YEAR_MIN, validateSchoolYear } from '$lib/school-year';
 	import {formatDate} from '$lib/request-flow';
+	import { campuses, isCampus } from '$lib/data/campuses';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import type { PageData } from './$types';
 
@@ -138,11 +139,13 @@
 	let aProgram = $state('');
 	let aStudentType = $state('');
 	let aLastSchoolYear = $state('');
+	let aCampus = $state('');
 
 	function openAcademic() {
 		if (academicLocked) return;
 		aStudentId     = profile.student_id ?? '';
 		aProgram       = profile.program ?? '';
+		aCampus        = profile.campus ?? '';
 		aStudentType   = profile.student_type ?? '';
 		aLastSchoolYear = String(profile.last_school_year ?? '');
 		academicError  = '';
@@ -155,6 +158,7 @@
 		if (academicLocked) { academicError = 'Contact the Graduate School office to change these.'; return; }
 		const yearError = validateSchoolYear(aLastSchoolYear, aStudentType);
 		if (yearError) { academicError = yearError; return; }
+		if (!isCampus(aCampus)) { academicError = 'Select your ESSU campus.'; return; }
 		academicLoading = true;
 		try {
 			const res = await fetch('/api/profile', {
@@ -164,6 +168,7 @@
 					type: 'academic',
 					studentId: aStudentId.trim(),
 					program: aProgram,
+					campus: aCampus,
 					studentType: aStudentType,
 					lastSchoolYear: Number(aLastSchoolYear)
 				})
@@ -174,6 +179,7 @@
 			} else {
 				profile.student_id       = aStudentId.trim();
 				profile.program          = aProgram;
+				profile.campus           = aCampus;
 				profile.student_type     = aStudentType;
 				profile.last_school_year = Number(aLastSchoolYear);
 				academicOpen = false;
@@ -341,6 +347,7 @@
 				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
 					<div><p class="text-xs text-gray-400">Student ID</p><p class="font-medium">{profile.student_id}</p></div>
 					<div><p class="text-xs text-gray-400">Program</p><p class="font-medium">{profile.program}</p></div>
+					<div class="col-span-2"><p class="text-xs text-gray-400">Campus</p><p class="font-medium">{profile.campus ?? 'Not collected'}</p></div>
 					<div class="col-span-2"><p class="text-xs text-gray-400">Student Type</p><p class="font-medium">
 						{#if profile.student_type === 'Enrolled'}Currently Enrolled
 						{:else if profile.student_type === 'Former'}Former Student
@@ -570,6 +577,13 @@
 				<label class="block text-sm font-medium text-gray-700 mb-1.5">Program / Course</label>
 				<input bind:value={aProgram} type="text" required
 					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+			</div>
+			<div>
+				<label for="profile-campus" class="block text-sm font-medium text-gray-700 mb-1.5">Campus</label>
+				<select id="profile-campus" bind:value={aCampus} required class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+					<option value="" disabled>Select your ESSU campus...</option>
+					{#each campuses as option}<option value={option.value}>{option.label}</option>{/each}
+				</select>
 			</div>
 			<div>
 				<label class="block text-sm font-medium text-gray-700 mb-1.5">Student Type</label>

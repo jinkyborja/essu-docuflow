@@ -23,6 +23,6 @@ Notifications link to the relevant request or student review. Request histories 
 
 ## Office setup and practical limits
 
-Import real official enrollment records and upload/link the actual clearance and further-studies forms before office use. The current student account schema does not collect campus; comparisons honestly show that value as missing. Delivery is manually confirmed by the office. Browser testing with real student and office accounts is still needed before deployment.
+Import real official enrollment records and upload/link the actual clearance and further-studies forms before office use. Signup now collects campus and a front school ID photo for manual verification. Existing accounts keep their campus as missing until the student or office enters it. Delivery is manually confirmed by the office. Browser testing with real student and office accounts is still needed before deployment.
 
 The migration SQL is in database/migrations/2026-10-09-enrollment-masterlist.sql. No deployment or changes to environment/configuration files were performed.
