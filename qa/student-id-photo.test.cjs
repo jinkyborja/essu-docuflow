@@ -189,6 +189,41 @@ test('Admin review signs a private photo, staff never receive its URL, and compa
 	}
 });
 
+test('Review database failures return a useful JSON error without exposing database details', async () => {
+	for (const failMasterlist of [false, true]) {
+		const f = fixture();
+		const pool = { execute: async sql => {
+			if (!failMasterlist || sql.includes('enrollment_masterlist')) {
+				throw Object.assign(new Error("Unknown column 'u.id_photo_path' in 'field list'"), { code: 'ER_BAD_FIELD_ERROR' });
+			}
+			return [[{ user_id: 8, student_id: '26-0001', id_photo_path: oldPath }]];
+		} };
+		const endpoint = load('src/routes/api/students/[id]/+server.ts', { ...f.imports, '$lib/server/db': { default: pool } });
+		const response = await endpoint.GET({ cookies: cookies('Admin'), params: { id: '8' } });
+		assert.equal(response.status, 500);
+		assert.equal(response.body.error, 'Could not load student review. Please try again.');
+		assert.doesNotMatch(JSON.stringify(response.body), /Unknown column|id_photo_path|ER_BAD_FIELD_ERROR/);
+		assert.equal(response.headers['Cache-Control'], 'private, no-store');
+		assert.equal(f.state.storage.length, 0);
+	}
+});
+
+test('Existing students without a photo or masterlist entry still load successfully', async () => {
+	const f = fixture();
+	const pool = { execute: async (sql, args) => {
+		if (sql.includes('enrollment_masterlist')) { assert.equal(args[0], null); return [[]]; }
+		return [[{ user_id: 8, student_id: null, first_name: 'Juan', last_name: 'Cruz', id_photo_path: null, id_photo_uploaded_at: null }]];
+	} };
+	const endpoint = load('src/routes/api/students/[id]/+server.ts', { ...f.imports, '$lib/server/db': { default: pool } });
+	const response = await endpoint.GET({ cookies: cookies('Admin'), params: { id: '8' } });
+	assert.equal(response.status, 200);
+	assert.equal(response.body.has_id_photo, false);
+	assert.equal(response.body.id_photo_url, null);
+	assert.equal(response.body.id_photo_uploaded_at, null);
+	assert.equal(response.body.masterlistMatch.found, false);
+	assert.equal(f.state.storage.length, 0);
+});
+
 test('Admin verification rejects missing photos even with a masterlist override; rejection and existing verification remain usable', async () => {
 	for (const [action, idStatus, expected] of [['verify', 'pending', 400], ['reject', 'pending', 200], ['revoke', 'verified', 200]]) {
 		const writes = []; let rolledBack = false, released = false;
@@ -226,4 +261,16 @@ test('Admin review displays the photo beside details and disables Verify when no
 		if (hasPhoto) assert.match(html, /<img[^>]*src="https:\/\/storage.invalid\/read\?token=fake"/);
 		else assert.match(html, /No ID photo uploaded/);
 	}
+});
+
+test('A failed review load offers a retry and does not claim the student has no photo', () => {
+	const filename = 'src/routes/staff/students/+page.svelte';
+	const source = fs.readFileSync(filename, 'utf8')
+		.replace('let reviewStudent = $state<Student | null>(null);', 'let reviewStudent = $state<Student | null>(data.students[0] as Student);')
+		.replace("let reviewError = $state('');", "let reviewError = $state('Could not load student review. Please try again.');");
+	const student = { user_id: 8, first_name: 'Juan', last_name: 'Cruz', email: 'fake@example.invalid', student_id: '26-0001', program: 'QA', id_status: 'pending' };
+	const html = renderPage(filename, { allowed: true, role: 'Admin', students: [student] }, '/staff/students', source);
+	assert.match(html, /ID photo details could not be loaded/);
+	assert.match(html, /Retry loading review/);
+	assert.doesNotMatch(html, /No ID photo uploaded|>Verify student<|>Reject</);
 });

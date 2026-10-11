@@ -436,6 +436,7 @@
 					<div class="rounded-lg border border-gray-200 p-3 space-y-2">
 						<p class="text-sm font-medium text-gray-700">School ID photo (front)</p>
 						{#if reviewLoading}<p class="text-sm text-gray-500">Loading ID photo…</p>
+						{:else if !reviewStudent.masterlistMatch}<p class="text-sm text-gray-500">ID photo details could not be loaded.</p>
 						{:else if !reviewStudent.has_id_photo}<p class="text-sm text-gray-500">No ID photo uploaded</p>
 						{:else}
 							{#if reviewStudent.id_photo_url && !photoPreviewError}<img src={reviewStudent.id_photo_url} alt="Uploaded school ID front" class="max-h-64 w-full rounded-lg object-contain" onerror={() => photoPreviewError = true} />
@@ -458,7 +459,12 @@
 						<div class="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2"><label class="flex gap-2 text-sm text-amber-900"><input type="checkbox" bind:checked={verifyAnyway} class="accent-essu-green focus:ring-essu-green/30" />Verify anyway</label><label class="block text-sm text-gray-700">Short verification note (required)<textarea bind:value={overrideNote} maxlength="300" rows="2" class="mt-1 w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"></textarea></label></div>
 					{/if}
 				{/if}
-				{#if reviewError}<p class="text-sm text-red-700" role="alert">{reviewError}</p>{/if}
+				{#if reviewError}
+					<p class="text-sm text-red-700" role="alert">{reviewError}</p>
+					{#if !reviewLoading && !reviewStudent.masterlistMatch}
+						<button type="button" onclick={() => { if (reviewStudent) void openReview(reviewStudent, revoking); }} class="text-sm text-essu-green hover:underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">Retry loading review</button>
+					{/if}
+				{/if}
 			</div>
 		{/if}
 	{/snippet}
