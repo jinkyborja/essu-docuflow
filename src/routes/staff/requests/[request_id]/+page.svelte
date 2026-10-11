@@ -1,11 +1,6 @@
 <script lang="ts">
- import Button from '$lib/components/ui/Button.svelte';
- import RowMenu from '$lib/components/ui/RowMenu.svelte';
- import TextArea from '$lib/components/ui/TextArea.svelte';
- import FileDrop from '$lib/components/ui/FileDrop.svelte';
 	import {invalidateAll} from '$app/navigation';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import { showToast } from '$lib/stores/toasts';
+	import Modal from '$lib/components/ui/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import type { PageData } from './$types';
 
@@ -38,7 +33,7 @@
 	let approveOpen = $state(false);
 	let submitting = $state(false);
 	let actionError = $state('');
-	let deliveryConfirm = $state(false);
+	let toastMessage = $state('');
 
 	// Action form state
 	let adminMessage = $state('');
@@ -49,17 +44,20 @@
 	let deliveryOverride = $state(false);
 	const delivered = $derived(deliveryOverride || history.some(event => event.new_status === 'Completed'));
 	async function recordDelivery() {
-		if (!deliveryConfirm || submitting) return;
+		if (!confirm('Confirm that the student has received all documents in this request?')) return;
 		submitting = true; actionError = '';
 		try {
 			const res = await fetch('/api/requests/' + req.request_id + '/complete', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})});
 			const data = await res.json();
-			if (!res.ok) { actionError = data.error ?? 'Could not record delivery.'; showToast(actionError, 'error'); return; }
-			deliveryConfirm = false; deliveryOverride = true; showToast('Delivery recorded.'); await invalidateAll();
-		} catch { actionError = 'Could not record delivery.'; showToast(actionError, 'error'); } finally { submitting = false; }
+			if (!res.ok) { actionError = data.error ?? 'Could not record delivery.'; return; }
+			deliveryOverride = true; showToast('Delivery recorded.'); await invalidateAll();
+		} catch { actionError = 'Could not record delivery.'; } finally { submitting = false; }
 	}
 
-
+	function showToast(msg: string) {
+		toastMessage = msg;
+		setTimeout(() => toastMessage = '', 4000);
+	}
 
 	async function getSignedUrl(bucket: string, path: string): Promise<string> {
 		const res = await fetch(`/api/storage?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}`);
@@ -68,11 +66,8 @@
 	}
 
 	async function openFile(path: string) {
-		const preview = window.open('about:blank', '_blank');
-		if (!preview) { showToast('Allow pop-ups to view this file.', 'error'); return; }
-		preview.opener = null;
-		try { const url = await getSignedUrl('requirements', path); if (!url) throw new Error('Could not open this file.'); preview.location.replace(url); showToast('File opened.'); }
-		catch (error) { preview.close(); showToast((error as Error).message, 'error'); }
+		const url = await getSignedUrl('requirements', path);
+		if (url) window.open(url, '_blank');
 	}
 
 	async function submitAction(action: 'approve' | 'reject' | 'correction') {
@@ -90,7 +85,7 @@
 
 			const res = await fetch(`/api/requests/${req.request_id}`, { method: 'PATCH', body: fd });
 			const result = await res.json();
-			if (!res.ok) { actionError = result.error ?? 'Action failed.'; showToast(actionError, 'error'); return; }
+			if (!res.ok) { actionError = result.error ?? 'Action failed.'; return; }
 
 			currentStatus = result.new_status;
 			await invalidateAll();
@@ -103,19 +98,25 @@
 			showToast(result.email_warning ? `${label} — but the email failed to send` : `${label} — ${req.request_id}`);
 			if (result.email_warning) actionError = result.email_warning;
 		} catch {
-			actionError = 'Network error.'; showToast(actionError, 'error');
+			actionError = 'Network error.';
 		} finally {
 			submitting = false;
 		}
 	}
 </script>
 
-
+<!-- Toast -->
+{#if toastMessage}
+	<div class="fixed bottom-6 right-6 z-50 bg-gray-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-in fade-in">
+		<i class="fa-solid fa-circle-check text-green-400"></i>
+		{toastMessage}
+	</div>
+{/if}
 
 <div class="max-w-4xl mx-auto space-y-5">
 	<!-- Back + header -->
 	<div class="flex items-center gap-3">
-		<a href="/staff/requests" aria-label="Back to All Requests" title="Back to All Requests" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+		<a href="/staff/requests" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
 			<i class="fa-solid fa-arrow-left text-gray-600 text-sm"></i>
 		</a>
 		<div class="flex-1">
@@ -197,9 +198,12 @@
 								{/if}
 							</div>
 							{#if !r.in_person && r.file_path}
-								<Button variant="ghost" onclick={() => openFile(r.file_path!)}>
+								<button
+									onclick={() => openFile(r.file_path!)}
+									class="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-essu-green hover:bg-essu-green/5 transition-colors"
+								>
 									<i class="fa-solid fa-eye"></i> View
-								</Button>
+								</button>
 							{/if}
 						</div>
 					{/each}
@@ -213,9 +217,12 @@
 			{#if req.approved_file_path}
 				<div class="bg-white rounded-xl border border-essu-green/30 shadow-sm p-5">
 					<p class="text-sm font-semibold text-essu-green mb-2"><i class="fa-solid fa-circle-check mr-2"></i>Approved Document</p>
-					<Button variant="ghost" onclick={() => openFile(req.approved_file_path!)}>
+					<button
+						onclick={() => openFile(req.approved_file_path!)}
+						class="text-sm text-essu-green hover:underline flex items-center gap-2"
+					>
 						<i class="fa-solid fa-download"></i> {req.approved_file_name ?? 'Download document'}
-					</Button>
+					</button>
 				</div>
 			{/if}
 		</div>
@@ -223,14 +230,29 @@
 		<!-- Sidebar: actions + history -->
 		<div class="space-y-4">
 			<!-- Actions -->
-			{#if currentStatus === 'Approved'}<div class="rounded-xl bg-white border border-essu-green/20 p-4 space-y-2"><p class="font-semibold text-sm text-essu-green">{delivered ? 'Delivery recorded' : 'Approved - ready for release'}</p><p class="text-xs text-gray-600">{delivered ? 'The office confirmed receipt of the documents.' : 'The student can download the approved file. Record delivery after confirming receipt; approval alone does not confirm delivery.'}</p>{#if !delivered}<Button onclick={() => { actionError = ''; deliveryConfirm = true; }} disabled={submitting} variant="primary">Record delivery</Button>{/if}</div>{/if}
+			{#if currentStatus === 'Approved'}<div class="rounded-xl bg-white border border-essu-green/20 p-4 space-y-2"><p class="font-semibold text-sm text-essu-green">{delivered ? 'Delivery recorded' : 'Approved - ready for release'}</p><p class="text-xs text-gray-600">{delivered ? 'The office confirmed receipt of the documents.' : 'The student can download the approved file. Record delivery after confirming receipt; approval alone does not confirm delivery.'}</p>{#if !delivered}<button onclick={recordDelivery} disabled={submitting} class="px-3 py-2 rounded-lg bg-essu-green text-white text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">Record delivery</button>{/if}</div>{/if}
 			{#if actionError}<p role="alert" class="text-sm text-red-700">{actionError}</p>{/if}
 			{#if currentStatus === 'Pending' || currentStatus === 'Correction Requested'}
 				<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
 					<p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Actions</p>
-					<Button onclick={() => { actionError = ''; approveOpen = true; }}  variant="primary">Approve</Button>
-					<Button onclick={() => { actionError = ''; correctionOpen = true; }}  variant="secondary">Request correction</Button>
-					<RowMenu label="Request actions" items={[{label:"Reject request",danger:true,disabled:submitting,onselect:()=>{actionError="";rejectOpen=true;}}]}/>
+					<button
+						onclick={() => { actionError = ''; approveOpen = true; }}
+						class="w-full flex items-center gap-2 px-4 py-2.5 bg-essu-green text-white rounded-lg text-sm font-medium hover:bg-essu-green-mid transition-colors"
+					>
+						<i class="fa-solid fa-circle-check"></i> Approve
+					</button>
+					<button
+						onclick={() => { actionError = ''; correctionOpen = true; }}
+						class="w-full flex items-center gap-2 px-4 py-2.5 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-sm font-medium hover:bg-yellow-100 transition-colors"
+					>
+						<i class="fa-solid fa-rotate-left"></i> Request Correction
+					</button>
+					<button
+						onclick={() => { actionError = ''; rejectOpen = true; }}
+						class="w-full flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+					>
+						<i class="fa-solid fa-circle-xmark"></i> Reject
+					</button>
 				</div>
 			{/if}
 
@@ -265,11 +287,94 @@
 	</div>
 </div>
 
-<ConfirmDialog open={approveOpen} title="Approve request" message={'Approve ' + req.request_id + ' for ' + req.student_name + '?'} variant="primary" confirmLabel="Approve & Send" loading={submitting} disabled={!approvedFile} disabledReason="Upload the requested document first" error={actionError} onclose={() => approveOpen = false} onconfirm={() => void submitAction('approve')}>
-	{#snippet details()}<FileDrop label="Requested document" bind:file={approvedFile} accept=".pdf,.doc,.docx,image/*" disabled={submitting} required/><TextArea label="Note to student (optional)" bind:value={adminMessage} rows={2} disabled={submitting}/>{/snippet}
-</ConfirmDialog>
-<ConfirmDialog open={correctionOpen} title="Request correction" message={'Request corrected requirements for ' + req.request_id + '?'} variant="primary" requireReason minLength={10} confirmLabel="Send correction request" loading={submitting} disabled={!Object.values(flagged).some(Boolean)} disabledReason="Select a requirement to correct" error={actionError} onclose={() => correctionOpen = false} onconfirm={reason => { adminMessage = reason; void submitAction('correction'); }}>
-	{#snippet details()}<fieldset class="space-y-2"><legend class="mb-2 text-sm font-medium text-gray-700">Requirements needing correction</legend>{#each req.requirements.filter(requirement => !requirement.in_person) as requirement}<label class="flex items-center gap-3 rounded-lg border border-gray-200 p-3"><input type="checkbox" bind:checked={flagged[requirement.name]} disabled={submitting} class="accent-essu-green" /><span class="text-sm">{requirement.name}</span></label>{/each}</fieldset>{/snippet}
-</ConfirmDialog>
-<ConfirmDialog open={rejectOpen} title="Reject request" message={'Reject ' + req.request_id + ' for ' + req.student_name + '?'} requireReason minLength={10} confirmLabel="Reject request" loading={submitting} error={actionError} onclose={() => rejectOpen = false} onconfirm={reason => { adminMessage = reason; void submitAction('reject'); }} />
-<ConfirmDialog open={deliveryConfirm} title="Confirm delivery" message={'Confirm that ' + req.student_name + ' has received every document in ' + req.request_id + '?'} variant="primary" confirmLabel="Confirm delivery" loading={submitting} error={actionError} onclose={() => deliveryConfirm = false} onconfirm={() => void recordDelivery()} />
+<!-- Approve Modal -->
+<Modal open={approveOpen} title="Approve Request" size="sm" onclose={() => approveOpen = false}>
+	{#snippet body()}
+		<div class="space-y-4">
+			{#if actionError}
+				<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{actionError}</div>
+			{/if}
+			<div>
+				<label class="block text-sm font-medium text-gray-700 mb-1.5">
+					Upload Requested Document <span class="text-red-500">*</span>
+				</label>
+				<label class="flex items-start gap-3 px-3 py-3 border border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-essu-green/50 hover:bg-essu-green/5 transition-all">
+					<i class="fa-solid fa-upload text-gray-400 shrink-0 mt-0.5"></i>
+					<span class="text-sm min-w-0 break-words {approvedFile ? 'text-essu-green font-medium' : 'text-gray-400'}">
+						{approvedFile ? approvedFile.name : 'Click to upload the requested document'}
+					</span>
+					<input type="file" accept=".pdf,.doc,.docx,image/*" class="hidden" onchange={(e) => {
+						const f = (e.target as HTMLInputElement).files?.[0];
+						if (f) approvedFile = f;
+					}} />
+				</label>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-gray-700 mb-1.5">Note to student <span class="text-gray-400 font-normal">(optional)</span></label>
+				<textarea bind:value={adminMessage} rows="2" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-essu-green/30" placeholder="Optional message..."></textarea>
+			</div>
+		</div>
+	{/snippet}
+	{#snippet footer()}
+		<button onclick={() => approveOpen = false} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+		<button onclick={() => submitAction('approve')} disabled={submitting || !approvedFile} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid disabled:opacity-60 flex items-center gap-2">
+			{#if submitting}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
+			Approve & Send
+		</button>
+	{/snippet}
+</Modal>
+
+<!-- Request Correction Modal -->
+<Modal open={correctionOpen} title="Request Correction" size="sm" onclose={() => correctionOpen = false}>
+	{#snippet body()}
+		<div class="space-y-4">
+			{#if actionError}
+				<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{actionError}</div>
+			{/if}
+			<div>
+				<p class="text-sm font-medium text-gray-700 mb-2">Flag requirements needing correction:</p>
+				<div class="space-y-2">
+					{#each req.requirements.filter(r => !r.in_person) as r}
+						<label class="flex items-center gap-3 p-3 border border-gray-100 rounded-lg cursor-pointer hover:bg-gray-50">
+							<input type="checkbox" bind:checked={flagged[r.name]} class="accent-yellow-500" />
+							<span class="text-sm text-gray-700">{r.name}</span>
+						</label>
+					{/each}
+				</div>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-gray-700 mb-1.5">Message to student <span class="text-red-500">*</span></label>
+				<textarea bind:value={adminMessage} rows="3" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-essu-green/30" placeholder="Explain what corrections are needed..."></textarea>
+			</div>
+		</div>
+	{/snippet}
+	{#snippet footer()}
+		<button onclick={() => correctionOpen = false} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+		<button onclick={() => submitAction('correction')} disabled={submitting || !adminMessage.trim() || !Object.values(flagged).some(Boolean)} class="px-4 py-2 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-60 flex items-center gap-2">
+			{#if submitting}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
+			Send Correction Request
+		</button>
+	{/snippet}
+</Modal>
+
+<!-- Reject Modal -->
+<Modal open={rejectOpen} title="Reject Request" size="sm" onclose={() => rejectOpen = false}>
+	{#snippet body()}
+		<div class="space-y-4">
+			{#if actionError}
+				<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{actionError}</div>
+			{/if}
+			<div>
+				<label class="block text-sm font-medium text-gray-700 mb-1.5">Reason for rejection <span class="text-red-500">*</span></label>
+				<textarea bind:value={adminMessage} rows="3" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-essu-green/30" placeholder="Explain why this request is being rejected..."></textarea>
+			</div>
+		</div>
+	{/snippet}
+	{#snippet footer()}
+		<button onclick={() => rejectOpen = false} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+		<button onclick={() => submitAction('reject')} disabled={submitting || !adminMessage.trim()} class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60 flex items-center gap-2">
+			{#if submitting}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
+			Reject Request
+		</button>
+	{/snippet}
+</Modal>

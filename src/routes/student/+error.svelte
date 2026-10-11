@@ -7,5 +7,5 @@
 	status={$page.status}
 	message={$page.error?.message}
 	homeHref="/student/dashboard"
-	homeLabel="Go to dashboard"
+	homeLabel="Go to Dashboard"
 />

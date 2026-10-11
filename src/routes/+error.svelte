@@ -8,6 +8,6 @@
 		status={$page.status}
 		message={$page.error?.message}
 		homeHref="/"
-		homeLabel="Go to sign in"
+		homeLabel="Go to Sign In"
 	/>
 </div>

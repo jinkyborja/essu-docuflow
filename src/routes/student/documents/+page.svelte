@@ -1,135 +1,276 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { canUpdateRequirementFiles, requirementNeedsCorrection } from '$lib/requirement-files';
+	import { canUpdateRequirementFiles, requirementNeedsCorrection, validateRequirementFileMetadata } from '$lib/requirement-files';
 	import { uploadRequirementFiles } from '$lib/upload-requirement-files';
-	import { downloadStudentFile, studentFileUrl } from '$lib/student-files';
-	import { documentRequirementGroups, type DocumentDefinition } from '$lib/student-request-display';
-	import { showToast } from '$lib/stores/toasts';
-	import { formatDate, type JourneyEvent } from '$lib/request-flow';
 	import RequestJourney from '$lib/components/ui/RequestJourney.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import StatusChip from '$lib/components/ui/StatusChip.svelte';
-	import RequirementFilePicker from '$lib/components/ui/RequirementFilePicker.svelte';
+	import type {JourneyEvent} from '$lib/request-flow';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
-	import LoadingState from '$lib/components/ui/LoadingState.svelte';
-	import LoadError from '$lib/components/ui/LoadError.svelte';
 	import type { PageData } from './$types';
+
 	const { data }: { data: PageData } = $props();
-	type Requirement = { form_id?: number | null; signature_note?: string | null; form_files?: Array<{ public_url: string; name: string }>; name: string; description?: string; in_person: boolean; file_path: string | null; file_name: string | null; submitted_at: string | null; needs_correction: boolean };
-	type RequestRow = { history?: JourneyEvent[]; completed_at?: string | null; request_id: string; document_name: string; purpose: string; status: string; admin_message: string | null; approved_file_path: string | null; approved_file_name: string | null; requirements: Requirement[]; date_requested: string; items: Array<{ document_id: number; name: string }> };
+
+	type Requirement = {
+		form_id?: number | null; signature_note?: string | null; form_files?: Array<{public_url:string;name:string}>;
+		name: string; description?: string; in_person: boolean;
+		file_path: string | null; file_name: string | null;
+		submitted_at: string | null; needs_correction: boolean;
+	};
+	type RequestRow = {
+		history?: JourneyEvent[]; completed_at?: string | null;
+		request_id: string; document_name: string; purpose: string; status: string;
+		admin_message: string | null; approved_file_path: string | null;
+		approved_file_name: string | null; requirements: Requirement[]; date_requested: string;
+		items: Array<{document_id:number;name:string}>;
+	};
+
+	// Override list after resubmit refresh; null means use server data
 	let requestsOverride = $state<RequestRow[] | null>(null);
 	const requests = $derived((requestsOverride ?? data.requests) as RequestRow[]);
-	const newestId = $derived([...requests].sort((a, b) => Date.parse(b.date_requested) - Date.parse(a.date_requested))[0]?.request_id);
-	let catalog = $state<DocumentDefinition[]>([]);
-	let catalogLoading = $state(true);
-	let catalogError = $state('');
+
+	// Resubmit modal
 	let resubmitOpen = $state(false);
 	let resubmitReq = $state<RequestRow | null>(null);
 	let resubmitFiles = $state<Record<string, File | null>>({});
 	let resubmitting = $state(false);
 	let resubmitError = $state('');
-	let fileBusy = $state<string | null>(null);
-	let downloadBusy = $state<string | null>(null);
-	let filePreviewOpen = $state(false);
-	let filePreviewUrl = $state('');
-	let filePreviewName = $state('');
-	let refreshError = $state('');
-	const missingCorrections = $derived(resubmitReq?.requirements.filter(req => !req.in_person && req.needs_correction && !resubmitFiles[req.name]).length ?? 0);
-	const updateReason = $derived(missingCorrections ? `Upload ${missingCorrections} corrected ${missingCorrections === 1 ? 'file' : 'files'}` : 'Choose at least one replacement file');
-	const canUpdate = $derived(!!Object.values(resubmitFiles).some(Boolean) && (!requirementNeedsCorrection(resubmitReq?.status ?? '') || missingCorrections === 0));
-	onMount(() => { void loadCatalog(); });
-	async function loadCatalog() {
-		catalogLoading = true; catalogError = '';
-		try { const response = await fetch('/api/documents'); const result = await response.json(); if (!response.ok || !Array.isArray(result)) throw new Error(result.error ?? 'Could not load document requirements.'); catalog = result; }
-		catch (error) { catalogError = error instanceof Error ? error.message : 'Could not load document requirements.'; showToast(catalogError, 'error'); }
-		finally { catalogLoading = false; }
+	let toastMsg = $state('');
+	let expandedItems = $state<string[]>([]);
+
+	function openResubmit(r: RequestRow) {
+		resubmitReq = r;
+		resubmitFiles = {};
+		resubmitError = '';
+		resubmitOpen = true;
 	}
-	async function openResubmit(req: RequestRow, name?: string) {
-		if (resubmitting || !canUpdateRequirementFiles(req.status) || req.completed_at || req.history?.some(event => event.new_status === 'Completed')) return;
-		resubmitReq = req; resubmitFiles = {}; resubmitError = ''; resubmitOpen = true;
-		if (name) { await tick(); const input = document.getElementById('replace-' + encodeURIComponent(name))?.querySelector('input'); input?.focus(); }
+
+	function showToast(msg: string) {
+		toastMsg = msg;
+		setTimeout(() => toastMsg = '', 4000);
 	}
-	async function openFile(path: string, name: string) {
-		if (fileBusy) return;
-		fileBusy = path;
-		try { filePreviewUrl = await studentFileUrl(path); filePreviewName = name; filePreviewOpen = true; }
-		catch (error) { showToast(error instanceof Error ? error.message : 'Could not open this file.', 'error'); }
-		finally { fileBusy = null; }
+
+	async function getSignedUrl(path: string): Promise<string> {
+		const res = await fetch(`/api/storage?bucket=requirements&path=${encodeURIComponent(path)}`);
+		const d = await res.json();
+		return d.url ?? '';
 	}
+
+	async function openFile(path: string) {
+		const url = await getSignedUrl(path);
+		if (url) window.open(url, '_blank');
+	}
+
 	async function downloadFile(path: string, name: string) {
-		if (downloadBusy) return;
-		downloadBusy = path;
-		try { await downloadStudentFile(await studentFileUrl(path), name); showToast('Document downloaded.'); }
-		catch (error) { showToast(error instanceof Error ? error.message : 'Could not download this document.', 'error'); }
-		finally { downloadBusy = null; }
+		const url = await getSignedUrl(path);
+		if (!url) return;
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = name;
+		a.click();
 	}
-	async function downloadForm(file: { public_url: string; name: string }) {
-		if (downloadBusy) return;
-		downloadBusy = file.public_url;
-		try { await downloadStudentFile(file.public_url, file.name); showToast('Form downloaded.'); }
-		catch (error) { showToast(error instanceof Error ? error.message : 'Could not download this form.', 'error'); }
-		finally { downloadBusy = null; }
-	}
-	async function refreshRequests() {
-		refreshError = '';
-		try { const response = await fetch('/api/requests'); const result = await response.json(); if (!response.ok || !Array.isArray(result)) throw new Error(result.error ?? 'Could not refresh your requests.'); requestsOverride = result; }
-		catch (error) { refreshError = error instanceof Error ? error.message : 'Could not refresh your requests.'; showToast(refreshError, 'error'); }
-	}
+
 	async function submitResubmission() {
-		if (!resubmitReq || resubmitting || !canUpdate) return;
-		resubmitting = true; resubmitError = '';
+		if (!resubmitReq) return;
+		resubmitting = true;
+		resubmitError = '';
 		try {
 			const fd = new FormData();
-			const uploadFiles = Object.fromEntries(resubmitReq.requirements.filter(req => !req.in_person).map(req => [req.name, resubmitFiles[req.name] ?? null]));
+			const reqs = resubmitReq.requirements;
+			const uploadFiles = Object.fromEntries(reqs.filter(r => !r.in_person).map(r => [r.name, resubmitFiles[r.name] ?? null]));
 			fd.append('uploads', JSON.stringify(await uploadRequirementFiles(uploadFiles, { requestId: resubmitReq.request_id })));
-			const response = await fetch('/api/requests/' + encodeURIComponent(resubmitReq.request_id) + '/requirements', { method: 'PATCH', body: fd });
-			const result = await response.json();
-			if (!response.ok) throw new Error(result.error ?? 'Could not update the files. Please try again.');
+			const res = await fetch(`/api/requests/${resubmitReq.request_id}/requirements`, {
+				method: 'PATCH', body: fd
+			});
+			const result = await res.json();
+			if (!res.ok) { resubmitError = result.error ?? 'Resubmission failed.'; return; }
+
+			// Refresh data
+			const listRes = await fetch('/api/requests');
+			requestsOverride = await listRes.json();
 			resubmitOpen = false;
-			showToast('Files updated and submitted for review.');
-			await refreshRequests();
-		} catch (error) { resubmitError = error instanceof Error ? error.message : 'Network error. Your selected files are still here.'; showToast(resubmitError, 'error'); }
-		finally { resubmitting = false; }
+			showToast('Requirements resubmitted successfully.');
+		} catch (error) {
+			resubmitError = error instanceof Error ? error.message : 'Network error.';
+		} finally {
+			resubmitting = false;
+		}
 	}
 </script>
 
-{#snippet requirementRow(req: RequestRow, item: Requirement, editable: boolean)}
-	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 py-3 last:border-0">
-		<div class="min-w-0 flex-1 basis-40"><p class="text-sm font-medium text-gray-800">{item.name}</p><p class="mt-1 break-words text-xs text-gray-500">{item.in_person ? 'Submit in person at the Graduate School' : item.file_name ?? 'No file uploaded'}</p></div>
-		<StatusChip kind="file" value={item.needs_correction ? 'needs_correction' : item.in_person ? 'in_person' : item.file_path ? 'uploaded' : 'missing'} />
-		{#if !item.in_person}<div class="flex items-center gap-2"><Button variant="ghost" icon="fa-solid fa-eye" size="sm" disabled={!item.file_path || !!fileBusy} disabledReason={!item.file_path ? 'No file uploaded yet' : undefined} loading={!!item.file_path && fileBusy === item.file_path} onclick={() => item.file_path && openFile(item.file_path, item.file_name ?? item.name)}>View</Button>{#if editable}<Button variant="ghost" icon="fa-solid fa-arrow-up-from-bracket" size="sm" onclick={() => openResubmit(req, item.name)}>Replace</Button>{/if}</div>{/if}
+<!-- Toast -->
+{#if toastMsg}
+	<div class="fixed bottom-6 right-6 z-50 bg-gray-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
+		<i class="fa-solid fa-circle-check text-green-400"></i>
+		{toastMsg}
 	</div>
-{/snippet}
+{/if}
 
-<div class="space-y-8"><PageHeader title="My Documents" description="Track progress, update requirements and collect your documents.">{#snippet action()}<Button href={data.layoutUser.idStatus === 'verified' ? '/student/request':'/student/forms'} icon="fa-solid fa-plus">{data.layoutUser.idStatus === 'verified' ? 'New request':'Browse forms'}</Button>{/snippet}</PageHeader>
-	{#if catalogLoading && requests.length}<LoadingState label="Loading document details…" />{/if}
-	{#if refreshError}<div role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800"><p>Your files were saved. {refreshError} Refresh the list to see the latest status.</p><Button variant="secondary" onclick={refreshRequests}>Refresh requests</Button></div>{/if}
-	{#if catalogError}<LoadError message="We couldn’t load document details. Your request requirements are listed below." onretry={loadCatalog} />{/if}
+<div class="space-y-5">
+
 	{#if requests.length === 0}
-		<div class="rounded-xl border border-gray-100 bg-white px-6 py-14 text-center shadow-sm"><i class="fa-solid fa-folder-open mb-4 block text-4xl text-gray-300" aria-hidden="true"></i><p class="mb-4 text-sm text-gray-600">No requests yet.</p><Button href="/student/request" icon="fa-solid fa-plus">Request a document</Button></div>
+		<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-16 text-center">
+			<i class="fa-solid fa-folder-open text-4xl text-gray-200 mb-4 block"></i>
+			<p class="text-gray-500 text-sm mb-3">No requests yet.</p>
+			<a href="/student/request" class="inline-flex items-center gap-2 px-4 py-2 bg-essu-green text-white rounded-lg text-sm hover:bg-essu-green-mid transition-colors">
+				<i class="fa-solid fa-plus text-xs"></i> Request a Document
+			</a>
+		</div>
 	{:else}
-		{#each requests as req (req.request_id)}
-			{@const completed = !!req.completed_at || !!req.history?.some(event => event.new_status === 'Completed')}
-			{@const editable = !completed && canUpdateRequirementFiles(req.status)}
-			{@const needsCorrection = requirementNeedsCorrection(req.status)}
-			<article id={req.request_id} class="scroll-mt-24 rounded-xl border bg-white shadow-sm {needsCorrection ? 'border-yellow-300' : 'border-gray-100'}" aria-label={`Request ${req.request_id}`}>
-				<header class="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-4 sm:px-5"><div class="min-w-0"><h2 class="mb-2 text-sm font-semibold text-gray-800">{req.items?.length ? req.items.map(item=>item.name).join(', ') : req.document_name}</h2><p class="mb-2 break-all font-mono text-xs text-gray-500">{req.request_id} · {formatDate(req.date_requested)}</p><div class="flex flex-wrap items-center gap-3"><StatusChip kind="request" value={completed ? 'completed' : req.status} /><span class="text-xs text-gray-500">{req.requirements.filter(item=>!item.in_person && item.file_path).length} of {req.requirements.filter(item=>!item.in_person).length} files uploaded</span></div></div>{#if editable}<Button size="sm" icon="fa-solid fa-arrow-up-from-bracket" onclick={() => openResubmit(req)}>{needsCorrection ? 'Update files' : 'Manage files'}</Button>{:else if req.approved_file_path}<Button size="sm" icon="fa-solid fa-download" loading={downloadBusy === req.approved_file_path} disabled={!!downloadBusy} onclick={() => downloadFile(req.approved_file_path!, req.approved_file_name ?? 'document')}>Download document</Button>{/if}</header>
-				<div class="space-y-4 p-4 sm:p-5">
-					<RequestJourney status={req.status} dateRequested={req.date_requested} history={req.history} hasFile={!!req.approved_file_path} {completed} openByDefault={req.request_id === newestId} />
-					<div><p class="text-xs text-gray-500">Purpose</p><p class="mt-1 text-sm text-gray-800">{req.purpose}</p></div>
-					{#if req.admin_message}<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-3"><p class="mb-1 text-xs font-semibold text-yellow-800">Message from the Graduate School office</p><p class="text-sm text-yellow-900">{req.admin_message}</p></div>{/if}
-					{#each documentRequirementGroups(req.items ?? [], req.requirements, catalog, req.document_name) as group,index}<details class="document-group" open={index===0}><summary><span>{group.name}</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary><div class="document-group-files">{#each group.requirements as item}{@render requirementRow(req, item, editable)}{:else}<p class="mt-2 text-xs text-gray-500">{catalogLoading ? 'Loading document requirements…' : catalogError ? 'See the request requirements below.' : 'No separate requirements for this document. Shared files are listed below.'}</p>{/each}</div></details>{/each}
-					{#if req.approved_file_path}<section class="rounded-lg border border-green-200 bg-green-50 p-4"><h3 class="mb-2 text-sm font-semibold text-green-800">Document ready</h3><div class="flex flex-wrap items-center justify-between gap-3"><p class="min-w-0 flex-1 break-words text-sm text-gray-700">{req.approved_file_name ?? 'Document'}</p><Button variant="secondary" size="sm" loading={fileBusy === req.approved_file_path} disabled={!!fileBusy} onclick={() => openFile(req.approved_file_path!, req.approved_file_name ?? 'Document')}>View</Button></div></section>{/if}
+		<div class="space-y-4">
+			{#each requests as req}
+				{@const reqs = req.requirements}
+				{@const needsCorrection = requirementNeedsCorrection(req.status)}
+				{@const canResubmit = canUpdateRequirementFiles(req.status)}
+				<div id={req.request_id} class="bg-white rounded-xl border border-gray-100 shadow-sm scroll-mt-24 {needsCorrection ? 'border-yellow-300' : ''}">
+					<div class="px-4 sm:px-5 py-4 flex items-start justify-between gap-3 flex-wrap border-b border-gray-100">
+						<div class="min-w-0">
+							<div class="flex items-center gap-2 mb-1 flex-wrap">
+								<p class="font-semibold text-gray-800">{req.items?.[0]?.name ?? req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => expandedItems = expandedItems.includes(req.request_id) ? expandedItems.filter((id) => id !== req.request_id) : [...expandedItems, req.request_id]}>+{req.items.length - 1} more</button>{/if}</p>
+								{#if expandedItems.includes(req.request_id)}<p class="mt-1 text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
+								<Badge value={req.completed_at ? 'completed' : req.status.toLowerCase()} />
+							</div>
+							<p class="text-xs text-gray-400 font-mono break-all">{req.request_id} · {new Date(req.date_requested).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
+						</div>
+						{#if canResubmit}
+							<button
+								onclick={() => openResubmit(req)}
+								class="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+									{needsCorrection ? 'bg-yellow-500 text-white hover:bg-yellow-600' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}"
+							>
+								<i class="fa-solid fa-rotate-left"></i>
+								{needsCorrection ? 'Upload corrections' : 'Update Files'}
+							</button>
+						{/if}
+					</div>
+
+					<div class="px-4 sm:px-5 py-4 space-y-3 text-sm">
+						<RequestJourney status={req.status} dateRequested={req.date_requested} history={req.history} hasFile={!!req.approved_file_path} />
+						<div>
+							<p class="text-xs text-gray-400 mb-0.5">Purpose</p>
+							<p class="text-gray-700">{req.purpose}</p>
+						</div>
+
+						{#if req.admin_message}
+							<div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+								<p class="text-xs font-semibold text-yellow-700 mb-1">
+									<i class="fa-solid fa-message mr-1"></i>Message from Registrar
+								</p>
+								<p class="text-sm text-yellow-800">{req.admin_message}</p>
+							</div>
+						{/if}
+
+						{#if reqs.length > 0}
+							<div>
+								<p class="text-xs text-gray-400 mb-2">Requirements</p>
+								<div class="space-y-1">
+									{#each reqs as r}
+										<div class="flex items-center justify-between gap-3 py-1.5 border-b border-gray-50 last:border-0">
+											<div class="flex items-center gap-2 min-w-0">
+												{#if r.needs_correction}
+													<i class="fa-solid fa-triangle-exclamation text-yellow-500 text-xs shrink-0"></i>
+												{:else if r.in_person}
+													<i class="fa-solid fa-building text-orange-400 text-xs shrink-0"></i>
+												{:else if r.file_path}
+													<i class="fa-solid fa-circle-check text-green-500 text-xs shrink-0"></i>
+												{:else}
+													<i class="fa-regular fa-circle text-gray-300 text-xs shrink-0"></i>
+												{/if}
+												<span class="text-xs text-gray-700 truncate {r.needs_correction ? 'text-yellow-700 font-medium' : ''}">{r.name}</span>
+											</div>
+											<div class="flex items-center gap-2 shrink-0">
+												{#if r.in_person}
+													<span class="text-xs text-orange-500">In-person</span>
+												{:else if r.file_path}
+													<button onclick={() => openFile(r.file_path!)} class="text-xs text-essu-green hover:underline">View</button>
+												{:else}
+													<span class="text-xs text-gray-400">Pending</span>
+												{/if}
+											</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						{#if req.approved_file_path}
+							<div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+								<p class="text-xs font-semibold text-green-700 mb-2">
+									<i class="fa-solid fa-circle-check mr-1"></i>Document Ready
+								</p>
+								<div class="flex flex-wrap items-center gap-2">
+									<p class="text-sm text-gray-700 flex-1 truncate min-w-0 basis-full sm:basis-auto">{req.approved_file_name ?? 'Document'}</p>
+									<button
+										onclick={() => openFile(req.approved_file_path!)}
+										class="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-essu-green/30 text-essu-green hover:bg-essu-green hover:text-white transition-colors text-xs"
+										title="View"
+									>
+										<i class="fa-solid fa-eye"></i> View
+									</button>
+									<button
+										onclick={() => downloadFile(req.approved_file_path!, req.approved_file_name ?? 'document')}
+										class="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-essu-green/30 text-essu-green hover:bg-essu-green hover:text-white transition-colors text-xs"
+										title="Download"
+									>
+										<i class="fa-solid fa-download"></i> Download
+									</button>
+								</div>
+							</div>
+						{/if}
+					</div>
 				</div>
-			</article>
-		{/each}
+			{/each}
+		</div>
 	{/if}
 </div>
 
-<Modal open={resubmitOpen} title="Update requirement files" size="md" onclose={() => { if (!resubmitting) resubmitOpen = false; }}>
-	{#snippet body()}{#if resubmitReq}<div class="space-y-4"><p class="text-sm text-gray-600">{requirementNeedsCorrection(resubmitReq.status) ? 'Replace every flagged file before submitting. Other files can stay as they are.' : 'Choose the files you want to replace. Existing files stay until the update succeeds.'}</p>{#if resubmitReq.admin_message}<p class="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">{resubmitReq.admin_message}</p>{/if}{#if resubmitError}<p role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{resubmitError}</p>{/if}{#each resubmitReq.requirements.filter(item => !item.in_person) as item}<section id={'replace-' + encodeURIComponent(item.name)} class="scroll-mt-4 space-y-3 rounded-xl border p-4 {item.needs_correction ? 'border-yellow-300 bg-yellow-50/30' : 'border-gray-200'}"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-sm font-semibold text-gray-800">{item.name}</h3><StatusChip kind="file" value={item.needs_correction ? 'needs_correction' : item.file_path ? 'uploaded' : 'missing'} /></div><p class="break-words text-xs text-gray-500">Current file: {item.file_name ?? 'No file uploaded'}</p>{#if item.signature_note}<p class="text-xs text-gray-600">{item.signature_note}</p>{/if}{#each item.form_files ?? [] as file}<Button variant="secondary" size="sm" title={file.name} loading={downloadBusy === file.public_url} disabled={!!downloadBusy || resubmitting} onclick={() => downloadForm(file)}>Download form</Button>{/each}<RequirementFilePicker name={item.name} file={resubmitFiles[item.name] ?? null} disabled={resubmitting} onchange={(file) => resubmitFiles = { ...resubmitFiles, [item.name]: file }} /></section>{/each}</div>{/if}{/snippet}
-	{#snippet footer()}<Button variant="secondary" disabled={resubmitting} onclick={() => resubmitOpen = false}>Cancel</Button><div class="text-right">{#if !canUpdate}<p class="mb-2 text-xs text-gray-600" aria-live="polite">{updateReason}</p>{/if}<Button loading={resubmitting} loadingLabel="Submitting…" disabled={!canUpdate} disabledReason={updateReason} onclick={submitResubmission}>Submit updated files</Button></div>{/snippet}
+<!-- Resubmit Modal -->
+<Modal open={resubmitOpen} title="Resubmit Requirements" size="sm" onclose={() => resubmitOpen = false}>
+	{#snippet body()}
+		{#if resubmitReq}
+			{@const reqs = resubmitReq.requirements}
+			<div class="space-y-4">
+				{#if resubmitReq.admin_message}
+					<div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+						<strong>Staff message:</strong> {resubmitReq.admin_message}
+					</div>
+				{/if}
+				{#if resubmitError}
+					<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{resubmitError}</div>
+				{/if}
+				<p class="text-sm text-gray-600">{resubmitReq.status === 'Correction Requested' ? 'Replace every flagged file before resubmitting. Other files can stay as they are.' : 'Select the files you want to replace. Existing files are kept until a replacement succeeds.'}</p>
+				<div class="space-y-3">
+					{#each reqs.filter(r => !r.in_person) as r}
+						<div class="border border-gray-100 rounded-lg p-3 {r.needs_correction ? 'border-yellow-300 bg-yellow-50/30' : ''}">
+							<div class="flex items-center gap-2 mb-2">
+								{#if r.needs_correction}
+									<i class="fa-solid fa-triangle-exclamation text-yellow-500 text-xs"></i>
+								{/if}
+								<p class="text-sm font-medium text-gray-700 {r.needs_correction ? 'text-yellow-700' : ''}">{r.name}</p>
+							</div>
+							{#if r.signature_note}<p class="mb-2 text-xs text-gray-600">{r.signature_note}</p>{/if}
+							{#each r.form_files ?? [] as file}<a href={file.public_url} target="_blank" rel="noopener noreferrer" class="block mb-2 text-xs text-essu-green underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">Download form: {file.name}</a>{/each}
+							<label class="flex items-start gap-2 px-3 py-2 border border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-essu-green/50 text-sm {resubmitFiles[r.name] ? 'text-essu-green' : 'text-gray-400'}">
+								<i class="fa-solid fa-upload text-xs shrink-0 mt-1"></i>
+								<span class="min-w-0 break-words">
+									{resubmitFiles[r.name] ? resubmitFiles[r.name]!.name : (r.file_name ? `Replace: ${r.file_name}` : 'Upload PDF or image')}
+								</span>
+								<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*" class="hidden" onchange={(e) => {
+									const f = (e.target as HTMLInputElement).files?.[0];
+									const invalid = f ? validateRequirementFileMetadata(f.name, f.type, f.size) : null;
+									resubmitError = invalid ? `${r.name}: ${invalid}` : '';
+									resubmitFiles = { ...resubmitFiles, [r.name]: invalid ? null : f ?? null };
+								}} />
+							</label>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+	{/snippet}
+	{#snippet footer()}
+		<button onclick={() => resubmitOpen = false} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+		<button onclick={submitResubmission} disabled={resubmitting || !Object.values(resubmitFiles).some(Boolean) || (resubmitReq && requirementNeedsCorrection(resubmitReq.status) && resubmitReq.requirements.some(item => item.needs_correction && !item.in_person && !resubmitFiles[item.name]))} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid disabled:opacity-60 flex items-center gap-2">
+			{#if resubmitting}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
+			Resubmit
+		</button>
+	{/snippet}
 </Modal>
-<Modal open={filePreviewOpen} title={filePreviewName} size="lg" onclose={() => filePreviewOpen = false}>{#snippet body()}<iframe src={filePreviewUrl} title={filePreviewName} class="h-[65vh] w-full rounded-lg border border-gray-200"></iframe>{/snippet}{#snippet footer()}<Button variant="secondary" onclick={() => filePreviewOpen = false}>Close</Button><Button href={filePreviewUrl} variant="secondary">Open file</Button>{/snippet}</Modal>
-<style>.document-group {border:1px solid var(--color-border);border-radius:var(--radius-card);overflow:hidden;} .document-group summary {display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);min-height:48px;padding:var(--space-3) var(--space-4);background:var(--color-surface-muted);font-weight:var(--weight-semibold);list-style:none;} summary::-webkit-details-marker {display:none;} .document-group[open] summary i {transform:rotate(180deg);} .document-group-files {padding:0 var(--space-4);}</style>

@@ -1,6 +1,7 @@
 export function formatName(first: unknown, middle: unknown, last: unknown): string {
 	const clean = (value: unknown) => typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
-	return [clean(first), clean(middle), clean(last)]
+	const middleName = clean(middle);
+	return [clean(first), middleName ? `${Array.from(middleName)[0].toUpperCase()}.` : '', clean(last)]
 		.filter(Boolean).join(' ');
 }
 

@@ -164,14 +164,9 @@ test('Signup client stops before account creation for invalid fields and failed 
 
 test('Signup renders labeled campus and required photo controls; uploaded pending students see review guidance', () => {
 	const filename = 'src/routes/login/+page.svelte'; const source = fs.readFileSync(filename, 'utf8').replace("= $state('login');", "= $state('signup');");
-	const account = render(load(filename, { '$app/environment': { browser: false }, '$app/navigation': { goto: async () => {} } }, source).default).body;
- assert.match(account,/Account/); assert.match(account,/id="signup-email"/); assert.doesNotMatch(account,/id="signup-campus"/);
- const details = render(load(filename, { '$app/environment': { browser: false }, '$app/navigation': { goto: async () => {} } }, source.replace(/signupStep\s*=\s*\$state\(1\)/,'signupStep=$state(2)')).default).body;
- assert.match(details,/id="signup-campus"/); assert.match(details,/id="signup-dob"/);
- const photo = render(load(filename, { '$app/environment': { browser: false }, '$app/navigation': { goto: async () => {} } }, source.replace(/signupStep\s*=\s*\$state\(1\)/,'signupStep=$state(3)')).default).body;
- assert.match(photo,/aria-label="School ID photo \(front\)"[^>]*required/); assert.match(photo,/up to 5 MB/); assert.match(photo,/Create account/);
-
+	const html = render(load(filename, { '$app/environment': { browser: false }, '$app/navigation': { goto: async () => {} } }, source).default).body;
+	assert.match(html, /id="signup-campus"/); assert.match(html, /id="signup-id-photo"[^>]*required/); assert.match(html, /up to 5 MB/);
 	const data = { layoutUser: { name: 'Juan Cruz', initials: 'JC', idStatus: 'pending', hasIdPhoto: true }, notifCount: 0 };
 	const layout = render(load('src/routes/student/+layout.svelte', { '$app/navigation': { goto: async () => {} }, '$app/stores': { page: writable({ url: new URL('http://localhost/student/dashboard'), data }) }, '$lib/stores/notifications': { notifUnreadCount: writable(0), startNotifications() {} }, '$lib/stores/sidebar': { sidebarCollapsed: writable(false), sidebarMobileOpen: writable(false) } }).default, { props: { data, children: () => {} } }).body;
-	assert.match(layout, /Your account is being reviewed by the Graduate School office/); assert.doesNotMatch(layout, /Upload on My Profile/);
+	assert.match(layout, /awaiting administrator review/); assert.doesNotMatch(layout, /Upload on My Profile/);
 });

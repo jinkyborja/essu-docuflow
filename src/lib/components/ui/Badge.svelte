@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { RequestStatusKey, NotificationType } from '$lib/types';
-	import StatusChip from './StatusChip.svelte';
-	import { requestStatusKey, statusLabel } from '$lib/request-status';
+	import { requestStatusKey, statusLabel, STATUS_COLORS } from '$lib/request-status';
 
 	type BadgeValue = RequestStatusKey | NotificationType | string;
 
@@ -20,6 +19,12 @@
 		system: 'bg-gray-100 text-gray-600 border border-gray-200'
 	};
 
+	const status = $derived(requestStatusKey(value));
+	const classes = $derived(status ? STATUS_COLORS[status].classes : colorMap[value] ?? 'bg-gray-100 text-gray-600 border border-gray-200');
+	const label = $derived(statusLabel(value));
+	const sizeClass = $derived(size === 'sm' ? 'text-xs px-1.5 py-0.5' : 'text-xs px-2.5 py-1');
 </script>
 
-{#if requestStatusKey(value)}<StatusChip {value} {size} />{:else}<span class="ui-badge inline-flex items-center rounded-full font-medium {size === 'sm' ? 'px-2 py-0.5' : 'px-2.5 py-1'} text-xs {colorMap[value.toLowerCase()] ?? 'bg-gray-100 text-gray-600 border border-gray-200'}">{statusLabel(value)}</span>{/if}
+<span class="ui-badge inline-flex items-center rounded-full font-medium {sizeClass} {classes}">
+	{label}
+</span>

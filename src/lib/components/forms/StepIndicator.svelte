@@ -7,11 +7,9 @@
 	interface Props {
 		steps: Step[];
 		currentStep: number;
-		onstep?: (step: number) => void;
-		disabled?: boolean;
 	}
 
-	const { steps, currentStep, onstep, disabled = false }: Props = $props();
+	const { steps, currentStep }: Props = $props();
 </script>
 
 <div class="ui-stepper flex items-center w-full">
@@ -22,7 +20,7 @@
 
 		<!-- Step -->
 		<div class="flex flex-col items-center flex-1 min-w-0">
-			<button type="button" disabled={disabled || !isCompleted || !onstep} onclick={() => onstep?.(stepNum)} aria-label={'Return to ' + step.label}
+			<div
 				class="ui-step-node w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-all
 					{isCompleted
 						? 'bg-essu-green border-essu-green text-white'
@@ -36,7 +34,7 @@
 				{:else}
 					<span>{stepNum}</span>
 				{/if}
-			</button>
+			</div>
 			<p
 				class="text-xs mt-1.5 font-medium text-center leading-tight
 					{isCurrent ? 'text-essu-green' : isCompleted ? 'text-gray-600' : 'text-gray-400'}"
@@ -54,5 +52,3 @@
 		{/if}
 	{/each}
 </div>
-
-<style>.ui-step-node:disabled {cursor:default;} .ui-step-node {flex-shrink:0;} .ui-stepper {align-items:flex-start;} .ui-step-connector {margin-top:20px;}</style>

@@ -1,12 +1,9 @@
 <script lang="ts">
 	import VerificationHelp from '$lib/components/ui/VerificationHelp.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import { newIdPhotoUploaded } from '$lib/stores/id-review';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import TopBar from '$lib/components/layout/TopBar.svelte';
 	import PageIntro from '$lib/components/layout/PageIntro.svelte';
-	import { page, navigating } from '$app/stores';
-	import LoadingState from '$lib/components/ui/LoadingState.svelte';
+	import { page } from '$app/stores';
 	import { sidebarCollapsed } from '$lib/stores/sidebar';
 	import { notifUnreadCount, startNotifications } from '$lib/stores/notifications';
 	import { onMount } from 'svelte';
@@ -17,14 +14,13 @@
 
 	onMount(() => startNotifications(data.notifCount ?? 0));
 	$effect(() => { notifUnreadCount.set(data.notifCount ?? 0); });
-	$effect(() => { if (data.layoutUser.idStatus === 'rejected') { void data.layoutUser.idRejectReason; newIdPhotoUploaded.set(false); } });
 
 	const unread = $derived($notifUnreadCount);
 
 	const studentNav = $derived([
 		{ label: 'Dashboard',        icon: 'fa-solid fa-gauge-high',       href: '/student/dashboard' },
 		{ label: 'My Documents',     icon: 'fa-solid fa-folder-open',      href: '/student/documents' },
-		{ label: 'Request Document', icon: 'fa-solid fa-file-circle-plus', href: '/student/request', locked: data.layoutUser.idStatus !== 'verified', lockedReason: 'Available after your ID is verified' },
+		{ label: 'Request Document', icon: 'fa-solid fa-file-circle-plus', href: '/student/request' },
 		{ label: 'Forms',            icon: 'fa-solid fa-file-lines',       href: '/student/forms' },
 		{ label: 'Notifications',    icon: 'fa-regular fa-bell',           href: '/student/notifications', badge: unread },
 		{ label: 'My Profile',       icon: 'fa-solid fa-circle-user',      href: '/student/profile' }
@@ -48,18 +44,22 @@
 	<Sidebar items={studentNav} role="student" />
 
 	<div
-		class="portal-content" class:collapsed
+		class="portal-content min-w-0 flex-1 flex flex-col transition-all duration-300 {collapsed ? 'lg:ml-16' : 'lg:ml-60'}"
 	>
-		<TopBar />
+		<TopBar title={pageTitle} />
 
-		<main id="main-content" tabindex="-1" class="portal-main">
+		<main id="main-content" tabindex="-1" class="portal-main flex-1 mt-16 p-6">
 			<PageIntro title={pageTitle} role="student" />
 			{#if data.layoutUser.idStatus === 'pending'}
-				<section class="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" aria-label="Account review"><p>Your account is being reviewed by the Graduate School office.</p><Button href="/student/forms">Browse forms</Button></section>
+				<div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">Your account is waiting for verification by the Graduate School office. We check your student ID against the master's enrollment list.
+					{#if ['/student/dashboard', '/student/profile'].includes($page.url.pathname)}{#if data.layoutUser.hasIdPhoto}<p class="mt-2 font-medium">Your school ID photo was uploaded and is awaiting administrator review.</p>{:else}<p class="mt-2 font-medium">Upload a clear photo of your school ID (front)</p>{#if $page.url.pathname === '/student/dashboard'}<a href="/student/profile" class="mt-1 inline-block text-essu-green underline">Upload on My Profile</a>{/if}{/if}{/if}
+				</div>
 			{:else if data.layoutUser.idStatus === 'rejected'}
-				<VerificationHelp reason={data.layoutUser.idRejectReason} />
+				<div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">Your student ID could not be verified. Reason: {data.layoutUser.idRejectReason ?? 'Please contact the Graduate School office.'}<VerificationHelp />
+					{#if ['/student/dashboard', '/student/profile'].includes($page.url.pathname)}<p class="mt-2 font-medium">Upload a clear photo of your school ID (front)</p>{#if $page.url.pathname === '/student/dashboard'}<a href="/student/profile" class="mt-1 inline-block text-essu-green underline">Upload on My Profile</a>{/if}{/if}
+				</div>
 			{/if}
-			{#if $navigating}<LoadingState label="Loading your workspace…" />{:else}{@render children()}{/if}
+			{@render children()}
 		</main>
 	</div>
 </div>

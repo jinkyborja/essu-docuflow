@@ -1,19 +1,5 @@
 <script lang="ts">
-	import TextField from '$lib/components/ui/TextField.svelte';
-	import SelectField from '$lib/components/ui/SelectField.svelte';
-	import DateField from '$lib/components/ui/DateField.svelte';
-	import FormSection from '$lib/components/ui/FormSection.svelte';
-	import FormActions from '$lib/components/ui/FormActions.svelte';
-	import {validateForm} from '$lib/components/ui/form-validation';
 	import { invalidateAll } from '$app/navigation';
-	import { onMount } from 'svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import FileDrop from '$lib/components/ui/FileDrop.svelte';
-	import StatusChip from '$lib/components/ui/StatusChip.svelte';
-	import LoadError from '$lib/components/ui/LoadError.svelte';
-	import { showToast } from '$lib/stores/toasts';
-	import { newIdPhotoUploaded } from '$lib/stores/id-review';
-	import { formatFileSize } from '$lib/student-files';
 	import { STUDENT_ID_PHOTO_URL_TTL, validateStudentIdPhoto } from '$lib/student-id-photo';
 	import { formatName } from '$lib/formatting';
 	import { SCHOOL_YEAR_MIN, SCHOOL_YEAR_MAX, ENROLLED_SCHOOL_YEAR_MIN, validateSchoolYear } from '$lib/school-year';
@@ -27,20 +13,12 @@
 	$effect(() => { profile = { ...data.profile }; });
 	let photoFile = $state<File | null>(null);
 	let photoInput = $state<HTMLInputElement>();
-	let photoPicker = $state<{browse:()=>void}>();
 	let photoUploading = $state(false);
 	let photoError = $state('');
 	let photoMessage = $state('');
 	let photoUrl = $state('');
 	let photoPreviewLoading = $state(false);
 	let photoPreviewError = $state('');
-	let selectedPhotoUrl = $state('');
-	onMount(() => { if (profile.has_id_photo) void previewIdPhoto(); });
-	$effect(() => {
-		const url = photoFile ? URL.createObjectURL(photoFile) : '';
-		selectedPhotoUrl = url;
-		return () => { if (url) URL.revokeObjectURL(url); };
-	});
 	$effect(() => {
 		if (!photoUrl) return;
 		const timer = setTimeout(() => photoUrl = '', STUDENT_ID_PHOTO_URL_TTL * 1000);
@@ -49,35 +27,31 @@
 
 	async function uploadIdPhoto(event: Event) {
 		event.preventDefault();
-		if (photoUploading || profile.id_status === 'verified') return;
+		if (photoUploading) return;
 		photoError = validateStudentIdPhoto(photoFile) ?? '';
 		photoMessage = '';
-		if (photoError || !photoFile) { showToast(photoError || 'Choose an ID photo first.', 'error'); return; }
+		if (photoError || !photoFile) return;
 		photoUploading = true;
 		try {
 			const prepared = await fetch('/api/profile/id-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'prepare', name: photoFile.name, contentType: photoFile.type, size: photoFile.size }) });
 			const upload = await prepared.json();
-			if (!prepared.ok) throw new Error(upload.error ?? 'Could not start the upload.');
+			if (!prepared.ok) { photoError = upload.error ?? 'Could not start the upload.'; return; }
 			const form = new FormData();
 			form.append('cacheControl', '0');
 			form.append('', photoFile);
 			const stored = await fetch(upload.uploadUrl, { method: 'PUT', body: form });
-			if (!stored.ok) throw new Error('Could not upload the ID photo. Please try again.');
+			if (!stored.ok) { photoError = 'Could not upload the ID photo. Please try again.'; return; }
 			const response = await fetch('/api/profile/id-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'complete', uploadToken: upload.uploadToken }) });
 			const result = await response.json();
-			if (!response.ok) throw new Error(result.error ?? 'Could not save the ID photo.');
+			if (!response.ok) { photoError = result.error ?? 'Could not save the ID photo.'; return; }
 			profile.id_status = result.id_status;
 			profile.has_id_photo = true;
 			profile.id_photo_uploaded_at = result.id_photo_uploaded_at ?? profile.id_photo_uploaded_at;
 			photoUrl = ''; photoPreviewError = ''; photoFile = null;
 			if (photoInput) photoInput.value = '';
-			newIdPhotoUploaded.set(true);
-			photoMessage = 'ID photo uploaded and submitted for office review.';
-			showToast(photoMessage);
-			if (result.warning) showToast(result.warning, 'error');
-			await previewIdPhoto();
-			try { await invalidateAll(); } catch { showToast('Your photo was saved. Refresh the page to see your latest review status.', 'error'); }
-		} catch (error) { photoError = error instanceof Error ? error.message : 'Could not complete the upload. Please try again.'; showToast(photoError, 'error'); }
+			photoMessage = result.warning ?? 'ID photo uploaded. The Graduate School office will review it.';
+			await invalidateAll();
+		} catch { photoError = 'Could not complete the upload. Please try again.'; }
 		finally { photoUploading = false; }
 	}
 
@@ -86,9 +60,9 @@
 		try {
 			const response = await fetch('/api/profile/id-photo');
 			const result = await response.json();
-			if (!response.ok || !result.url) throw new Error(result.error ?? 'Could not load the ID photo.');
+			if (!response.ok) { photoPreviewError = result.error ?? 'Could not load the ID photo.'; return; }
 			photoUrl = result.url;
-		} catch (error) { photoPreviewError = error instanceof Error ? error.message : 'Could not load the ID photo. Please try again.'; showToast(photoPreviewError, 'error'); }
+		} catch { photoPreviewError = 'Could not load the ID photo. Please try again.'; }
 		finally { photoPreviewLoading = false; }
 	}
 
@@ -307,20 +281,37 @@
 	}
 </script>
 
-<div class="max-w-4xl mx-auto space-y-5"><div class="profile-header flex items-center gap-4 border border-gray-200 p-6"><span class="flex size-16 shrink-0 items-center justify-center rounded-xl bg-white text-xl font-semibold text-essu-green">{initials}</span><div class="min-w-0"><h2 class="text-xl font-semibold">{fullName}</h2><p class="mt-1 text-sm text-gray-600">{profile.program} · {profile.student_id}</p></div></div>
-	<section id="school-id-photo-card" class="scroll-mt-24 space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-label="School ID photo">
-		<div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold text-gray-800">School ID photo</h3><StatusChip kind="id" value={profile.id_status} /></div>
-		<p class="text-sm text-gray-600">School ID front · JPG, PNG or WebP · up to 5 MB</p>
-		<div class="grid items-start gap-4 sm:grid-cols-[120px_minmax(0,1fr)]">
-			<div class="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 p-3">{#if selectedPhotoUrl || photoUrl}<img src={selectedPhotoUrl || photoUrl} alt={selectedPhotoUrl ? 'New school ID photo preview' : 'Your uploaded school ID front'} class="max-h-48 max-w-[120px] rounded-lg object-contain" onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview could not load. Refresh the preview.'; }} />{:else}<p class="text-center text-sm text-gray-500">{photoPreviewLoading ? 'Loading photo…' : profile.has_id_photo ? 'Refresh to view your uploaded photo' : 'No ID photo uploaded'}</p>{/if}</div>
-			<div class="space-y-3">
-				<Button variant="secondary" icon="fa-solid fa-camera" disabled={profile.id_status === 'verified' || photoUploading} disabledReason={profile.id_status === 'verified' ? 'Contact the Graduate School office to replace a verified ID photo' : undefined} onclick={() => photoPicker?.browse()}>Replace photo</Button>
-				{#if profile.id_status !== 'verified'}<form use:validateForm onsubmit={uploadIdPhoto} class="space-y-3"><FormSection><FileDrop bind:this={photoPicker} label="School ID photo (front)" bind:file={photoFile} accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" maxSize={5*1024*1024} disabled={photoUploading} uploading={photoUploading} helper="JPG, PNG or WebP, up to 5 MB." error={photoError} onchange={selected=>{photoError=selected ? validateStudentIdPhoto(selected)??'':'';photoMessage='';}} />{#if photoFile}<p class="break-words text-sm font-medium text-gray-800">{photoFile.name} <span class="text-xs font-normal text-gray-500">· {formatFileSize(photoFile.size)}</span></p><div class="flex flex-wrap gap-2"><Button type="submit" loading={photoUploading} loadingLabel="Uploading…" disabled={!!photoError}>Upload photo</Button></div><p class="text-xs text-gray-600">Uploading the new photo automatically resubmits your ID for office review.</p>{/if}</FormSection></form>{/if}
-				{#if profile.has_id_photo}<p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p><Button variant="ghost" size="sm" ariaLabel="Refresh photo preview" title="Refresh photo preview" icon="fa-solid fa-rotate" loading={photoPreviewLoading} disabled={photoUploading} onclick={previewIdPhoto} />{/if}
+<div class="max-w-4xl mx-auto space-y-5">
+	{#if profile.id_status === 'pending' || profile.id_status === 'rejected'}
+		<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-3">
+			<h3 class="font-semibold text-gray-700">School ID photo</h3>
+			<form onsubmit={uploadIdPhoto} class="space-y-3">
+				<label for="school-id-photo" class="block text-sm text-gray-600">School ID front · JPG, PNG or WebP · up to 5 MB</label>
+				<input id="school-id-photo" bind:this={photoInput} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required disabled={photoUploading} onchange={(event) => { photoFile = event.currentTarget.files?.[0] ?? null; photoError = photoFile ? validateStudentIdPhoto(photoFile) ?? '' : ''; photoMessage = ''; }} class="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-essu-green/10 file:px-3 file:py-2 file:text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+				<button type="submit" disabled={photoUploading || !photoFile || !!photoError} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid disabled:opacity-50">{photoUploading ? 'Uploading…' : profile.has_id_photo ? 'Replace ID photo' : 'Upload ID photo'}</button>
+			</form>
+			{#if photoError}<p class="text-sm text-red-700" role="alert">{photoError}</p>{/if}
+			{#if photoMessage}<p class="text-sm text-essu-green" role="status">{photoMessage}</p>{/if}
+			{#if profile.has_id_photo}
+				<p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p>
+				<button type="button" onclick={previewIdPhoto} disabled={photoPreviewLoading || photoUploading} class="text-sm text-essu-green hover:underline disabled:opacity-50">{photoPreviewLoading ? 'Loading…' : photoUrl ? 'Refresh photo preview' : 'View uploaded photo'}</button>
+				{#if photoUrl}<img src={photoUrl} alt="Your uploaded school ID front" class="max-h-64 max-w-full rounded-lg border border-gray-200 object-contain" onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview expired or could not load. Open it again.'; }} />{/if}
+			{/if}
+			{#if photoPreviewError}<p class="text-sm text-red-700" role="alert">{photoPreviewError}</p>{/if}
+		</div>
+	{/if}
+	<!-- Profile header -->
+	<div class="profile-header bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+		<div class="flex items-center gap-5">
+			<div class="w-20 h-20 rounded-2xl bg-essu-green/10 border border-essu-green/20 flex items-center justify-center text-2xl font-bold text-essu-green shrink-0">
+				{initials}
+			</div>
+			<div>
+				<h2 class="text-xl font-bold text-gray-800">{fullName}</h2>
+				<p class="text-sm text-gray-500 mt-0.5">{profile.program} · {profile.student_id}</p>
 			</div>
 		</div>
-		{#if photoError}<p class="text-sm text-red-700" role="alert">{photoError}</p>{/if}{#if photoMessage}<p class="text-sm text-essu-green" role="status">{photoMessage}</p>{/if}{#if photoPreviewError}<LoadError message="We couldn’t load your ID photo preview. Please try again." onretry={previewIdPhoto} />{/if}
-	</section>
+	</div>
 
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
 		<div class="xl:col-span-2 space-y-4">
@@ -328,9 +319,9 @@
 			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
 				<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
 					<h3 class="font-semibold text-gray-700">Personal Information</h3>
-					<Button onclick={openEdit} variant="ghost">
+					<button onclick={openEdit} class="text-sm text-essu-green hover:underline flex items-center gap-1">
 						<i class="fa-solid fa-pen text-xs"></i> Edit
-					</Button>
+					</button>
 				</div>
 				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
 					<div><p class="text-xs text-gray-400">First Name</p><p class="font-medium">{profile.first_name}</p></div>
@@ -348,9 +339,9 @@
 				<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
 					<h3 class="font-semibold text-gray-700">Academic Information</h3>
 					{#if !academicLocked}
-						<Button onclick={openAcademic} variant="ghost">
+						<button onclick={openAcademic} class="text-sm text-essu-green hover:underline flex items-center gap-1">
 							<i class="fa-solid fa-pen text-xs"></i> Edit
-						</Button>
+						</button>
 					{/if}
 				</div>
 				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
@@ -365,7 +356,7 @@
 					</p></div>
 					<div><p class="text-xs text-gray-400">Last School Year</p><p class="font-medium">{profile.last_school_year ?? '—'}</p></div>
 					<div><p class="text-xs text-gray-400">Date Registered</p><p class="font-medium">{formatDate(profile.date_registered)}</p></div>
-					{#if academicLocked}<p class="col-span-2 text-xs text-gray-500"><i class="fa-solid fa-lock mr-2" aria-hidden="true"></i>Academic fields are locked after verification. Contact the Graduate School office to change these.</p>{/if}
+					{#if academicLocked}<p class="col-span-2 text-xs text-gray-500">Contact the Graduate School office to change these.</p>{/if}
 				</div>
 			</div>
 		</div>
@@ -384,7 +375,7 @@
 						<div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
 							<i class="fa-solid fa-lock text-gray-600 text-sm"></i>
 						</div>
-						<span class="text-sm font-medium text-gray-700">Change password</span>
+						<span class="text-sm font-medium text-gray-700">Change Password</span>
 						<i class="fa-solid fa-chevron-right text-xs text-gray-400 ml-auto"></i>
 					</button>
 					<button
@@ -394,7 +385,7 @@
 						<div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
 							<i class="fa-solid fa-envelope text-gray-600 text-sm"></i>
 						</div>
-						<span class="text-sm font-medium text-gray-700">Change email</span>
+						<span class="text-sm font-medium text-gray-700">Change Email</span>
 						<i class="fa-solid fa-chevron-right text-xs text-gray-400 ml-auto"></i>
 					</button>
 				</div>
@@ -404,44 +395,63 @@
 </div>
 
 <!-- Edit Personal Info Modal -->
-<Modal open={editOpen} closeDisabled={editLoading} title="Edit Personal Information" size="md" onclose={() => (editOpen = false)}>
+<Modal open={editOpen} title="Edit Personal Information" size="md" onclose={() => (editOpen = false)}>
 	{#snippet body()}
-		<form use:validateForm onsubmit={savePersonal} id="edit-form" class="space-y-4"><FormSection>
+		<form onsubmit={savePersonal} id="edit-form" class="space-y-4">
 			{#if editError}
 				<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
 					<i class="fa-solid fa-circle-exclamation mr-1"></i>{editError}
 				</div>
 			{/if}
 			<div class="grid grid-cols-2 gap-3">
-				<TextField label="First Name" bind:value={eFirstName} type="text" required />
-				<TextField label="Middle Name (optional)" bind:value={eMiddleName} type="text" />
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1.5">First Name</label>
+					<input bind:value={eFirstName} type="text" required
+						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1.5">Middle Name <span class="text-gray-400 font-normal">(optional)</span></label>
+					<input bind:value={eMiddleName} type="text"
+						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+				</div>
 			</div>
 			<div class="grid grid-cols-3 gap-3">
-				<TextField label="Last Name" bind:value={eLastName} type="text" required />
-				<SelectField label="Suffix (opt.)" bind:value={eSuffix}>
+				<div class="col-span-2">
+					<label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name</label>
+					<input bind:value={eLastName} type="text" required
+						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1.5">Suffix <span class="text-gray-400 font-normal">(opt.)</span></label>
+					<select bind:value={eSuffix} class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 						<option value="">—</option>
 						<option value="Jr.">Jr.</option>
 						<option value="Sr.">Sr.</option>
 						<option value="II">II</option>
 						<option value="III">III</option>
 						<option value="IV">IV</option>
-					</SelectField>
+					</select>
+				</div>
 			</div>
-			<DateField label="Date of Birth" bind:value={eDateOfBirth} required />
-		</FormSection></form>
+			<div>
+				<label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth</label>
+				<input bind:value={eDateOfBirth} type="date" required
+					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+			</div>
+		</form>
 	{/snippet}
-	{#snippet footer()}<FormActions>
-		<Button variant="secondary" onclick={() => (editOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</Button>
-		<Button type="submit" form="edit-form" loading={editLoading}
-		 loadingLabel="Saving…">
-			
-			Save changes
-		</Button>
-	</FormActions>{/snippet}
+	{#snippet footer()}
+		<button onclick={() => (editOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+		<button type="submit" form="edit-form" disabled={editLoading}
+			class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
+			{#if editLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
+			Save Changes
+		</button>
+	{/snippet}
 </Modal>
 
 <!-- Change Password Modal -->
-<Modal open={passwordOpen} closeDisabled={passwordLoading} title="Change Password" size="sm" onclose={() => (passwordOpen = false)}>
+<Modal open={passwordOpen} title="Change Password" size="sm" onclose={() => (passwordOpen = false)}>
 	{#snippet body()}
 		{#if passwordSuccess}
 			<div class="text-center py-4">
@@ -449,32 +459,62 @@
 				<p class="text-sm text-gray-600">Password updated successfully.</p>
 			</div>
 		{:else}
-			<form use:validateForm onsubmit={handlePasswordChange} id="pw-form" class="space-y-4"><FormSection>
+			<form onsubmit={handlePasswordChange} id="pw-form" class="space-y-4">
 				{#if passwordError}
 					<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
 						<i class="fa-solid fa-circle-exclamation mr-1"></i>{passwordError}
 					</div>
 				{/if}
-				<TextField label="Current Password" bind:value={currentPassword} type="password" required />
-				<TextField label="New Password" bind:value={newPassword} type="password" required minlength={8} passwordRules />
-				<TextField label="Confirm New Password" bind:value={confirmPassword} type="password" required validator={value => value === newPassword ? '' : 'Passwords do not match.'} />
-			</FormSection></form>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1.5">Current Password</label>
+					<div class="relative">
+						<input bind:value={currentPassword} type={showCurrent ? 'text' : 'password'} required
+							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+						<button type="button" onclick={() => (showCurrent = !showCurrent)}
+							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+							<i class="fa-solid {showCurrent ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
+						</button>
+					</div>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
+					<div class="relative">
+						<input bind:value={newPassword} type={showNew ? 'text' : 'password'} required minlength="8"
+							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+						<button type="button" onclick={() => (showNew = !showNew)}
+							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+							<i class="fa-solid {showNew ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
+						</button>
+					</div>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1.5">Confirm New Password</label>
+					<div class="relative">
+						<input bind:value={confirmPassword} type={showConfirm ? 'text' : 'password'} required
+							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+						<button type="button" onclick={() => (showConfirm = !showConfirm)}
+							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+							<i class="fa-solid {showConfirm ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
+						</button>
+					</div>
+				</div>
+			</form>
 		{/if}
 	{/snippet}
-	{#snippet footer()}<FormActions>
+	{#snippet footer()}
 		{#if !passwordSuccess}
-			<Button variant="secondary" onclick={() => (passwordOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</Button>
-			<Button type="submit" form="pw-form" loading={passwordLoading}
-			 loadingLabel="Saving…">
-				
-				Update password
-			</Button>
+			<button onclick={() => (passwordOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+			<button type="submit" form="pw-form" disabled={passwordLoading}
+				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
+				{#if passwordLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
+				Update Password
+			</button>
 		{/if}
-	</FormActions>{/snippet}
+	{/snippet}
 </Modal>
 
 <!-- Change Email Modal -->
-<Modal open={emailOpen} closeDisabled={emailLoading} title="Change Email" size="sm" onclose={() => (emailOpen = false)}>
+<Modal open={emailOpen} title="Change Email" size="sm" onclose={() => (emailOpen = false)}>
 	{#snippet body()}
 		{#if emailSuccess}
 			<div class="text-center py-4">
@@ -482,46 +522,71 @@
 				<p class="text-sm text-gray-600">Email updated successfully.</p>
 			</div>
 		{:else}
-			<form use:validateForm onsubmit={handleEmailChange} id="email-form" class="space-y-4"><FormSection>
+			<form onsubmit={handleEmailChange} id="email-form" class="space-y-4">
 				{#if emailError}
 					<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
 						<i class="fa-solid fa-circle-exclamation mr-1"></i>{emailError}
 					</div>
 				{/if}
-				<TextField label="New Email Address" bind:value={newEmail} type="email" required autocomplete="off" />
-				<TextField label="Confirm with Password" bind:value={emailPassword} type="password" required autocomplete="current-password" />
-			</FormSection></form>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1.5">New Email Address</label>
+					<input bind:value={newEmail} type="email" required autocomplete="off"
+						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1.5">Confirm with Password</label>
+					<div class="relative">
+						<input bind:value={emailPassword} type={showEmailPassword ? 'text' : 'password'} required autocomplete="current-password"
+							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+						<button type="button" onclick={() => (showEmailPassword = !showEmailPassword)}
+							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+							<i class="fa-solid {showEmailPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
+						</button>
+					</div>
+				</div>
+			</form>
 		{/if}
 	{/snippet}
-	{#snippet footer()}<FormActions>
+	{#snippet footer()}
 		{#if !emailSuccess}
-			<Button variant="secondary" onclick={() => (emailOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</Button>
-			<Button type="submit" form="email-form" loading={emailLoading}
-			 loadingLabel="Saving…">
-				
-				Update email
-			</Button>
+			<button onclick={() => (emailOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+			<button type="submit" form="email-form" disabled={emailLoading}
+				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
+				{#if emailLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
+				Update Email
+			</button>
 		{/if}
-	</FormActions>{/snippet}
+	{/snippet}
 </Modal>
 
 <!-- Edit Academic Info Modal -->
 <Modal open={academicOpen && !academicLocked} title="Edit Academic Information" size="md" onclose={() => (academicOpen = false)}>
 	{#snippet body()}
-		<form use:validateForm onsubmit={saveAcademic} id="academic-form" class="space-y-4"><FormSection>
+		<form onsubmit={saveAcademic} id="academic-form" class="space-y-4">
 			{#if academicError}
 				<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
 					<i class="fa-solid fa-circle-exclamation mr-1"></i>{academicError}
 				</div>
 			{/if}
-			<TextField label="Student ID" id="academic-student-id" bind:value={aStudentId} type="text" maxlength={20} required />
-			<TextField label="Program / Course" bind:value={aProgram} type="text" required />
-			<SelectField label="Campus" id="profile-campus" bind:value={aCampus} required>
+			<div>
+				<label for="academic-student-id" class="block text-sm font-medium text-gray-700 mb-1.5">Student ID</label>
+				<input id="academic-student-id" bind:value={aStudentId} type="text" maxlength="20" required
+					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-gray-700 mb-1.5">Program / Course</label>
+				<input bind:value={aProgram} type="text" required
+					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+			</div>
+			<div>
+				<label for="profile-campus" class="block text-sm font-medium text-gray-700 mb-1.5">Campus</label>
+				<select id="profile-campus" bind:value={aCampus} required class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 					<option value="" disabled>Select your ESSU campus...</option>
 					{#each campuses as option}<option value={option.value}>{option.label}</option>{/each}
-				</SelectField>
+				</select>
+			</div>
 			<div>
-				<p class="mb-2 text-sm font-medium text-gray-700">Student type</p>
+				<label class="block text-sm font-medium text-gray-700 mb-1.5">Student Type</label>
 				<div class="space-y-2">
 					{#each [
 						{ value: 'Enrolled', label: 'Currently Enrolled', description: 'You are actively taking classes and are currently enrolled this semester.' },
@@ -537,15 +602,19 @@
 					{/each}
 				</div>
 			</div>
-			<TextField label="Last School Year Attended" bind:value={aLastSchoolYear} type="number" min={aStudentType === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN} max={SCHOOL_YEAR_MAX} required />
-		</FormSection></form>
+			<div>
+				<label class="block text-sm font-medium text-gray-700 mb-1.5">Last School Year Attended</label>
+						<input bind:value={aLastSchoolYear} type="number" min={aStudentType === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN} max={SCHOOL_YEAR_MAX} step="1" required
+					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
+			</div>
+		</form>
 	{/snippet}
-	{#snippet footer()}<FormActions>
-		<Button variant="secondary" onclick={() => (academicOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</Button>
-		<Button type="submit" form="academic-form" loading={academicLoading}
-		 loadingLabel="Saving…">
-			
-			Save changes
-		</Button>
-	</FormActions>{/snippet}
+	{#snippet footer()}
+		<button onclick={() => (academicOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+		<button type="submit" form="academic-form" disabled={academicLoading}
+			class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
+			{#if academicLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
+			Save Changes
+		</button>
+	{/snippet}
 </Modal>

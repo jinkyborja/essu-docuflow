@@ -1,31 +1,99 @@
 <script lang="ts">
- import { page } from '$app/stores';
- import { goto } from '$app/navigation';
- import RowMenu from '$lib/components/ui/RowMenu.svelte';
- import Button from '$lib/components/ui/Button.svelte';
- import { showToast } from '$lib/stores/toasts';
- import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
- import { notifUnreadCount } from '$lib/stores/notifications';
- const user = $derived($page.data.layoutUser);
- const student = $derived($page.url.pathname.startsWith('/student'));
- const menuItems = $derived([{label:'My Profile',href:student ? '/student/profile':'/staff/profile'}, {label:'Log out',onselect:()=>void logout()}]);
- async function logout() { try { const response = await fetch('/api/logout',{method:'POST'}); if(!response.ok) throw new Error('Could not log out. Please try again.'); await goto('/login'); } catch(error) { showToast(error instanceof Error ? error.message:'Could not log out. Please try again.','error'); } }
+	import { page } from '$app/stores';
+	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
+	import { notifUnreadCount } from '$lib/stores/notifications';
+
+	interface Props {
+		title: string;
+	}
+
+	const { title }: Props = $props();
+
+	const collapsed = $derived($sidebarCollapsed);
+
+	// Session data comes straight from the layout server load (staff/+layout.server.ts
+	// and student/+layout.server.ts both return `layoutUser`) — no client-side store.
+	type LayoutUser = { name: string; initials: string; position?: string; program?: string };
+	const user = $derived($page.data.layoutUser as LayoutUser | undefined);
+
+	const avatarLabel = $derived(user?.initials || '?');
+	const displayName = $derived(user?.name ?? 'User');
+	// Staff show their position; students show their program. Graduate School has no
+	// year levels, so no year is displayed.
+	const displayRole = $derived(user?.position ?? user?.program ?? '');
+	const unread = $derived($notifUnreadCount);
+	let previousUnread = $state(0);
+	let announcement = $state('');
+	$effect(() => {
+		if (unread > previousUnread) announcement = 'New notification';
+		previousUnread = unread;
+	});
 </script>
-<header class="portal-topbar" class:collapsed={$sidebarCollapsed}>
- <div class="mobile-toggle"><Button variant="ghost" ariaLabel="Toggle navigation" title="Toggle navigation" icon="fa-solid fa-bars" onclick={()=>sidebarMobileOpen.update(value=>!value)} ariaExpanded={$sidebarMobileOpen} /></div>
- <div class="desktop-toggle"><Button variant="ghost" ariaLabel={$sidebarCollapsed ? 'Expand navigation':'Collapse navigation'} title="Toggle navigation (Ctrl+B)" icon="fa-solid fa-bars-staggered" onclick={()=>sidebarCollapsed.update(value=>!value)} /></div>
- <div class="topbar-actions"><a class="notification-bell" href={student ? '/student/notifications':'/staff/notifications'} aria-label={$notifUnreadCount ? 'Notifications, '+$notifUnreadCount+' unread':'Notifications'} title="Notifications"><i class="fa-regular fa-bell" aria-hidden="true"></i>{#if $notifUnreadCount > 0}<span>{$notifUnreadCount > 99 ? '99+':$notifUnreadCount}</span>{/if}</a>
- <RowMenu items={menuItems} label="Account menu" triggerClass="topbar-user-trigger">
-  {#snippet triggerContent()}<span class="avatar">{user?.initials ?? '?'}</span><span class="topbar-name">{user?.name ?? 'User'}</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i>{/snippet}
-  {#snippet header()}<strong>{user?.name}</strong><p>{student ? user?.program : user?.position}</p>{/snippet}
- </RowMenu></div>
+
+<header
+	class="portal-topbar fixed top-0 right-0 z-20 h-16 bg-white border-b border-gray-100 shadow-sm flex items-center px-4 gap-3 transition-all duration-300
+		{collapsed ? 'left-16' : 'left-60'}
+		max-lg:left-0"
+>
+	<!-- Mobile hamburger -->
+	<button
+		onclick={() => sidebarMobileOpen.update((v) => !v)}
+		class="lg:hidden flex h-11 w-11 shrink-0 items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+		aria-label="Toggle navigation"
+		aria-controls="portal-navigation"
+		aria-expanded={$sidebarMobileOpen}
+	>
+		<i class="fa-solid fa-bars"></i>
+	</button>
+
+	<!-- Page title -->
+	<button
+		onclick={() => sidebarCollapsed.update((v) => !v)}
+		class="hidden lg:flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+		aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+		aria-controls="portal-navigation"
+		aria-expanded={!collapsed}
+		title="Toggle navigation (Ctrl+B)"
+	><i class="fa-solid fa-bars-staggered" aria-hidden="true"></i></button>
+	<div class="flex-1 min-w-0"><p class="topbar-workspace">ESSU DocuFlow</p><p class="text-sm font-medium text-gray-800 truncate">{title}</p></div>
+
+	<div class="flex items-center gap-2">
+		<a
+			href={$page.url.pathname.startsWith('/student') ? '/student/notifications' : '/staff/notifications'}
+			class="portal-notification-link relative flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100 hover:text-essu-green transition-colors"
+			aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+			title="Notifications"
+		>
+			<i class="fa-regular fa-bell"></i>
+			{#if unread > 0}
+				{#key unread}
+				<span class="portal-notification-count absolute right-0.5 top-0.5 min-w-4 rounded-full bg-essu-green px-1 text-center text-[10px] leading-4 text-white" aria-hidden="true">
+					{unread > 9 ? '9+' : unread}
+				</span>
+				{/key}
+			{/if}
+		</a>
+		<span class="sr-only" aria-live="polite">{announcement}</span>
+		<!-- Profile shortcut; logout remains in the sidebar. -->
+		<a
+			href={$page.url.pathname.startsWith('/student') ? '/student/profile' : '/staff/profile'}
+			class="portal-user-link flex items-center gap-2 pl-3 border-l border-gray-100 rounded-lg"
+			aria-label="Open profile"
+		>
+			<div class="w-8 h-8 rounded-full bg-essu-green flex items-center justify-center text-white text-xs font-bold shrink-0">
+				{avatarLabel}
+			</div>
+			<div class="hidden sm:block text-left">
+				<p class="text-sm font-medium text-gray-800 leading-tight">{displayName}</p>
+				{#if displayRole}
+					<p class="text-xs text-gray-500 leading-tight">{displayRole}</p>
+				{/if}
+			</div>
+		</a>
+	</div>
 </header>
 <style>
- .portal-topbar { position: fixed; inset: 0 0 auto 248px; z-index: 20; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-6); background: var(--color-surface); border-bottom: 1px solid var(--color-border); transition: left var(--motion-fast); }
- .portal-topbar.collapsed { left:72px; } .topbar-actions { margin-left:auto; display:flex; align-items:center; gap:var(--space-3); min-width:0; } .mobile-toggle {display:none;}
- .notification-bell { position:relative; width:40px; height:40px; flex-shrink:0; display:grid; place-items:center; color:var(--color-text-muted); border-radius:var(--radius-control); } .notification-bell:hover {background:var(--color-primary-soft);color:var(--color-primary);} .notification-bell > span {position:absolute;top:0;right:0;min-width:20px;border-radius:var(--radius-pill);padding:0 var(--space-1);background:var(--color-primary);color:var(--color-surface);font-size:var(--type-helper);text-align:center;}
- .avatar {display:grid;place-items:center;width:32px;height:32px;flex-shrink:0;border-radius:var(--radius-pill);background:var(--color-primary);color:var(--color-surface);font-size:var(--type-helper);font-weight:var(--weight-semibold);} .topbar-name {max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--type-body);} :global(.topbar-user-trigger) {border:0!important;} .topbar-actions :global(.row-menu-trigger) {max-width:100%;} .topbar-actions :global(.row-menu-trigger > i) {font-size:12px;}
- @media(max-width:1023px) {.portal-topbar,.portal-topbar.collapsed {left:0;} .mobile-toggle {display:block;} .desktop-toggle {display:none;}}
- @media(max-width:639px) {.portal-topbar {padding-inline:var(--space-4);} .topbar-name {display:none;}}
- @media(pointer:coarse) {.notification-bell {width:44px;height:44px;}}
+	.portal-notification-count { animation: notification-scale-in 150ms ease-out; }
+	@keyframes notification-scale-in { from { transform: scale(0.7); } to { transform: scale(1); } }
+	@media (prefers-reduced-motion: reduce) { .portal-notification-count { animation: none; } }
 </style>

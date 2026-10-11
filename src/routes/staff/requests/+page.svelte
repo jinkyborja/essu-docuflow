@@ -1,51 +1,206 @@
 <script lang="ts">
-	import { formatDate } from '$lib/request-flow';
-	import { formatName, pluralize } from '$lib/formatting';
-	import { statusLabel, requestStatusKey } from '$lib/request-status';
-	import Button from '$lib/components/ui/Button.svelte';
-	import RowMenu from '$lib/components/ui/RowMenu.svelte';
-	import StatusChip from '$lib/components/ui/StatusChip.svelte';
-	import DocumentPopover from '$lib/components/ui/DocumentPopover.svelte';
-	
+	import { pluralize } from '$lib/formatting';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import StatCard from '$lib/components/ui/StatCard.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { PageData } from './$types';
+
 	const { data }: { data: PageData } = $props();
-	type Req = { completed_at?: string | null; request_id: string; document_name: string; student_name: string; first_name?: string; middle_name?: string; last_name?: string; student_code: string; program: string; status: string; date_requested: string; items: Array<{document_id: number; name: string}> };
-	let requests = $state(data.requests as Req[]);
-	let search = $state(''), filterStatus = $state(data.initialStatus ?? ''), deliveryWaiting = $state(!!data.deliveryWaiting);
-	$effect(() => { requests = data.requests as Req[]; filterStatus = data.initialStatus ?? ''; deliveryWaiting = !!data.deliveryWaiting; });
-	const menuItems = [{label: 'Cancel request', danger: true, disabled: true, reason: 'Not available yet'}, {label: 'Archive', disabled: true, reason: 'Not available yet'}];
- const tabs = [{status:'',key:'all',label:'All'},{status:'Pending',key:'pending',label:'Pending review'},{status:'Correction Requested',key:'correction_requested',label:'Needs correction'},{status:'Approved',key:'approved',label:'Approved'},{status:'Processing',key:'processing',label:'Processing'},{status:'Ready for pickup',key:'ready_for_pickup',label:'Ready for pickup'},{status:'Released',key:'released',label:'Released'},{status:'Rejected',key:'rejected',label:'Rejected'},{status:'Cancelled',key:'cancelled',label:'Cancelled'}];
- function needsReview(req: Req) { return ['pending','correction_requested'].includes(requestStatusKey(req.status) ?? ''); }
-	function toggleStatus(status: string) { filterStatus = filterStatus === status ? '' : status; if (filterStatus !== 'Approved') deliveryWaiting = false; }
-	function toggleDelivery() { deliveryWaiting = !deliveryWaiting; if (deliveryWaiting) filterStatus = 'Approved'; }
-	function person(req: Req) { return formatName(req.first_name, req.middle_name, req.last_name) || req.student_name; }
-	const filtered = $derived(requests.filter(req => {
-		const q = search.trim().toLowerCase();
-		return (!q || person(req).toLowerCase().includes(q) || req.request_id.toLowerCase().includes(q) || req.student_code?.toLowerCase().includes(q) || req.items?.some(item => item.name.toLowerCase().includes(q))) &&
-			(!filterStatus || requestStatusKey(req.status) === requestStatusKey(filterStatus)) &&
-			(!deliveryWaiting || (requestStatusKey(req.status) === 'approved' && !req.completed_at));
-	}));
+
+	type Req = { completed_at?: string | null;
+		request_id: string; document_name: string; student_name: string;
+		student_code: string; program: string; status: string;
+		purpose: string; date_requested: string; items: Array<{document_id:number;name:string}>;
+	};
+
+	let requests = $state<Req[]>([]);
+
+	let search = $state('');
+	let filterStatus = $state('');
+	let deliveryWaiting = $state(false);
+	$effect(() => { requests = data.requests as Req[]; filterStatus = data.initialStatus; deliveryWaiting = data.deliveryWaiting; });
+
+	let deletingId = $state<string | null>(null);
+	let expanded = $state<string[]>([]);
+	function toggleItems(id: string) { expanded = expanded.includes(id) ? expanded.filter((item) => item !== id) : [...expanded, id]; }
+	let deleteConfirmId = $state<string | null>(null);
+
+	async function handleDelete(id: string) {
+		deletingId = id;
+		const res = await fetch('/api/requests', {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ request_id: id })
+		});
+		if (res.ok) {
+			requests = requests.filter(r => r.request_id !== id);
+		}
+		deletingId = null;
+		deleteConfirmId = null;
+	}
+
+	const filtered = $derived(
+		requests.filter(r => {
+			const q = search.toLowerCase();
+			const matchSearch = !q ||
+				r.student_name.toLowerCase().includes(q) ||
+				r.request_id.toLowerCase().includes(q) ||
+				r.student_code?.toLowerCase().includes(q) ||
+				(r.items ?? []).some((item) => item.name.toLowerCase().includes(q));
+			const matchStatus = !filterStatus || r.status === filterStatus;
+			return matchSearch && matchStatus && (!deliveryWaiting || (r.status === 'Approved' && !r.completed_at));
+		})
+	);
+
+	const statusCounts = $derived({
+		pending: requests.filter(r => r.status === 'Pending').length,
+		correction: requests.filter(r => r.status === 'Correction Requested').length,
+		approved: requests.filter(r => r.status === 'Approved').length,
+		rejected: requests.filter(r => r.status === 'Rejected').length,
+	});
 </script>
+
 <div class="space-y-5">
- <nav class="request-tabs" aria-label="Request status filters">{#each tabs as tab}<button type="button" aria-pressed={requestStatusKey(filterStatus) === (tab.key === 'all' ? null : tab.key)} onclick={() => toggleStatus(tab.status)}>{tab.label}<span>{tab.key === 'all' ? requests.length : requests.filter(req=>requestStatusKey(req.status)===tab.key).length}</span></button>{/each}</nav>
-	<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-		<label class="relative min-w-0 flex-1"><span class="sr-only">Search requests</span><i aria-hidden="true" class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i><input bind:value={search} type="search" placeholder="Search by name, request ID or student ID..." class="min-h-11 w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
-		<button type="button" aria-pressed={deliveryWaiting} title="Approved requests awaiting delivery confirmation" onclick={toggleDelivery} class="min-h-11 rounded-full border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 {deliveryWaiting ? 'border-essu-green bg-essu-green/10 text-essu-green' : 'border-gray-200 bg-white text-gray-600'}"><i class="fa-solid fa-truck mr-1.5" aria-hidden="true"></i>Awaiting delivery</button>
-		{#if search || filterStatus || deliveryWaiting}<Button variant="ghost" onclick={() => { search = ''; filterStatus = ''; deliveryWaiting = false; }}>Clear</Button>{/if}
+	<label class="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" bind:checked={deliveryWaiting} class="accent-essu-green focus:ring-essu-green/30" />Only approved requests awaiting delivery confirmation</label>
+	<!-- Stats -->
+	<div class="ui-stat-grid grid grid-cols-2 xl:grid-cols-4 gap-4">
+		<StatCard label="Pending" value={statusCounts.pending} icon="fa-solid fa-clock" color="orange" />
+		<StatCard label="Correction Requested" value={statusCounts.correction} icon="fa-solid fa-rotate-left" color="gold" />
+		<StatCard label="Approved" value={statusCounts.approved} icon="fa-solid fa-circle-check" color="green" />
+		<StatCard label="Rejected" value={statusCounts.rejected} icon="fa-solid fa-circle-xmark" color="red" />
 	</div>
-	<div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-		<p class="border-b border-gray-100 px-5 py-4 text-sm text-gray-500" aria-live="polite"><span class="font-medium text-gray-800">{filtered.length}</span> {pluralize(filtered.length, 'request')} found</p>
-		{#if !filtered.length}<EmptyState message="No requests found" description="Try another search or clear the filters to see all requests." icon="fa-solid fa-inbox" /><div class="flex justify-center pb-6"><Button variant="secondary" onclick={() => { search = ''; filterStatus = ''; deliveryWaiting = false; }}>Clear filters</Button></div>
+
+	<!-- Filters -->
+	<div class="flex flex-col sm:flex-row gap-3">
+		<div class="relative flex-1">
+			<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+			<input
+				bind:value={search}
+				type="text"
+				placeholder="Search by name, request ID or student ID..."
+				class="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
+			/>
+		</div>
+		<select bind:value={filterStatus} class="px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+			<option value="">All Statuses</option>
+			<option value="Pending">Pending</option>
+			<option value="Correction Requested">Correction Requested</option>
+			<option value="Approved">Approved</option>
+			<option value="Rejected">Rejected</option>
+		</select>
+		{#if search || filterStatus}
+			<button onclick={() => { search = ''; filterStatus = ''; }} class="px-3 py-2.5 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+				<i class="fa-solid fa-xmark mr-1"></i>Clear
+			</button>
+		{/if}
+	</div>
+
+	<!-- Table -->
+	<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+		<div class="px-5 py-4 border-b border-gray-100">
+			<p class="text-sm text-gray-500">
+				<span class="font-medium text-gray-800">{filtered.length}</span> {pluralize(filtered.length, 'request')} found
+			</p>
+		</div>
+
+		{#if filtered.length === 0}
+			<EmptyState message="No requests found" icon="fa-solid fa-inbox" />
 		{:else}
-			<div class="divide-y divide-gray-100 md:hidden">
-				{#each filtered as req}<article class="space-y-3 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="text-sm font-medium text-gray-800">{person(req)}</p><p class="text-xs text-gray-500">{req.student_code ?? '—'} · {req.program ?? '—'}</p></div><StatusChip value={req.status} /></div><div class="text-sm">{req.items?.[0]?.name ?? req.document_name}<DocumentPopover items={req.items ?? []} /></div><div class="flex justify-between text-xs text-gray-500"><span class="font-mono">{req.request_id}</span><span>{formatDate(req.date_requested)}</span></div><div class="flex flex-nowrap items-center gap-2"><Button variant={needsReview(req) ? 'primary' : 'secondary'} size="sm" href={'/staff/requests/' + req.request_id} icon="fa-solid fa-eye">{needsReview(req) ? 'Review' : 'View'}</Button><RowMenu items={menuItems} label={'Actions for request ' + req.request_id} /></div></article>{/each}
+			<!-- Mobile card list -->
+			<div class="xl:hidden divide-y divide-gray-100">
+				{#each filtered as req}
+					<div class="p-4 space-y-2">
+						<div class="flex items-start justify-between gap-2">
+							<div class="min-w-0">
+								<p class="font-medium text-gray-800 text-sm">{req.student_name}</p>
+								<p class="text-xs text-gray-400">{req.student_code ?? '—'} · {req.program ?? '—'}</p>
+							</div>
+							<Badge value={req.status.toLowerCase()} />
+						</div>
+						<p class="text-sm text-gray-700">{req.items?.[0]?.name ?? req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => toggleItems(req.request_id)}>+{req.items.length - 1} more</button>{/if}</p>
+						{#if expanded.includes(req.request_id)}<p class="mt-1 text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</p>{/if}
+						<div class="flex items-center justify-between gap-2 text-xs text-gray-400">
+							<span class="font-mono">{req.request_id}</span>
+							<span>{new Date(req.date_requested).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span>
+						</div>
+						<div class="flex items-center gap-2 pt-1">
+							<a href="/staff/requests/{req.request_id}" class="text-xs px-2.5 py-1.5 bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors">
+								<i class="fa-solid fa-eye mr-1"></i>Review
+							</a>
+							{#if deleteConfirmId === req.request_id}
+								<button onclick={() => handleDelete(req.request_id)} disabled={deletingId === req.request_id} class="text-xs px-2.5 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
+									{deletingId === req.request_id ? 'Deleting…' : 'Confirm'}
+								</button>
+								<button onclick={() => deleteConfirmId = null} class="text-xs px-2 py-1.5 text-gray-500 hover:text-gray-700">Cancel</button>
+							{:else}
+								<button onclick={() => deleteConfirmId = req.request_id} class="text-xs px-2.5 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors" aria-label={`Delete request ${req.request_id}`}>
+									<i class="fa-solid fa-trash"></i>
+								</button>
+							{/if}
+						</div>
+					</div>
+				{/each}
 			</div>
-			<div class="hidden overflow-x-auto md:block"><table class="request-list-table w-full text-sm"><thead class="border-b border-gray-100 bg-gray-50"><tr>{#each ['Request ID', 'Student', 'Program', 'Document', 'Date', 'Status', 'Actions'] as col}<th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{col}</th>{/each}</tr></thead><tbody class="divide-y divide-gray-50">
-				{#each filtered as req}<tr class="hover:bg-gray-50"><td class="px-4 py-3 font-mono text-xs text-gray-500">{req.request_id}</td><td class="px-4 py-3"><p class="font-medium text-gray-800">{person(req)}</p><p class="text-xs text-gray-500">{req.student_code ?? '—'}</p></td><td class="px-4 py-3 text-gray-600">{req.program ?? '—'}</td><td class="px-4 py-3 text-gray-700">{req.items?.[0]?.name ?? req.document_name}<DocumentPopover items={req.items ?? []} /></td><td class="px-4 py-3 text-xs text-gray-500">{new Date(req.date_requested).toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila'})}</td><td class="px-4 py-3"><StatusChip value={req.status} /></td><td class="px-4 py-3"><div class="row-actions flex flex-nowrap items-center gap-2"><Button variant={needsReview(req) ? 'primary' : 'secondary'} size="sm" href={'/staff/requests/' + req.request_id} icon="fa-solid fa-eye">{needsReview(req) ? 'Review' : 'View'}</Button><RowMenu items={menuItems} label={'Actions for request ' + req.request_id} /></div></td></tr>{/each}
-			</tbody></table></div>
+			<!-- Desktop table -->
+			<div class="hidden xl:block overflow-x-auto">
+				<table class="request-list-table w-full text-sm">
+					<thead class="bg-gray-50 border-b border-gray-100">
+						<tr>
+							{#each ['Request ID', 'Student', 'Program', 'Document', 'Date', 'Status', ''] as col}
+								<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{col}</th>
+							{/each}
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-50">
+						{#each filtered as req}
+							<tr class="hover:bg-gray-50 transition-colors">
+								<td class="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{req.request_id}</td>
+								<td class="px-4 py-3 whitespace-nowrap">
+									<p class="font-medium text-gray-800">{req.student_name}</p>
+									<p class="text-xs text-gray-400">{req.student_code ?? '—'}</p>
+								</td>
+								<td class="px-4 py-3 text-gray-600">{req.program ?? '—'}</td>
+								<td class="px-4 py-3 text-gray-700 whitespace-nowrap">{req.items?.[0]?.name ?? req.document_name}{#if (req.items?.length ?? 0) > 1}<button type="button" class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-essu-green" onclick={() => toggleItems(req.request_id)}>+{req.items.length - 1} more</button>{/if}{#if expanded.includes(req.request_id)}<div class="mt-1 whitespace-normal text-xs text-gray-500">{req.items.map((item) => item.name).join(', ')}</div>{/if}</td>
+								<td class="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
+									{new Date(req.date_requested).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
+								</td>
+								<td class="px-4 py-3"><Badge value={req.status.toLowerCase()} /></td>
+								<td class="px-4 py-3">
+									<div class="flex items-center gap-2">
+										<a
+											href="/staff/requests/{req.request_id}"
+											class="text-xs px-2.5 py-1.5 bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors"
+										>
+											<i class="fa-solid fa-eye mr-1"></i>Review
+										</a>
+										{#if deleteConfirmId === req.request_id}
+											<button
+												onclick={() => handleDelete(req.request_id)}
+												disabled={deletingId === req.request_id}
+												class="text-xs px-2.5 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+											>
+												{deletingId === req.request_id ? 'Deleting…' : 'Confirm'}
+											</button>
+											<button
+												onclick={() => deleteConfirmId = null}
+												class="text-xs px-2 py-1.5 text-gray-500 hover:text-gray-700"
+											>Cancel</button>
+										{:else}
+											<button
+												onclick={() => deleteConfirmId = req.request_id}
+												class="text-xs px-2.5 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+												aria-label={`Delete request ${req.request_id}`}
+											>
+												<i class="fa-solid fa-trash"></i>
+											</button>
+										{/if}
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		{/if}
 	</div>
 </div>
-
-<style>.request-tabs {display:flex;gap:var(--space-1);overflow-x:auto;max-width:100%;padding-bottom:var(--space-2);border-bottom:1px solid var(--color-border);} .request-tabs button {display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;min-height:40px;padding:var(--space-2) var(--space-3);border-radius:var(--radius-control);font-size:var(--type-body);color:var(--color-text-muted);white-space:nowrap;} .request-tabs button:hover {background:var(--color-primary-soft);} .request-tabs button[aria-pressed='true'] {background:var(--color-primary-soft);color:var(--color-primary);font-weight:var(--weight-semibold);box-shadow:inset 0 -3px var(--color-primary);} .request-tabs span {border-radius:var(--radius-pill);padding:0 var(--space-2);background:var(--color-surface);color:var(--color-text);} @media(pointer:coarse){.request-tabs button{min-height:44px;}}</style>
