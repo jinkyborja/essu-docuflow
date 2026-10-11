@@ -65,7 +65,7 @@ test('Import rolls back on write failure and rejects invalid headers or files ab
 function decisions(studentStatus='pending', found=false) {
 	const writes=[];let committed=false,rolledBack=false;
 	const conn={beginTransaction:async()=>{},commit:async()=>{committed=true;},rollback:async()=>{rolledBack=true;},release(){},execute:async(sql,args)=>{
-		if(sql.startsWith('SELECT user_id')) return [[{user_id:1,student_id:'26-0001',id_status:studentStatus,id_photo_path:'1/11111111-1111-4111-8111-111111111111.jpg'}]];
+if(sql.startsWith('SELECT user_id')) return [[{user_id:1,student_id:'26-0001',id_status:studentStatus}]];
 		if(sql.startsWith('SELECT id')) return [found ? [{id:1}] : []];
 		writes.push({sql,args});return [{}];
 	}};
@@ -95,7 +95,6 @@ test('Registration always inserts pending, ignoring any supplied verified ID sta
 		'$lib/server/jwt': {signJwt:()=> 'test'},
 		'$lib/server/email': {sendEmail:async()=>{}},
 		'$env/static/private': {JWT_SECRET:'test-secret'},
-		'$lib/server/signup-id-photo': {validateSignupPhotoIdentity:()=>null,readSignupIdPhotoUploadToken:()=>({path:'signup/fake.png',contentType:photo.type,size:photo.size})},
 		'$lib/server/supabase': {supabase:{storage:{from:()=>({download:async()=>({data:photo,error:null})})}}}
 	});
 	const result=await endpoint.POST({request:{url:'http://localhost/api/register',json:async()=>({firstName:'Juan',lastName:'Cruz',dateOfBirth:'2000-01-01',email:'test@example.invalid',studentId:'26-0001',program:'Master of IT',campus:'Guiuan',studentType:'Enrolled',lastSchoolYear:2026,password:'test-password',id_status:'verified'})}});
@@ -197,7 +196,7 @@ test('Journey includes correction/resubmission and delivery history in order',as
 	const requests=[{request_id:'REQ-1'},{request_id:'REQ-2'}];await journey.attachRequestJourney(requests);
 	assert.equal(requests[0].completed_at,'2026-10-03');assert.equal(requests[0].history.length,3);assert.equal(requests[1].completed_at,null);
 });
-test('Rejected ID rereview stores a bounded note, notifies admins and never verifies or resets the student',async()=>{
+test('Rejected ID rereview stores a bounded note, returns the student to pending and notifies admins',async()=>{
 	for(const scenario of ['ok','pending','duplicate']) {
 		const writes=[];
 		const conn={beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{},release(){},execute:async(sql,args)=>{
@@ -210,7 +209,7 @@ test('Rejected ID rereview stores a bounded note, notifies admins and never veri
 		const call=(role,note='Please check my historical enrollment record')=>endpoint.POST({cookies:cookies(role),request:{json:async()=>({note})}});
 		assert.equal((await call('Admin')).status,403);assert.equal((await call('Student','')).status,400);
 		const response=await call('Student');assert.equal(response.status,scenario==='ok'?200:scenario==='pending'?409:429);
-		if(scenario==='ok') {assert.match(writes[0].sql,/id_verification_note/);assert.equal(writes[1].args[0],'Student ID review requested');assert.ok(writes.every(q=>!q.sql.includes('SET id_status')));}
+		if(scenario==='ok') {assert.match(writes[0].sql,/id_verification_note/);assert.match(writes[0].sql,/id_status = 'pending'/);assert.equal(writes[1].args[0],'Student ID review requested');}
 		else assert.equal(writes.length,0);
 	}
 });

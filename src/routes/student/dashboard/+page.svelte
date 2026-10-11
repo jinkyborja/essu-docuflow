@@ -12,7 +12,7 @@
 	const activeRequests = $derived((data.requests as DashboardRequest[]).filter(req => !req.completed_at).sort((a,b) => Number(b.status === 'Correction Requested') - Number(a.status === 'Correction Requested')));
 	const locked = $derived(data.layoutUser.idStatus !== 'verified');
 	const lockReason = 'Available after your ID is verified';
-	const nextStep = $derived(data.layoutUser.idStatus === 'verified' ? 'Choose Request Document to start.' : data.layoutUser.idStatus === 'rejected' ? 'Upload a new ID photo, then resubmit.' : 'Wait for the office to finish reviewing. You can browse Forms meanwhile.');
+	const nextStep = $derived(data.layoutUser.idStatus === 'verified' ? 'Choose Request Document to start.' : data.layoutUser.idStatus === 'rejected' ? 'Check your details, then resubmit.' : 'Wait for the office to finish reviewing. You can browse Forms meanwhile.');
 
 	const recentNotifs = $derived(
 		data.recentHistory.map((h) => ({

@@ -10,7 +10,7 @@ function load(filename,imports={},source){
  vm.runInNewContext(ts.transpileModule(code,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:resolve,Date,Intl,URL,File,FormData,Response,setTimeout,clearTimeout,fetch:async()=>{throw new Error('No live fetch allowed');}});
  return module.exports;
 }
-const imports={'$app/navigation':{goto:async()=>{},invalidateAll:async()=>{}},'$app/stores':{page:writable({url:new URL('http://localhost/student/dashboard'),data:{}}),navigating:writable(null)},'$lib/stores/notifications':{notifUnreadCount:writable(0),startNotifications:()=>()=>{}},'$lib/stores/sidebar':{sidebarCollapsed:writable(false),sidebarMobileOpen:writable(false)}};
+const imports={'$app/environment':{browser:false},'$app/navigation':{goto:async()=>{},invalidateAll:async()=>{}},'$app/stores':{page:writable({url:new URL('http://localhost/student/dashboard'),data:{}}),navigating:writable(null)},'$lib/stores/notifications':{notifUnreadCount:writable(0),startNotifications:()=>()=>{}},'$lib/stores/sidebar':{sidebarCollapsed:writable(false),sidebarMobileOpen:writable(false)},'$lib/stores/toasts':{showToast:()=>{}}};
 const html=(file,props,source)=>render(load(file,imports,source).default,{props}).body;
 test('Historical and shared requirements are all retained when mapping documents to their files',()=>{
  const {documentRequirementGroups:groups}=load('src/lib/student-request-display.ts');
@@ -27,13 +27,13 @@ test('The timeline distinguishes current review, corrections, future release and
  const completed=requestTimeline('Approved',date,[{new_status:'Approved',changed_at:date},{new_status:'Completed',changed_at:'2026-10-11T10:00:00Z'}],true);assert.ok(completed.every(step=>step.state==='done'));assert.equal(completed.at(-1).label,'Delivery recorded');
  const rejected=requestTimeline('Rejected',date);assert.equal(rejected.at(-1).label,'Rejected');assert.ok(!rejected.some(step=>step.state==='upcoming'));
 });
-test('Rejected review requires a new photo or note, and renders the reason and three clear steps',()=>{
- const result=html('src/lib/components/ui/VerificationHelp.svelte',{reason:'Photo is blurry'});
- assert.match(result,/Your ID could not be verified/);assert.match(result,/Photo is blurry/);assert.equal((result.match(/<li\b/g)??[]).length,3);assert.match(result,/\/student\/profile#school-id-photo-card/);assert.match(result,/Upload a new ID photo or type a note/);
+test('Rejected review requires an updated detail or note, and renders the reason and three clear steps',()=>{
+	const result=html('src/lib/components/ui/VerificationHelp.svelte',{reason:'Name does not match'});
+	assert.match(result,/Your ID could not be verified/);assert.match(result,/Name does not match/);assert.equal((result.match(/<li\b/g)??[]).length,3);assert.match(result,/\/student\/profile#academic-information/);assert.match(result,/Edit your details or add a note first/);
  const button=(result.match(/<button\b[^]*?<\/button>/g)??[]).find(button=>button.includes('Resubmit for review'));assert.match(button,/disabled/);
 });
 test('Dashboard next-step instructions match pending, rejected and verified accounts',()=>{
- const expected={pending:'Wait for the office to finish reviewing. You can browse Forms meanwhile.',rejected:'Upload a new ID photo, then resubmit.',verified:'Choose Request Document to start.'};
+	const expected={pending:'Wait for the office to finish reviewing. You can browse Forms meanwhile.',rejected:'Check your details, then resubmit.',verified:'Choose Request Document to start.'};
  for(const [idStatus,message]of Object.entries(expected)){
   const result=html('src/routes/student/dashboard/+page.svelte',{data:{layoutUser:{idStatus},requests:[],recentHistory:[]}});assert.ok(result.includes(message));assert.equal(result.includes('Available after your ID is verified'),idStatus!=='verified');assert.equal(result.includes('fa-lock'),idStatus!=='verified');
  }

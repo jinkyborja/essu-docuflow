@@ -1,7 +1,6 @@
 <script lang="ts">
 	import VerificationHelp from '$lib/components/ui/VerificationHelp.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import { newIdPhotoUploaded } from '$lib/stores/id-review';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import TopBar from '$lib/components/layout/TopBar.svelte';
 	import PageIntro from '$lib/components/layout/PageIntro.svelte';
@@ -17,7 +16,6 @@
 
 	onMount(() => startNotifications(data.notifCount ?? 0));
 	$effect(() => { notifUnreadCount.set(data.notifCount ?? 0); });
-	$effect(() => { if (data.layoutUser.idStatus === 'rejected') { void data.layoutUser.idRejectReason; newIdPhotoUploaded.set(false); } });
 
 	const unread = $derived($notifUnreadCount);
 

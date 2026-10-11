@@ -93,7 +93,7 @@ test('Admin pencil editing remains allowed for a verified student', async () => 
 function renderPage(filename, data, sourceOverride, globals = {}) {
 	return render(load(filename, { '$app/stores': { page: writable({ data }) }, '$app/navigation': { invalidateAll: async () => {} } }, sourceOverride, globals).default, { props: { data } }).body;
 }
-const profile = { first_name: 'Juan', middle_name: null, last_name: 'Cruz', student_id: '26-0007', program: 'Master of Arts', student_type: 'Enrolled', last_school_year: year, email: 'qa@example.invalid', date_registered: '2020-10-10', id_status: 'verified', has_id_photo: false };
+const profile = { first_name: 'Juan', middle_name: null, last_name: 'Cruz', student_id: '26-0007', program: 'Master of Arts', student_type: 'Enrolled', last_school_year: year, email: 'qa@example.invalid', date_registered: '2020-10-10', id_status: 'verified' };
 
 test('Verified profiles show read-only academics and the office note; pending/rejected profiles retain all controls', () => {
 	const filename = 'src/routes/student/profile/+page.svelte';

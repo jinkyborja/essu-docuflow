@@ -89,7 +89,6 @@ test('Valid school years still save, profiles update their owner, and student ed
 		const endpoint = load(`src/routes/api/${route}/+server.ts`, {
 			...sessionImports, '$lib/server/db': { default: { execute, getConnection: async () => ({ execute, beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release() {} }) } },
 			'$lib/server/email': { sendEmail: async message => emails.push(message) }, '$lib/server/supabase': { supabase: { storage: { from: () => ({ download: async () => ({ data: photo, error: null }) }) } } },
-			'$lib/server/signup-id-photo': { validateSignupPhotoIdentity: () => null, readSignupIdPhotoUploadToken: () => ({ path: 'signup/fake.png', contentType: photo.type, size: photo.size }) }
 		});
 		const body = { firstName: 'Christian Daniel', middleName: 'Germones', lastName: 'Jongco', dateOfBirth: '2000-01-01', email: 'fake@example.invalid', studentId: '26-0001', program: 'QA', campus: 'Guiuan', studentType: 'Enrolled', lastSchoolYear: years.SCHOOL_YEAR_MAX, password: 'fake-password', type: 'academic', user_id: 8, student_type: 'Enrolled', last_school_year: years.SCHOOL_YEAR_MAX };
 		const call = role => endpoint[route === 'register' ? 'POST' : 'PATCH']({ request: { url: 'http://localhost/api/register', json: async () => body }, cookies: cookies(role) });

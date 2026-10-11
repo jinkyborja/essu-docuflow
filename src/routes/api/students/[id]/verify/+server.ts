@@ -22,15 +22,14 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
 	const conn = await pool.getConnection();
 	try {
 		await conn.beginTransaction();
-		const [rows] = await conn.execute("SELECT user_id, student_id, id_status, id_photo_path FROM users WHERE user_id = ? AND role = 'Student' FOR UPDATE", [params.id]);
-		const student = (rows as Array<{ user_id: number; student_id: string | null; id_status: string; id_photo_path: string | null }>)[0];
+		const [rows] = await conn.execute("SELECT user_id, student_id, id_status FROM users WHERE user_id = ? AND role = 'Student' FOR UPDATE", [params.id]);
+		const student = (rows as Array<{ user_id: number; student_id: string | null; id_status: string }>)[0];
 		if (!student) { await conn.rollback(); return json({ error: 'Student not found' }, { status: 404 }); }
 		if ((body.action === 'revoke' && student.id_status !== 'verified') || (body.action !== 'revoke' && student.id_status === 'verified')) {
 			await conn.rollback(); return json({ error: 'Student status changed. Reopen the review; revoke verification before deciding again.' }, { status: 409 });
 		}
 		let storedNote: string | null = null;
 		if (body.action === 'verify') {
-			if (!student.id_photo_path) { await conn.rollback(); return json({ error: 'A school ID photo must be uploaded before verification.' }, { status: 400 }); }
 			const [matches] = await conn.execute('SELECT id FROM enrollment_masterlist WHERE student_id = ? FOR UPDATE', [student.student_id]);
 			if (!(matches as unknown[]).length) {
 				if (body.verifyAnyway !== true || !note) { await conn.rollback(); return json({ error: 'Student ID is not in the masterlist. Confirm Verify anyway and provide a short note.' }, { status: 400 }); }

@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({cookies,request}) => {
 		if((recent as unknown[]).length) {await conn.rollback();return json({error:'You already requested another review today. Please allow the office time to respond.'},{status:429});}
 		const [admins]=await conn.execute("SELECT user_id FROM users WHERE role = 'Admin'");
 		if(!(admins as unknown[]).length) {await conn.rollback();return json({error:'Please contact the Graduate School office directly.'},{status:503});}
-		await conn.execute('UPDATE users SET id_verification_note = ? WHERE user_id = ?', ['Student review request: ' + note, actor.userId]);
+		await conn.execute("UPDATE users SET id_status = 'pending', id_verification_note = ? WHERE user_id = ?", ['Student review request: ' + note, actor.userId]);
 		for(const admin of admins as Array<{user_id:number}>) await conn.execute('INSERT INTO request_status_history (request_id, new_status, changed_by, notification_user_id, is_read, student_read) VALUES (NULL, ?, ?, ?, FALSE, TRUE)', ['Student ID review requested',actor.userId,admin.user_id]);
 		await conn.commit();return json({success:true});
 	} catch(e) {await conn.rollback();console.error('Request ID review failed',e);return json({error:'Could not send your review request.'},{status:500});} finally {conn.release();}

@@ -6,15 +6,8 @@
 	import FormActions from '$lib/components/ui/FormActions.svelte';
 	import {validateForm} from '$lib/components/ui/form-validation';
 	import { invalidateAll } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import FileDrop from '$lib/components/ui/FileDrop.svelte';
-	import StatusChip from '$lib/components/ui/StatusChip.svelte';
-	import LoadError from '$lib/components/ui/LoadError.svelte';
 	import { showToast } from '$lib/stores/toasts';
-	import { newIdPhotoUploaded } from '$lib/stores/id-review';
-	import { formatFileSize } from '$lib/student-files';
-	import { STUDENT_ID_PHOTO_URL_TTL, validateStudentIdPhoto } from '$lib/student-id-photo';
 	import { formatName } from '$lib/formatting';
 	import { SCHOOL_YEAR_MIN, SCHOOL_YEAR_MAX, ENROLLED_SCHOOL_YEAR_MIN, validateSchoolYear } from '$lib/school-year';
 	import {formatDate} from '$lib/request-flow';
@@ -25,73 +18,6 @@
 	let { data }: { data: PageData } = $props();
 	let profile = $state({ ...data.profile });
 	$effect(() => { profile = { ...data.profile }; });
-	let photoFile = $state<File | null>(null);
-	let photoInput = $state<HTMLInputElement>();
-	let photoPicker = $state<{browse:()=>void}>();
-	let photoUploading = $state(false);
-	let photoError = $state('');
-	let photoMessage = $state('');
-	let photoUrl = $state('');
-	let photoPreviewLoading = $state(false);
-	let photoPreviewError = $state('');
-	let selectedPhotoUrl = $state('');
-	onMount(() => { if (profile.has_id_photo) void previewIdPhoto(); });
-	$effect(() => {
-		const url = photoFile ? URL.createObjectURL(photoFile) : '';
-		selectedPhotoUrl = url;
-		return () => { if (url) URL.revokeObjectURL(url); };
-	});
-	$effect(() => {
-		if (!photoUrl) return;
-		const timer = setTimeout(() => photoUrl = '', STUDENT_ID_PHOTO_URL_TTL * 1000);
-		return () => clearTimeout(timer);
-	});
-
-	async function uploadIdPhoto(event: Event) {
-		event.preventDefault();
-		if (photoUploading || profile.id_status === 'verified') return;
-		photoError = validateStudentIdPhoto(photoFile) ?? '';
-		photoMessage = '';
-		if (photoError || !photoFile) { showToast(photoError || 'Choose an ID photo first.', 'error'); return; }
-		photoUploading = true;
-		try {
-			const prepared = await fetch('/api/profile/id-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'prepare', name: photoFile.name, contentType: photoFile.type, size: photoFile.size }) });
-			const upload = await prepared.json();
-			if (!prepared.ok) throw new Error(upload.error ?? 'Could not start the upload.');
-			const form = new FormData();
-			form.append('cacheControl', '0');
-			form.append('', photoFile);
-			const stored = await fetch(upload.uploadUrl, { method: 'PUT', body: form });
-			if (!stored.ok) throw new Error('Could not upload the ID photo. Please try again.');
-			const response = await fetch('/api/profile/id-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'complete', uploadToken: upload.uploadToken }) });
-			const result = await response.json();
-			if (!response.ok) throw new Error(result.error ?? 'Could not save the ID photo.');
-			profile.id_status = result.id_status;
-			profile.has_id_photo = true;
-			profile.id_photo_uploaded_at = result.id_photo_uploaded_at ?? profile.id_photo_uploaded_at;
-			photoUrl = ''; photoPreviewError = ''; photoFile = null;
-			if (photoInput) photoInput.value = '';
-			newIdPhotoUploaded.set(true);
-			photoMessage = 'ID photo uploaded and submitted for office review.';
-			showToast(photoMessage);
-			if (result.warning) showToast(result.warning, 'error');
-			await previewIdPhoto();
-			try { await invalidateAll(); } catch { showToast('Your photo was saved. Refresh the page to see your latest review status.', 'error'); }
-		} catch (error) { photoError = error instanceof Error ? error.message : 'Could not complete the upload. Please try again.'; showToast(photoError, 'error'); }
-		finally { photoUploading = false; }
-	}
-
-	async function previewIdPhoto() {
-		photoPreviewLoading = true; photoPreviewError = ''; photoUrl = '';
-		try {
-			const response = await fetch('/api/profile/id-photo');
-			const result = await response.json();
-			if (!response.ok || !result.url) throw new Error(result.error ?? 'Could not load the ID photo.');
-			photoUrl = result.url;
-		} catch (error) { photoPreviewError = error instanceof Error ? error.message : 'Could not load the ID photo. Please try again.'; showToast(photoPreviewError, 'error'); }
-		finally { photoPreviewLoading = false; }
-	}
-
 	const fullName = $derived(
 		formatName(profile.first_name, profile.middle_name, profile.last_name)
 	);
@@ -147,6 +73,7 @@
 				profile.last_name     = eLastName;
 				profile.suffix        = eSuffix || null;
 				profile.date_of_birth = eDateOfBirth;
+				if (typeof window !== 'undefined' && profile.id_status === 'rejected') sessionStorage.setItem('id-review-details-changed', 'true');
 				editOpen = false;
 			}
 		} catch {
@@ -208,6 +135,7 @@
 				profile.campus           = aCampus;
 				profile.student_type     = aStudentType;
 				profile.last_school_year = Number(aLastSchoolYear);
+				if (typeof window !== 'undefined' && profile.id_status === 'rejected') sessionStorage.setItem('id-review-details-changed', 'true');
 				academicOpen = false;
 			}
 		} catch {
@@ -308,20 +236,6 @@
 </script>
 
 <div class="max-w-4xl mx-auto space-y-5"><div class="profile-header flex items-center gap-4 border border-gray-200 p-6"><span class="flex size-16 shrink-0 items-center justify-center rounded-xl bg-white text-xl font-semibold text-essu-green">{initials}</span><div class="min-w-0"><h2 class="text-xl font-semibold">{fullName}</h2><p class="mt-1 text-sm text-gray-600">{profile.program} · {profile.student_id}</p></div></div>
-	<section id="school-id-photo-card" class="scroll-mt-24 space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-label="School ID photo">
-		<div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold text-gray-800">School ID photo</h3><StatusChip kind="id" value={profile.id_status} /></div>
-		<p class="text-sm text-gray-600">School ID front · JPG, PNG or WebP · up to 5 MB</p>
-		<div class="grid items-start gap-4 sm:grid-cols-[120px_minmax(0,1fr)]">
-			<div class="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 p-3">{#if selectedPhotoUrl || photoUrl}<img src={selectedPhotoUrl || photoUrl} alt={selectedPhotoUrl ? 'New school ID photo preview' : 'Your uploaded school ID front'} class="max-h-48 max-w-[120px] rounded-lg object-contain" onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview could not load. Refresh the preview.'; }} />{:else}<p class="text-center text-sm text-gray-500">{photoPreviewLoading ? 'Loading photo…' : profile.has_id_photo ? 'Refresh to view your uploaded photo' : 'No ID photo uploaded'}</p>{/if}</div>
-			<div class="space-y-3">
-				<Button variant="secondary" icon="fa-solid fa-camera" disabled={profile.id_status === 'verified' || photoUploading} disabledReason={profile.id_status === 'verified' ? 'Contact the Graduate School office to replace a verified ID photo' : undefined} onclick={() => photoPicker?.browse()}>Replace photo</Button>
-				{#if profile.id_status !== 'verified'}<form use:validateForm onsubmit={uploadIdPhoto} class="space-y-3"><FormSection><FileDrop bind:this={photoPicker} label="School ID photo (front)" bind:file={photoFile} accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" maxSize={5*1024*1024} disabled={photoUploading} uploading={photoUploading} helper="JPG, PNG or WebP, up to 5 MB." error={photoError} onchange={selected=>{photoError=selected ? validateStudentIdPhoto(selected)??'':'';photoMessage='';}} />{#if photoFile}<p class="break-words text-sm font-medium text-gray-800">{photoFile.name} <span class="text-xs font-normal text-gray-500">· {formatFileSize(photoFile.size)}</span></p><div class="flex flex-wrap gap-2"><Button type="submit" loading={photoUploading} loadingLabel="Uploading…" disabled={!!photoError}>Upload photo</Button></div><p class="text-xs text-gray-600">Uploading the new photo automatically resubmits your ID for office review.</p>{/if}</FormSection></form>{/if}
-				{#if profile.has_id_photo}<p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p><Button variant="ghost" size="sm" ariaLabel="Refresh photo preview" title="Refresh photo preview" icon="fa-solid fa-rotate" loading={photoPreviewLoading} disabled={photoUploading} onclick={previewIdPhoto} />{/if}
-			</div>
-		</div>
-		{#if photoError}<p class="text-sm text-red-700" role="alert">{photoError}</p>{/if}{#if photoMessage}<p class="text-sm text-essu-green" role="status">{photoMessage}</p>{/if}{#if photoPreviewError}<LoadError message="We couldn’t load your ID photo preview. Please try again." onretry={previewIdPhoto} />{/if}
-	</section>
-
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
 		<div class="xl:col-span-2 space-y-4">
 			<!-- Personal Info -->
@@ -344,7 +258,7 @@
 			</div>
 
 			<!-- Academic Info -->
-			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+			<div id="academic-information" class="scroll-mt-24 bg-white rounded-xl border border-gray-100 shadow-sm">
 				<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
 					<h3 class="font-semibold text-gray-700">Academic Information</h3>
 					{#if !academicLocked}

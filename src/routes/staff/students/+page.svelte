@@ -27,7 +27,6 @@
 	const { data }: { data: PageData } = $props();
 
 	type Student = {
-		has_id_photo?: boolean; id_photo_url?: string | null; id_photo_uploaded_at?: string | null;
 		campus?: string | null; masterlistMatch?: MasterlistMatch; id_verified_by_name?: string | null; id_verification_note?: string | null;
 		user_id: number;
 		first_name: string;
@@ -78,12 +77,9 @@
 	}
 	let masterlistOpen = $state(false), reviewLoading = $state(false), rejecting = $state(false), verifyAnyway = $state(false), overrideNote = $state('');
 	let reviewVersion = 0;
-	let photoPreviewError = $state(false);
-	let photoRefreshing = $state(false);
 	const differing = $derived(reviewStudent?.masterlistMatch ? (['name', 'program', 'campus'] as const).filter(key => reviewStudent!.masterlistMatch![key] !== 'match') : []);
 	async function openReview(student: Student) {
 		const version = ++reviewVersion;
-		photoPreviewError = false;
 		reviewStudent = {...student}; reviewLoading = true; reviewError = ''; rejectReason = ''; rejecting = false; verifyAnyway = false; overrideNote = '';
 		try {
 			const res = await fetch('/api/students/' + student.user_id);
@@ -95,20 +91,6 @@
 		finally { if (version === reviewVersion) reviewLoading = false; }
 	}
 	function closeReview() { reviewVersion++; reviewStudent = null; reviewLoading = false; }
-	async function refreshIdPhoto() {
-		if (!reviewStudent || photoRefreshing) return;
-		const studentId = reviewStudent.user_id, version = reviewVersion;
-		photoRefreshing = true;
-		try {
-			const response = await fetch('/api/students/' + studentId);
-			const result = await response.json();
-			if (version !== reviewVersion || reviewStudent?.user_id !== studentId) return;
-			if (!response.ok) { photoPreviewError = true; showToast(result.error ?? 'Could not refresh the ID photo.', 'error'); return; }
-			reviewStudent = { ...reviewStudent, ...result };
-			photoPreviewError = false;
-		} catch { if (version === reviewVersion) { photoPreviewError = true; showToast('Could not refresh the ID photo.', 'error'); } }
-		finally { photoRefreshing = false; }
-	}
 	function openRevoke(student: Student) {
 		if (data.role !== 'Admin' || student.id_status !== 'verified') return;
 		revokeTarget = student; revokeError = '';
@@ -154,7 +136,6 @@
 
 	async function decideId(action: 'verify'|'reject'|'revoke') {
 		if (data.role !== 'Admin' || !reviewStudent || reviewLoading || reviewing || !reviewStudent.masterlistMatch) return;
-		if (action === 'verify' && (!reviewStudent.has_id_photo || !reviewStudent.id_photo_url || photoPreviewError || photoRefreshing)) { reviewError = 'Load the uploaded school ID photo before verification.'; return; }
 		if ((action === 'reject' || action === 'revoke') && !rejectReason.trim()) { reviewError = 'A reason is required.'; return; }
 		const studentUserId = reviewStudent.user_id;
 		reviewing = true; reviewError = '';
@@ -441,20 +422,6 @@
 					</div><div><p class="text-xs text-gray-400">Date registered</p>{formatDate(reviewStudent.date_registered)}</div>
 					<div class="col-span-2"><p class="text-xs text-gray-400">Email</p>{reviewStudent.email}</div>
 				</div>
-				{#if data.role === 'Admin'}
-					<div class="rounded-lg border border-gray-200 p-3 space-y-2">
-						<p class="text-sm font-medium text-gray-700">School ID photo (front)</p>
-						{#if reviewLoading}<p class="text-sm text-gray-500">Loading ID photo…</p>
-						{:else if !reviewStudent.masterlistMatch}<p class="text-sm text-gray-500">ID photo details could not be loaded.</p>
-						{:else if !reviewStudent.has_id_photo}<p class="text-sm text-gray-500">No ID photo uploaded</p>
-						{:else}
-							{#if reviewStudent.id_photo_url && !photoPreviewError}<img src={reviewStudent.id_photo_url} alt="Uploaded school ID front" class="max-h-64 w-full rounded-lg object-contain" onerror={() => photoPreviewError = true} />
-							{:else}<p class="text-sm text-gray-500">ID photo preview expired or unavailable.</p>{/if}
-							<p class="text-xs text-gray-500">Uploaded: {formatDate(reviewStudent.id_photo_uploaded_at ?? null)}</p>
-							<button type="button" onclick={refreshIdPhoto} disabled={photoRefreshing || reviewing} class="text-xs text-essu-green hover:underline disabled:opacity-50">{photoRefreshing ? 'Loading…' : 'Refresh photo preview'}</button>
-						{/if}
-					</div>
-				{/if}
 				</div>
 				{#if reviewStudent.id_status !== 'pending'}
 					<div class="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm"><p class="font-medium capitalize">Decision: {reviewStudent.id_status}</p><p class="mt-1 text-xs text-gray-600">By {reviewStudent.id_verified_by_name ?? 'Not recorded'} on {formatDate(reviewStudent.id_verified_at)}</p>{#if reviewStudent.id_reject_reason}<p class="mt-2">Reason: {reviewStudent.id_reject_reason}</p>{/if}{#if reviewStudent.id_verification_note}<p class="mt-2">Review / verification note: {reviewStudent.id_verification_note}</p>{/if}</div>
@@ -477,7 +444,7 @@
 		<button onclick={closeReview} disabled={reviewing} class="px-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Close</button>
 		{#if data.role === 'Admin' && reviewStudent && !reviewLoading && reviewStudent.masterlistMatch}
 			{#if reviewStudent.id_status !== 'verified'}
-				<RowMenu label="Student ID actions" items={[{label:"Reject student ID",danger:true,disabled:reviewing,onselect:()=>{reviewError="";rejecting=true;}}]}/><Button onclick={() => void decideId('verify')} loading={reviewing} disabled={photoRefreshing || !reviewStudent.has_id_photo || !reviewStudent.id_photo_url || photoPreviewError || (!reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()))} disabledReason={!reviewStudent.has_id_photo ? 'Upload a school ID photo first' : !reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()) ? 'Confirm the masterlist override and enter a note' : undefined}>Verify student</Button>
+				<RowMenu label="Student ID actions" items={[{label:"Reject student ID",danger:true,disabled:reviewing,onselect:()=>{reviewError="";rejecting=true;}}]}/><Button onclick={() => void decideId('verify')} loading={reviewing} disabled={!reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim())} disabledReason={!reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()) ? 'Confirm the masterlist override and enter a note' : undefined}>Verify student</Button>
 			{/if}
 		{/if}
 	</FormActions>{/snippet}

@@ -33,11 +33,11 @@ Check each page at 375px, 768px, and 1280px. Use Tab/Shift+Tab as well as mouse 
 | Student Dashboard | `/student/dashboard` | Pending yellow banner, rejected reason and three steps, note enable/retry, verified account with no banner, matching next step and locked Request Document actions. |
 | Request Document | `/student/request` | All three steps: real checkboxes, named requirements, sticky count/Next, file names/sizes/Replace/Remove, missing-file reasons, spaced summary, submission failure and success. |
 | My Documents | `/student/documents` | All document names and requirements, newest vertical timeline open, uploaded/correction chips, View/Replace only while editable, correction update guard. |
-| My Profile | `/student/profile#school-id-photo-card` | School ID photo card, current status, uploaded preview, local replacement preview and upload feedback. |
+| My Profile | `/student/profile#academic-information` | Student identity, personal information and academic information. |
 | Student Forms | `/student/forms` | Skeleton, retry after load failure, downloads and empty-state next action. |
 | Student Notifications | `/student/notifications` | Mobile card action at the bottom, date wrapping, filters and empty-state next action. |
 
-During a slow page navigation, both portals show the shared skeleton. A failed server page load shows a friendly error page with Try again. Forms, document mapping, request usage checks, ID photo preview, student review and the masterlist also have local loading/error recovery.
+During a slow page navigation, both portals show the shared skeleton. A failed server page load shows a friendly error page with Try again. Forms, document mapping, request usage checks, student review and the masterlist also have local loading/error recovery.
 
 The existing ID upload endpoint automatically submits a replacement photo for office review. The UI explains this after selecting a new photo. A rejected account can separately send a review note with the existing endpoint. Student request cancellation is omitted because a student cancel route is not available. In-person requirements retain their existing exemption from file uploads. Historical requirements that cannot be mapped to the current document catalog remain visible under Other request requirements.
 
@@ -52,7 +52,6 @@ The complete list below includes the preceding shared admin component pass and t
 - [qa/forms-requirements.test.cjs](C:/Users/1/Desktop/essu-docuflow-main/qa/forms-requirements.test.cjs)
 - [qa/masterlist-clear.test.cjs](C:/Users/1/Desktop/essu-docuflow-main/qa/masterlist-clear.test.cjs)
 - [qa/signup-verification.test.cjs](C:/Users/1/Desktop/essu-docuflow-main/qa/signup-verification.test.cjs)
-- [qa/student-id-photo.test.cjs](C:/Users/1/Desktop/essu-docuflow-main/qa/student-id-photo.test.cjs)
 - [qa/student-ui.test.cjs](C:/Users/1/Desktop/essu-docuflow-main/qa/student-ui.test.cjs)
 - [qa/task-bugs.test.cjs](C:/Users/1/Desktop/essu-docuflow-main/qa/task-bugs.test.cjs)
 - [qa/ui-review.md](C:/Users/1/Desktop/essu-docuflow-main/qa/ui-review.md)
