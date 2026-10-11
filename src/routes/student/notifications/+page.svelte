@@ -3,8 +3,10 @@
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import { showToast } from '$lib/stores/toasts';
 	import { markAllRead as markStoreAllRead, markOneRead, notifUnreadCount } from '$lib/stores/notifications';
-		import type { PageData } from './$types';
+	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
 
@@ -65,7 +67,7 @@
 	$effect(() => { activeFilter; search; currentPage = 1; });
 	let selectedNotif = $state<Notif | null>(null);
 	let detailOpen = $state(false);
-	let toastMessage = $state('');
+
 
 	const filterOptions = ['all', 'request', 'task', 'system'];
 
@@ -90,8 +92,7 @@
 			await markOneRead({ type: 'student-history', ids: wasUnread.map((n) => Number(n.id)) });
 		} catch {
 			notifications = notifications.map(n => ids.includes(n.id) ? { ...n, isRead: false } : n);
-			toastMessage = 'Could not mark notifications as read.';
-			setTimeout(() => toastMessage = '', 4000);
+			showToast('Could not mark notifications as read. Please try again.', 'error');
 		}
 	}
 
@@ -103,8 +104,7 @@
 			await markStoreAllRead([{ type: 'student-history', ids: ids.map(Number) }]);
 		} catch {
 			notifications = notifications.map((n) => ids.includes(n.id) ? { ...n, isRead: false } : n);
-			toastMessage = 'Could not mark notifications as read.';
-			setTimeout(() => toastMessage = '', 4000);
+			showToast('Could not mark notifications as read. Please try again.', 'error');
 		}
 	}
 
@@ -148,7 +148,7 @@
 			{/if}
 			<div class="relative">
 				<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-				<input type="text" bind:value={search} placeholder="Search..." oninput={() => (currentPage = 1)} class="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30 w-full sm:w-44" />
+				<input type="text" bind:value={search} aria-label="Search notifications" placeholder="Search notifications..." oninput={() => (currentPage = 1)} class="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30 w-full sm:w-44" />
 			</div>
 			{#if unreadCount > 0}
 				<button onclick={() => void markAllNotificationsRead()} class="min-h-11 px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-essu-green/30">
@@ -161,7 +161,7 @@
 	<div class="space-y-2">
 		{#if paginated.length === 0}
 			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-				<EmptyState message="No notifications found" icon="fa-regular fa-bell-slash" />
+				<EmptyState message={notifications.length ? 'No matching notifications' : 'No notifications yet'} description={notifications.length ? 'Clear the filters to see all notifications.' : 'Updates from the Graduate School office will appear here.'} icon="fa-regular fa-bell-slash" /><div class="flex justify-center pb-6">{#if notifications.length}<Button variant="secondary" onclick={() => { search = ''; activeFilter = 'all'; }}>Clear filters</Button>{:else}<Button variant="secondary" href="/student/forms">Browse forms</Button>{/if}</div>
 			</div>
 		{:else}
 			{#each paginated as notif}
@@ -191,7 +191,7 @@
 							</p>
 						{/if}
 					</div>
-					<Badge value={notif.type} size="sm" />
+					<Badge value={notif.type} size="sm" /><span class="notification-open-action flex min-h-11 w-full items-center justify-start gap-2 border-t border-gray-100 pt-3 text-sm font-semibold text-essu-green md:hidden">View notification <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
 				</button>
 			{/each}
 		{/if}
@@ -245,4 +245,3 @@
 		<button onclick={() => (detailOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Close</button>
 	{/snippet}
 </Modal>
-{#if toastMessage}<div class="fixed bottom-5 right-5 z-[70] rounded-lg bg-red-700 px-4 py-3 text-sm text-white shadow-lg" role="status" aria-live="polite">{toastMessage}</div>{/if}

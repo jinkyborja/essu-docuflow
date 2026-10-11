@@ -1,5 +1,12 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import StatusChip from '$lib/components/ui/StatusChip.svelte';
+	import LoadError from '$lib/components/ui/LoadError.svelte';
+	import { showToast } from '$lib/stores/toasts';
+	import { newIdPhotoUploaded } from '$lib/stores/id-review';
+	import { formatFileSize } from '$lib/student-files';
 	import { STUDENT_ID_PHOTO_URL_TTL, validateStudentIdPhoto } from '$lib/student-id-photo';
 	import { formatName } from '$lib/formatting';
 	import { SCHOOL_YEAR_MIN, SCHOOL_YEAR_MAX, ENROLLED_SCHOOL_YEAR_MIN, validateSchoolYear } from '$lib/school-year';
@@ -19,6 +26,13 @@
 	let photoUrl = $state('');
 	let photoPreviewLoading = $state(false);
 	let photoPreviewError = $state('');
+	let selectedPhotoUrl = $state('');
+	onMount(() => { if (profile.has_id_photo) void previewIdPhoto(); });
+	$effect(() => {
+		const url = photoFile ? URL.createObjectURL(photoFile) : '';
+		selectedPhotoUrl = url;
+		return () => { if (url) URL.revokeObjectURL(url); };
+	});
 	$effect(() => {
 		if (!photoUrl) return;
 		const timer = setTimeout(() => photoUrl = '', STUDENT_ID_PHOTO_URL_TTL * 1000);
@@ -27,31 +41,35 @@
 
 	async function uploadIdPhoto(event: Event) {
 		event.preventDefault();
-		if (photoUploading) return;
+		if (photoUploading || profile.id_status === 'verified') return;
 		photoError = validateStudentIdPhoto(photoFile) ?? '';
 		photoMessage = '';
-		if (photoError || !photoFile) return;
+		if (photoError || !photoFile) { showToast(photoError || 'Choose an ID photo first.', 'error'); return; }
 		photoUploading = true;
 		try {
 			const prepared = await fetch('/api/profile/id-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'prepare', name: photoFile.name, contentType: photoFile.type, size: photoFile.size }) });
 			const upload = await prepared.json();
-			if (!prepared.ok) { photoError = upload.error ?? 'Could not start the upload.'; return; }
+			if (!prepared.ok) throw new Error(upload.error ?? 'Could not start the upload.');
 			const form = new FormData();
 			form.append('cacheControl', '0');
 			form.append('', photoFile);
 			const stored = await fetch(upload.uploadUrl, { method: 'PUT', body: form });
-			if (!stored.ok) { photoError = 'Could not upload the ID photo. Please try again.'; return; }
+			if (!stored.ok) throw new Error('Could not upload the ID photo. Please try again.');
 			const response = await fetch('/api/profile/id-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'complete', uploadToken: upload.uploadToken }) });
 			const result = await response.json();
-			if (!response.ok) { photoError = result.error ?? 'Could not save the ID photo.'; return; }
+			if (!response.ok) throw new Error(result.error ?? 'Could not save the ID photo.');
 			profile.id_status = result.id_status;
 			profile.has_id_photo = true;
 			profile.id_photo_uploaded_at = result.id_photo_uploaded_at ?? profile.id_photo_uploaded_at;
 			photoUrl = ''; photoPreviewError = ''; photoFile = null;
 			if (photoInput) photoInput.value = '';
-			photoMessage = result.warning ?? 'ID photo uploaded. The Graduate School office will review it.';
-			await invalidateAll();
-		} catch { photoError = 'Could not complete the upload. Please try again.'; }
+			newIdPhotoUploaded.set(true);
+			photoMessage = 'ID photo uploaded and submitted for office review.';
+			showToast(photoMessage);
+			if (result.warning) showToast(result.warning, 'error');
+			await previewIdPhoto();
+			try { await invalidateAll(); } catch { showToast('Your photo was saved. Refresh the page to see your latest review status.', 'error'); }
+		} catch (error) { photoError = error instanceof Error ? error.message : 'Could not complete the upload. Please try again.'; showToast(photoError, 'error'); }
 		finally { photoUploading = false; }
 	}
 
@@ -60,9 +78,9 @@
 		try {
 			const response = await fetch('/api/profile/id-photo');
 			const result = await response.json();
-			if (!response.ok) { photoPreviewError = result.error ?? 'Could not load the ID photo.'; return; }
+			if (!response.ok || !result.url) throw new Error(result.error ?? 'Could not load the ID photo.');
 			photoUrl = result.url;
-		} catch { photoPreviewError = 'Could not load the ID photo. Please try again.'; }
+		} catch (error) { photoPreviewError = error instanceof Error ? error.message : 'Could not load the ID photo. Please try again.'; showToast(photoPreviewError, 'error'); }
 		finally { photoPreviewLoading = false; }
 	}
 
@@ -282,24 +300,19 @@
 </script>
 
 <div class="max-w-4xl mx-auto space-y-5">
-	{#if profile.id_status === 'pending' || profile.id_status === 'rejected'}
-		<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-3">
-			<h3 class="font-semibold text-gray-700">School ID photo</h3>
-			<form onsubmit={uploadIdPhoto} class="space-y-3">
-				<label for="school-id-photo" class="block text-sm text-gray-600">School ID front · JPG, PNG or WebP · up to 5 MB</label>
-				<input id="school-id-photo" bind:this={photoInput} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required disabled={photoUploading} onchange={(event) => { photoFile = event.currentTarget.files?.[0] ?? null; photoError = photoFile ? validateStudentIdPhoto(photoFile) ?? '' : ''; photoMessage = ''; }} class="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-essu-green/10 file:px-3 file:py-2 file:text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-				<button type="submit" disabled={photoUploading || !photoFile || !!photoError} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid disabled:opacity-50">{photoUploading ? 'Uploading…' : profile.has_id_photo ? 'Replace ID photo' : 'Upload ID photo'}</button>
-			</form>
-			{#if photoError}<p class="text-sm text-red-700" role="alert">{photoError}</p>{/if}
-			{#if photoMessage}<p class="text-sm text-essu-green" role="status">{photoMessage}</p>{/if}
-			{#if profile.has_id_photo}
-				<p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p>
-				<button type="button" onclick={previewIdPhoto} disabled={photoPreviewLoading || photoUploading} class="text-sm text-essu-green hover:underline disabled:opacity-50">{photoPreviewLoading ? 'Loading…' : photoUrl ? 'Refresh photo preview' : 'View uploaded photo'}</button>
-				{#if photoUrl}<img src={photoUrl} alt="Your uploaded school ID front" class="max-h-64 max-w-full rounded-lg border border-gray-200 object-contain" onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview expired or could not load. Open it again.'; }} />{/if}
-			{/if}
-			{#if photoPreviewError}<p class="text-sm text-red-700" role="alert">{photoPreviewError}</p>{/if}
+	<section id="school-id-photo-card" class="scroll-mt-24 space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-label="School ID photo">
+		<div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold text-gray-800">School ID photo</h3><StatusChip kind="id" value={profile.id_status} /></div>
+		<p class="text-sm text-gray-600">School ID front · JPG, PNG or WebP · up to 5 MB</p>
+		<div class="grid items-start gap-4 sm:grid-cols-[minmax(0,240px)_1fr]">
+			<div class="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 p-3">{#if selectedPhotoUrl || photoUrl}<img src={selectedPhotoUrl || photoUrl} alt={selectedPhotoUrl ? 'New school ID photo preview' : 'Your uploaded school ID front'} class="max-h-64 max-w-full rounded-lg object-contain" onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview could not load. Refresh the preview.'; }} />{:else}<p class="text-center text-sm text-gray-500">{photoPreviewLoading ? 'Loading photo…' : profile.has_id_photo ? 'Refresh to view your uploaded photo' : 'No ID photo uploaded'}</p>{/if}</div>
+			<div class="space-y-3">
+				<Button variant="secondary" icon="fa-solid fa-camera" disabled={profile.id_status === 'verified' || photoUploading} disabledReason={profile.id_status === 'verified' ? 'Contact the Graduate School office to replace a verified ID photo' : undefined} onclick={() => photoInput?.click()}>Replace photo</Button>
+				{#if profile.id_status !== 'verified'}<form onsubmit={uploadIdPhoto} class="space-y-3"><label for="school-id-photo" class="sr-only">Choose a new school ID photo (front)</label><input id="school-id-photo" bind:this={photoInput} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" disabled={photoUploading} class="hidden" onchange={(event) => { const selected = event.currentTarget.files?.[0]; if (!selected) return; photoError = validateStudentIdPhoto(selected) ?? ''; photoMessage = ''; if (photoError) { event.currentTarget.value = ''; showToast(photoError, 'error'); } else photoFile = selected; }} />{#if photoFile}<p class="break-words text-sm font-medium text-gray-800">{photoFile.name} <span class="text-xs font-normal text-gray-500">· {formatFileSize(photoFile.size)}</span></p><div class="flex flex-wrap gap-2"><Button type="submit" loading={photoUploading} loadingLabel="Uploading…" disabled={!!photoError}>Upload photo</Button><Button variant="ghost" disabled={photoUploading} onclick={() => { photoFile = null; photoError = ''; if (photoInput) photoInput.value = ''; }}>Remove selection</Button></div><p class="text-xs text-gray-600">Uploading the new photo automatically resubmits your ID for office review.</p>{/if}</form>{/if}
+				{#if profile.has_id_photo}<p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p><Button variant="ghost" size="sm" loading={photoPreviewLoading} disabled={photoUploading} onclick={previewIdPhoto}>Refresh photo preview</Button>{/if}
+			</div>
 		</div>
-	{/if}
+		{#if photoError}<p class="text-sm text-red-700" role="alert">{photoError}</p>{/if}{#if photoMessage}<p class="text-sm text-essu-green" role="status">{photoMessage}</p>{/if}{#if photoPreviewError}<LoadError message="We couldn’t load your ID photo preview. Please try again." onretry={previewIdPhoto} />{/if}
+	</section>
 	<!-- Profile header -->
 	<div class="profile-header bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
 		<div class="flex items-center gap-5">
@@ -375,7 +388,7 @@
 						<div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
 							<i class="fa-solid fa-lock text-gray-600 text-sm"></i>
 						</div>
-						<span class="text-sm font-medium text-gray-700">Change Password</span>
+						<span class="text-sm font-medium text-gray-700">Change password</span>
 						<i class="fa-solid fa-chevron-right text-xs text-gray-400 ml-auto"></i>
 					</button>
 					<button
@@ -385,7 +398,7 @@
 						<div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
 							<i class="fa-solid fa-envelope text-gray-600 text-sm"></i>
 						</div>
-						<span class="text-sm font-medium text-gray-700">Change Email</span>
+						<span class="text-sm font-medium text-gray-700">Change email</span>
 						<i class="fa-solid fa-chevron-right text-xs text-gray-400 ml-auto"></i>
 					</button>
 				</div>
@@ -445,7 +458,7 @@
 		<button type="submit" form="edit-form" disabled={editLoading}
 			class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
 			{#if editLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-			Save Changes
+			Save changes
 		</button>
 	{/snippet}
 </Modal>
@@ -470,7 +483,7 @@
 					<div class="relative">
 						<input bind:value={currentPassword} type={showCurrent ? 'text' : 'password'} required
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" onclick={() => (showCurrent = !showCurrent)}
+						<button type="button" aria-label={showCurrent ? 'Hide current password' : 'Show current password'} title={showCurrent ? 'Hide current password' : 'Show current password'} onclick={() => (showCurrent = !showCurrent)}
 							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
 							<i class="fa-solid {showCurrent ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
 						</button>
@@ -481,7 +494,7 @@
 					<div class="relative">
 						<input bind:value={newPassword} type={showNew ? 'text' : 'password'} required minlength="8"
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" onclick={() => (showNew = !showNew)}
+						<button type="button" aria-label={showNew ? 'Hide new password' : 'Show new password'} title={showNew ? 'Hide new password' : 'Show new password'} onclick={() => (showNew = !showNew)}
 							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
 							<i class="fa-solid {showNew ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
 						</button>
@@ -492,7 +505,7 @@
 					<div class="relative">
 						<input bind:value={confirmPassword} type={showConfirm ? 'text' : 'password'} required
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" onclick={() => (showConfirm = !showConfirm)}
+						<button type="button" aria-label={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} title={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} onclick={() => (showConfirm = !showConfirm)}
 							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
 							<i class="fa-solid {showConfirm ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
 						</button>
@@ -507,7 +520,7 @@
 			<button type="submit" form="pw-form" disabled={passwordLoading}
 				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
 				{#if passwordLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-				Update Password
+				Update password
 			</button>
 		{/if}
 	{/snippet}
@@ -538,7 +551,7 @@
 					<div class="relative">
 						<input bind:value={emailPassword} type={showEmailPassword ? 'text' : 'password'} required autocomplete="current-password"
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" onclick={() => (showEmailPassword = !showEmailPassword)}
+						<button type="button" aria-label={showEmailPassword ? 'Hide password' : 'Show password'} title={showEmailPassword ? 'Hide password' : 'Show password'} onclick={() => (showEmailPassword = !showEmailPassword)}
 							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
 							<i class="fa-solid {showEmailPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
 						</button>
@@ -553,7 +566,7 @@
 			<button type="submit" form="email-form" disabled={emailLoading}
 				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
 				{#if emailLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-				Update Email
+				Update email
 			</button>
 		{/if}
 	{/snippet}
@@ -614,7 +627,7 @@
 		<button type="submit" form="academic-form" disabled={academicLoading}
 			class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
 			{#if academicLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-			Save Changes
+			Save changes
 		</button>
 	{/snippet}
 </Modal>

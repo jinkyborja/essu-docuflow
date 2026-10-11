@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { formatName, pluralize } from '$lib/formatting';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import RowMenu from '$lib/components/ui/RowMenu.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { showToast } from '$lib/stores/toasts';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -50,42 +54,34 @@
 				body: JSON.stringify(editMember)
 			});
 			const result = await res.json();
-			if (!res.ok) { editError = result.error ?? 'Failed to save.'; return; }
+			if (!res.ok) { editError = result.error ?? 'Failed to save.'; showToast(editError, 'error'); return; }
 			staffList = staffList.map(m => m.user_id === editMember!.user_id ? { ...editMember! } : m);
-			editOpen = false;
+			editOpen = false; showToast('Staff details updated.');
 		} catch {
-			editError = 'Network error.';
+			editError = 'Network error.'; showToast(editError, 'error');
 		} finally {
 			editSaving = false;
 		}
 	}
 
 	// Delete
-	let deleteOpen = $state(false);
+	let deleteOpen = $state(false), deleting = $state(false), deleteError = $state('');
 	let deleteTarget = $state<StaffMember | null>(null);
 
 	function openDelete(m: StaffMember) {
-		deleteTarget = m;
+		if (m.user_id === currentUserId) return;
+		deleteError = ''; deleteTarget = m;
 		deleteOpen = true;
 	}
 
 	async function handleDelete() {
-		if (!deleteTarget) return;
+		if (!deleteTarget || deleting) return; deleting = true; deleteError = ''; const target = deleteTarget;
 		try {
-			const res = await fetch('/api/staff', {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ user_id: deleteTarget.user_id })
-			});
-			if (res.ok) {
-				staffList = staffList.filter(m => m.user_id !== deleteTarget!.user_id);
-				deleteOpen = false;
-			}
-		} catch {
-			// silent
-		}
+			const response = await fetch('/api/staff', {method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: target.user_id})});
+			const result = await response.json(); if (!response.ok) throw new Error(result.error ?? 'Could not delete staff member.');
+			staffList = staffList.filter(member => member.user_id !== target.user_id); deleteOpen = false; showToast('Staff member deleted.');
+		} catch (error) { deleteError = (error as Error).message; showToast(deleteError, 'error'); } finally { deleting = false; }
 	}
-
 	function openInvite() {
 		inviteEmail = '';
 		inviteRole = 'Staff';
@@ -105,10 +101,10 @@
 				body: JSON.stringify({ email: inviteEmail, role: inviteRole })
 			});
 			const result = await res.json();
-			if (!res.ok) { inviteError = result.error ?? 'Failed to send invitation.'; return; }
-			inviteSuccess = true;
+			if (!res.ok) { inviteError = result.error ?? 'Failed to send invitation.'; showToast(inviteError, 'error'); return; }
+			inviteSuccess = true; showToast('Invitation sent.');
 		} catch {
-			inviteError = 'Network error. Please try again.';
+			inviteError = 'Network error. Please try again.'; showToast(inviteError, 'error');
 		} finally {
 			inviting = false;
 		}
@@ -135,13 +131,7 @@
 		<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20">
 			{staffList.length} {pluralize(staffList.length, 'member')}
 		</span>
-		<button
-			onclick={openInvite}
-			class="flex items-center gap-2 px-4 py-2 bg-essu-green text-white text-sm rounded-lg font-medium hover:bg-essu-green-mid transition-colors"
-		>
-			<i class="fa-solid fa-paper-plane text-xs"></i>
-			Invite Staff
-		</button>
+		<Button onclick={openInvite} icon="fa-solid fa-paper-plane">Invite staff</Button>
 	</div>
 
 	<!-- Table -->
@@ -155,30 +145,29 @@
 			<!-- Mobile card list -->
 			<div class="md:hidden divide-y divide-gray-100">
 				{#each staffList as member}
-					<div class="p-4 flex items-center gap-3">
+					<article class="p-4 flex flex-wrap items-center gap-3">
 						<div class="w-10 h-10 rounded-xl bg-essu-green/10 text-essu-green flex items-center justify-center text-sm font-bold shrink-0">
 							{member.first_name[0]}{member.last_name[0]}
 						</div>
 						<div class="flex-1 min-w-0">
-							<div class="flex items-center gap-2">
+							<div class="flex flex-wrap items-center gap-2">
 								<p class="font-medium text-gray-800 text-sm">{formatName(member.first_name, member.middle_name, member.last_name)}</p>
 								<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">
 									{member.role}
 								</span>
 							</div>
-							<p class="text-xs text-gray-400 truncate">{member.email}</p>
+							<p class="text-xs text-gray-500 break-words">{member.email}</p>
 							{#if member.position}
 								<p class="text-xs text-gray-500 mt-0.5">{member.position}</p>
 							{/if}
 						</div>
-						<div class="flex items-center gap-1 shrink-0">
-						<p class="text-xs text-gray-400 mr-1">{new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
-						<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${formatName(member.first_name, member.middle_name, member.last_name)}`}><i class="fa-solid fa-pen text-sm"></i></button>
-						{#if member.user_id !== currentUserId}
-							<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${formatName(member.first_name, member.middle_name, member.last_name)}`}><i class="fa-solid fa-trash text-sm"></i></button>
-						{/if}
+						<div class="w-full border-t border-gray-100 pt-3">
+						<p class="mb-3 text-xs text-gray-500">Joined {new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
+						<div class="flex items-center gap-2">
+						<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button><RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, disabled: member.user_id === currentUserId, reason: 'You cannot delete your own account', onselect: () => openDelete(member)}]} />
 					</div>
-					</div>
+						</div>
+					</article>
 				{/each}
 			</div>
 			<!-- Desktop table -->
@@ -224,10 +213,7 @@
 								</td>
 								<td class="px-4 py-3">
 									<div class="flex items-center gap-1">
-										<button onclick={() => openEdit(member)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${formatName(member.first_name, member.middle_name, member.last_name)}`}><i class="fa-solid fa-pen text-sm"></i></button>
-										{#if member.user_id !== currentUserId}
-											<button onclick={() => openDelete(member)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${formatName(member.first_name, member.middle_name, member.last_name)}`}><i class="fa-solid fa-trash text-sm"></i></button>
-										{/if}
+										<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button><RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, disabled: member.user_id === currentUserId, reason: 'You cannot delete your own account', onselect: () => openDelete(member)}]} />
 									</div>
 								</td>
 							</tr>
@@ -241,7 +227,7 @@
 {/if}
 
 <!-- Edit Modal -->
-<Modal open={editOpen} title="Edit Staff Member" size="sm" onclose={() => (editOpen = false)}>
+<Modal open={editOpen} title="Edit Staff Member" size="sm" onclose={() => { if (!editSaving) editOpen = false; }}>
 	{#snippet body()}
 		{#if editMember}
 			<form id="edit-staff-form" onsubmit={handleEdit} class="space-y-4">
@@ -268,12 +254,7 @@
 					<label class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></label>
 					<div class="grid grid-cols-2 gap-3">
 						{#each ['Staff', 'Admin'] as r}
-							<button type="button" onclick={() => { if (editMember) editMember.role = r as 'Staff' | 'Admin'; }}
-								class="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center
-									{editMember.role === r ? 'border-essu-green bg-essu-green/5' : 'border-gray-200 hover:border-gray-300'}">
-								<i class="fa-solid {r === 'Admin' ? 'fa-shield-halved' : 'fa-user-tie'} text-lg {editMember.role === r ? 'text-essu-green' : 'text-gray-400'}"></i>
-								<span class="text-sm font-medium {editMember.role === r ? 'text-essu-green' : 'text-gray-600'}">{r}</span>
-							</button>
+							<Button variant={editMember.role === r ? 'primary' : 'secondary'} disabled={editMember.user_id === currentUserId} disabledReason="You cannot change your own role" onclick={() => { if (editMember && editMember.user_id !== currentUserId) editMember.role = r as 'Staff' | 'Admin'; }}>{r}</Button>
 						{/each}
 					</div>
 				</div>
@@ -281,41 +262,14 @@
 		{/if}
 	{/snippet}
 	{#snippet footer()}
-		<button onclick={() => (editOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
-		<button type="submit" form="edit-staff-form" disabled={editSaving} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
-			{#if editSaving}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
-			Save Changes
-		</button>
+		<Button variant="secondary" disabled={editSaving} onclick={() => (editOpen = false)}>Cancel</Button>
+		<Button type="submit" form="edit-staff-form" loading={editSaving}>Save changes</Button>
 	{/snippet}
 </Modal>
 
-<!-- Delete Modal -->
-<Modal open={deleteOpen} title="Delete Staff Member" size="sm" onclose={() => (deleteOpen = false)}>
-	{#snippet body()}
-		{#if deleteTarget}
-			<div class="flex items-start gap-4">
-				<div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-					<i class="fa-solid fa-triangle-exclamation text-red-500"></i>
-				</div>
-				<p class="text-sm text-gray-700">
-					Are you sure you want to delete
-					<span class="font-semibold">{formatName(deleteTarget.first_name, deleteTarget.middle_name, deleteTarget.last_name)}</span>?
-					This will permanently remove their account.
-					<span class="font-medium text-red-600">This cannot be undone.</span>
-				</p>
-			</div>
-		{/if}
-	{/snippet}
-	{#snippet footer()}
-		<button onclick={() => (deleteOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
-		<button onclick={handleDelete} class="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2">
-			<i class="fa-solid fa-trash text-xs"></i> Delete
-		</button>
-	{/snippet}
-</Modal>
-
+<ConfirmDialog open={deleteOpen} title="Delete staff member" message={'Delete ' + (deleteTarget ? formatName(deleteTarget.first_name, deleteTarget.middle_name, deleteTarget.last_name) : 'this staff member') + '? This permanently removes their account.'} confirmLabel="Delete staff member" loading={deleting} error={deleteError} onclose={() => deleteOpen = false} onconfirm={() => void handleDelete()} />
 <!-- Invite Modal -->
-<Modal open={inviteOpen} title="Invite Staff Member" size="sm" onclose={() => (inviteOpen = false)}>
+<Modal open={inviteOpen} title="Invite Staff Member" size="sm" onclose={() => { if (!inviting) inviteOpen = false; }}>
 	{#snippet body()}
 		{#if inviteSuccess}
 			<div class="text-center py-4">
@@ -382,15 +336,7 @@
 			>
 				Cancel
 			</button>
-			<button
-				type="submit"
-				form="invite-form"
-				disabled={inviting}
-				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2"
-			>
-				{#if inviting}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-				Send Invitation
-			</button>
+			<Button type="submit" form="invite-form" loading={inviting}>Send invitation</Button>
 		{/if}
 	{/snippet}
 </Modal>

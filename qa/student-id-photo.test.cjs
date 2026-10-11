@@ -235,7 +235,7 @@ test('Admin verification rejects missing photos even with a masterlist override;
 });
 
 function renderPage(filename, data, location, source) {
-	const imports = { '$app/stores': { page: writable({ url: new URL('http://localhost' + location), data }) }, '$app/navigation': { goto: async () => {}, invalidateAll: async () => {} }, '$app/environment': { browser: false }, '$lib/stores/notifications': { notifUnreadCount: writable(0), startNotifications: () => {} }, '$lib/stores/sidebar': { sidebarCollapsed: writable(false), sidebarMobileOpen: writable(false) } };
+	const imports = { '$app/stores': { navigating: writable(null), page: writable({ url: new URL('http://localhost' + location), data }) }, '$app/navigation': { goto: async () => {}, invalidateAll: async () => {} }, '$app/environment': { browser: false }, '$lib/stores/notifications': { notifUnreadCount: writable(0), startNotifications: () => {} }, '$lib/stores/sidebar': { sidebarCollapsed: writable(false), sidebarMobileOpen: writable(false) } };
 	return render(load(filename, imports, source).default, { props: { data, children: () => {} } }).body;
 }
 
@@ -243,7 +243,8 @@ test('Dashboard/profile banners appear once for pending/rejected students; verif
 	for (const status of ['pending', 'rejected', 'verified']) {
 		for (const location of ['/student/dashboard', '/student/profile']) {
 			const html = renderPage('src/routes/student/+layout.svelte', { layoutUser: { name: 'Juan Cruz', initials: 'JC', idStatus: status }, notifCount: 0 }, location);
-			assert.equal((html.match(/Upload a clear photo of your school ID \(front\)/g) ?? []).length, status === 'verified' ? 0 : 1);
+			assert.equal((html.match(/Your account is being reviewed by the Graduate School office\./g) ?? []).length, status === 'pending' ? 1 : 0);
+			assert.equal((html.match(/Your ID could not be verified/g) ?? []).length, status === 'rejected' ? 1 : 0);
 		}
 		const html = renderPage('src/routes/student/profile/+page.svelte', { profile: { first_name: 'Juan', middle_name: null, last_name: 'Cruz', id_status: status, has_id_photo: false } }, '/student/profile');
 		assert.equal(html.includes('id="school-id-photo"'), status !== 'verified'); assert.doesNotMatch(html, /<img/);
@@ -256,7 +257,8 @@ test('Admin review displays the photo beside details and disables Verify when no
 	for (const hasPhoto of [false, true]) {
 		const student = { user_id: 8, first_name: 'Juan', last_name: 'Cruz', email: 'fake@example.invalid', student_id: '26-0001', program: 'QA', id_status: 'pending', has_id_photo: hasPhoto, id_photo_url: hasPhoto ? 'https://storage.invalid/read?token=fake' : null, masterlistMatch: { found: true, name: 'match', program: 'match', campus: 'missing', values: {} } };
 		const html = renderPage(filename, { allowed: true, role: 'Admin', students: [student] }, '/staff/students', source);
-		const verifyButton = html.match(/<button[^>]*>Verify student<\/button>/)[0];
+		const verifyButton = (html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []).find(button => button.includes('Verify student'));
+		assert.ok(verifyButton, 'Verify action is present');
 		assert.equal(/\sdisabled(?:[ >]|=)/.test(verifyButton), !hasPhoto);
 		if (hasPhoto) assert.match(html, /<img[^>]*src="https:\/\/storage.invalid\/read\?token=fake"/);
 		else assert.match(html, /No ID photo uploaded/);
@@ -271,6 +273,6 @@ test('A failed review load offers a retry and does not claim the student has no 
 	const student = { user_id: 8, first_name: 'Juan', last_name: 'Cruz', email: 'fake@example.invalid', student_id: '26-0001', program: 'QA', id_status: 'pending' };
 	const html = renderPage(filename, { allowed: true, role: 'Admin', students: [student] }, '/staff/students', source);
 	assert.match(html, /ID photo details could not be loaded/);
-	assert.match(html, /Retry loading review/);
+	assert.match(html, /Try again/);
 	assert.doesNotMatch(html, /No ID photo uploaded|>Verify student<|>Reject</);
 });

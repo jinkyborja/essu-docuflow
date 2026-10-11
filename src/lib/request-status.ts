@@ -13,7 +13,7 @@ export const STATUS_COLORS: Record<RequestStatus, { color: string; classes: stri
 };
 
 const labels: Record<RequestStatus, string> = {
-	pending: 'Pending review', correction_requested: 'Needs correction', approved: 'Approved',
+	pending: 'Pending', correction_requested: 'Correction Requested', approved: 'Approved',
 	processing: 'Processing', ready_for_pickup: 'Ready for pickup', released: 'Released',
 	rejected: 'Rejected', cancelled: 'Cancelled'
 };

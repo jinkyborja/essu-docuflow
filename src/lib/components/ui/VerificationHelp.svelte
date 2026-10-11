@@ -1,12 +1,32 @@
 <script lang="ts">
-	let note=$state(''),busy=$state(false),sent=$state(false),error=$state('');
+	import Button from './Button.svelte';
+	import { showToast } from '$lib/stores/toasts';
+	import { newIdPhotoUploaded } from '$lib/stores/id-review';
+	let { reason }: { reason: string | null } = $props();
+	let note = $state(''), addingNote = $state(false), busy = $state(false), sent = $state(false), error = $state('');
+	const enabled = $derived(!!note.trim() || $newIdPhotoUploaded);
 	async function requestReview() {
-		busy=true;error='';
-		try {const res=await fetch('/api/students/review-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});const data=await res.json();if(!res.ok){error=data.error??'Could not send review request.';return;}sent=true;} catch {error='Could not send review request. Please try again.';} finally {busy=false;}
+		if (busy || !enabled || sent) return;
+		busy = true; error = '';
+		try {
+			// Photo completion already queues its review; avoid a duplicate review request.
+			if (!$newIdPhotoUploaded) {
+				const response = await fetch('/api/students/review-request', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({note: note.trim()})});
+				const result = await response.json();
+				if (!response.ok) throw new Error(result.error ?? 'Could not send your review request.');
+			}
+			sent = true; showToast('Your ID review request was sent to the Graduate School office.');
+		} catch (failure) { error = (failure as Error).message; showToast(error, 'error'); }
+		finally { busy = false; }
 	}
 </script>
-<details class="mt-3 text-sm"><summary class="cursor-pointer font-medium focus:outline-none focus:ring-2 focus:ring-essu-green/30">Need another ID review?</summary><div class="mt-2 space-y-2">
-	<p>Explain any incorrect details or historical enrollment records the office should check. Your account stays restricted until an administrator reviews it. You can also contact the Graduate School office with your student ID.</p>
-	{#if sent}<p role="status" class="text-essu-green font-medium">Your review request was sent to the office.</p>{:else}<label class="block">What should the office check?<textarea bind:value={note} maxlength="275" rows="2" class="block mt-1 w-full rounded-lg border border-gray-200 p-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-essu-green/30"></textarea></label><button onclick={requestReview} disabled={busy || !note.trim()} class="rounded-lg bg-essu-green text-white px-3 py-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">{busy?'Sending...':'Request another review'}</button>{/if}
-	{#if error}<p role="alert" class="text-red-700">{error}</p>{/if}
-</div></details>
+<section aria-labelledby="id-rejected-heading" class="mb-5 rounded-xl border border-red-200 bg-white p-5 shadow-sm">
+	<h2 id="id-rejected-heading" class="text-lg font-semibold text-gray-800">Your ID could not be verified</h2>
+	<p class="mt-2 text-sm text-red-800"><span class="font-medium">Reason:</span> {reason || 'Please contact the Graduate School office.'}</p>
+	<ol class="my-4 list-decimal space-y-2 pl-5 text-sm text-gray-700"><li>Upload a new, clear photo of your school ID (front).</li><li>Optionally add a note for the office.</li><li>Resubmit for review.</li></ol>
+	{#if addingNote}<label class="mb-4 block text-sm font-medium text-gray-700">Note for the office (optional)<textarea bind:value={note} maxlength="275" rows="3" disabled={busy || sent} class="mt-2 block w-full rounded-lg border border-gray-300 p-3 text-sm" placeholder="Tell the office what to check again."></textarea></label>{/if}
+	<div class="flex flex-wrap gap-3"><Button href="/student/profile#school-id-photo-card">Upload new ID photo</Button><Button variant="secondary" disabled={busy || sent} onclick={() => addingNote = !addingNote}>{addingNote ? 'Hide note' : 'Add a note'}</Button><Button variant="secondary" loading={busy} loadingLabel="Sending…" disabled={!enabled || sent} disabledReason={sent ? 'Your review request has already been sent' : 'Upload a new ID photo or type a note first'} onclick={() => void requestReview()}>Resubmit for review</Button></div>
+	{#if !enabled && !sent}<p class="mt-3 text-xs text-gray-600">Upload a new ID photo or type a note to enable resubmission.</p>{/if}
+	{#if sent}<p role="status" class="mt-3 text-sm text-essu-green">Your review request was sent. Wait for the office to finish reviewing.</p>{/if}
+	{#if error}<p role="alert" class="mt-3 text-sm text-red-700">{error}</p>{/if}
+</section>

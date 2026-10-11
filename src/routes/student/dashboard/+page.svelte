@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -8,6 +9,9 @@
 	type DashboardRequest = { completed_at?: string | null; approved_file_path?: string | null; request_id: string; document_name: string; items: RequestItem[]; status: string; date_requested: string };
 	const activeRequests = $derived((data.requests as DashboardRequest[]).filter(req => !req.completed_at).sort((a,b) => Number(b.status === 'Correction Requested') - Number(a.status === 'Correction Requested')));
 	let expandedRequests = $state<string[]>([]);
+	const locked = $derived(data.layoutUser.idStatus !== 'verified');
+	const lockReason = 'Available after your ID is verified';
+	const nextStep = $derived(data.layoutUser.idStatus === 'verified' ? 'Choose Request Document to start.' : data.layoutUser.idStatus === 'rejected' ? 'Upload a new ID photo, then resubmit.' : 'Wait for the office to finish reviewing. You can browse Forms meanwhile.');
 
 	const recentNotifs = $derived(
 		data.recentHistory.map((h) => ({
@@ -27,7 +31,7 @@
 
 <div class="space-y-5">
 	<div class="next-step-panel rounded-xl border border-gray-100 bg-white p-5 text-sm">
-		<p class="font-semibold text-gray-800">Your next step</p><p class="mt-1 text-gray-600">{data.layoutUser.idStatus !== 'verified' ? 'Check your verification banner above. You can browse Forms while the office reviews your account.' : activeRequests.some(req => req.status === 'Correction Requested') ? 'You have a request needing corrections. Open it below to update the flagged files.' : activeRequests.some(req => req.status === 'Approved') ? 'An approved document is ready. Open My Documents to download it.' : activeRequests.length ? 'Your request is waiting for office review. Track it below.' : 'Choose Request Document to start. The wizard shows the requirements and linked forms.'}</p>
+		<p class="font-semibold text-gray-800">Your next step</p><p class="mt-1 text-gray-600">{nextStep}</p>
 	</div>
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
 		<!-- Active Requests -->
@@ -46,9 +50,7 @@
 				<div class="py-12 text-center">
 					<i class="fa-solid fa-file-circle-plus text-3xl text-gray-200 mb-3"></i>
 					<p class="text-sm text-gray-400">No active requests</p>
-					<a href="/student/request" class="mt-3 inline-block text-sm text-essu-green font-medium hover:underline">
-						Request a document →
-					</a>
+					<div class="mt-3">{#if locked}<button type="button" aria-disabled="true" title={lockReason} aria-label={`Request a document. ${lockReason}`} class="inline-flex min-h-11 items-center gap-2 rounded-lg border border-essu-green/25 px-4 text-sm font-medium text-essu-green"><i class="fa-solid fa-lock" aria-hidden="true"></i>Request a document</button>{:else}<Button href="/student/request" size="sm">Request a document</Button>{/if}</div>
 				</div>
 			{:else}
 				<div class="divide-y divide-gray-50">
@@ -80,7 +82,7 @@
 					<a href="/student/notifications" class="text-xs text-essu-green hover:underline">View all</a>
 				</div>
 				{#if recentNotifs.length === 0}
-					<p class="text-sm text-gray-400 text-center py-6">No new notifications</p>
+					<div class="py-6 text-center"><p class="mb-3 text-sm text-gray-600">No notifications yet. Office updates will appear here.</p><Button variant="secondary" href="/student/notifications" size="sm">View notifications</Button></div>
 				{:else}
 					<div class="divide-y divide-gray-50">
 						{#each recentNotifs as notif}
@@ -101,15 +103,19 @@
 				<h2 class="font-semibold text-gray-800 mb-3 text-sm">Quick Actions</h2>
 				<div class="grid grid-cols-1 gap-2">
 					{#each quickActions as action}
+						{#if action.href === '/student/request' && locked}
+							<button type="button" aria-disabled="true" title={lockReason} aria-label={`${action.label}. ${lockReason}`} class="quick-action-link quick-action-secondary flex min-h-11 items-center gap-3 rounded-xl border border-essu-green/20 px-4 py-3 text-left">
+								<i class="fa-solid fa-lock text-lg" aria-hidden="true"></i><span class="flex-1 text-sm font-medium">{action.label}</span>
+							</button>
+						{:else}
 						<a
 							href={action.href}
-							aria-disabled={action.href === '/student/request' && data.layoutUser.idStatus !== 'verified'}
-							onclick={(event) => { if (action.href === '/student/request' && data.layoutUser.idStatus !== 'verified') event.preventDefault(); }}
-							class="quick-action-link {action.href === '/student/request' && data.layoutUser.idStatus !== 'verified' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : action.color} flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors"
+							class="quick-action-link {action.color} flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors"
 						>
 							<i class="{action.icon} text-lg"></i>
 							<span class="flex-1 text-sm font-medium">{action.label}</span><i class="fa-solid fa-arrow-right text-xs" aria-hidden="true"></i>
 						</a>
+						{/if}
 					{/each}
 				</div>
 			</div>

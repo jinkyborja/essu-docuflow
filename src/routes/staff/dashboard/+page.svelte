@@ -5,8 +5,15 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { PageData } from './$types';
+	import { onMount } from 'svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import { fetchAdminRequests, recentActivity, type AdminRequest } from '$lib/admin-requests';
+	import { showToast } from '$lib/stores/toasts';
 
 	const { data }: { data: PageData } = $props();
+	let submittedRequests = $state<AdminRequest[] | null>(null);
+	const activity = $derived(recentActivity(data.recentActivity, submittedRequests ?? data.pendingQueue as unknown as AdminRequest[]));
+	onMount(() => { void fetchAdminRequests().then(requests => { submittedRequests = requests; }).catch(error => showToast(error.message, 'error')); });
 
 	const activityIcons: Record<string, string> = {
 		pending: 'fa-solid fa-clock', correction_requested: 'fa-solid fa-rotate-left',
@@ -25,9 +32,9 @@
 		<a href="/staff/requests?status=Approved" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Approved"         value={data.counts.approved} icon="fa-solid fa-circle-check"  color="green"  /></a>
 	</div>
 	{#if data.role === 'Admin'}
-		<a href="/staff/students?status=pending" class="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900 hover:bg-amber-100">
-			<span class="font-semibold">Student IDs awaiting office verification</span><span class="rounded-full bg-amber-200 px-3 py-1 text-sm font-bold">{data.counts.pendingVerification}</span>
-		</a>
+		<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-5 py-4 {data.counts.pendingVerification > 0 ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-gray-200 bg-gray-50 text-gray-600'}">
+			<span class="font-semibold">Student IDs awaiting office verification</span><div class="flex items-center gap-3"><span class="rounded-full px-3 py-1 text-sm font-bold {data.counts.pendingVerification > 0 ? 'bg-amber-200' : 'bg-gray-200'}">{data.counts.pendingVerification}</span><Button href="/staff/students?status=pending" variant={data.counts.pendingVerification > 0 ? 'primary' : 'secondary'} size="sm">Review now</Button></div>
+		</div>
 	{/if}
 
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -48,14 +55,14 @@
 			</div>
 
 			{#if data.pendingQueue.length === 0}
-				<EmptyState message="No requests need action" icon="fa-solid fa-inbox" />
+				<EmptyState message="No requests need action" description="You’re up to date. View all requests to check their progress." icon="fa-solid fa-inbox" /><div class="flex justify-center pb-6"><Button variant="secondary" href="/staff/requests">View requests</Button></div>
 			{:else}
 				<div class="md:hidden divide-y divide-gray-100">
 					{#each data.pendingQueue as req}
 						<article class="p-4 space-y-3">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0"><p class="text-sm font-semibold">{formatName(req.first_name, req.middle_name, req.last_name)}</p><p class="text-xs text-gray-500 mt-1">{req.request_id}</p></div>
-								<a href="/staff/requests/{req.request_id}" class="page-primary-action">{req.action_needed} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+								<Button href={'/staff/requests/' + req.request_id} size="sm" icon="fa-solid fa-eye">Review</Button>
 							</div>
 							<p class="text-sm text-gray-600">{req.document_name}</p>
 							<Badge value={req.status as string} size="sm" />
@@ -84,10 +91,7 @@
 										{new Date(req.date_requested as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 									</td>
 									<td class="px-4 py-3">
-										<a href="/staff/requests/{req.request_id}"
-											class="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors">
-											<i class="fa-solid fa-eye text-[10px]"></i> {req.action_needed}
-										</a>
+										<Button href={'/staff/requests/' + req.request_id} size="sm" icon="fa-solid fa-eye">Review</Button>
 									</td>
 								</tr>
 							{/each}
@@ -104,20 +108,20 @@
 				<div class="px-5 py-4 border-b border-gray-100">
 					<h2 class="font-semibold text-gray-800">Recent Activity</h2>
 				</div>
-				{#if data.recentActivity.length === 0}
-					<p class="text-sm text-gray-400 text-center py-6">No recent activity</p>
+				{#if activity.length === 0}
+					<div class="py-6 text-center"><p class="mb-3 text-sm text-gray-600">No recent activity</p><Button variant="secondary" href="/staff/requests">View requests</Button></div>
 				{:else}
 					<div class="divide-y divide-gray-50">
-						{#each data.recentActivity as item}
+						{#each activity as item}
 							{@const status = requestStatusKey(item.new_status as string)}
 							{@const color = status ? STATUS_COLORS[status].color : '#64748b'}
 							<div class="flex items-start gap-3 px-5 py-3">
 								<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={`color:${color};background:${color}18`}>
-									<i class="{activityIcons[status ?? ''] ?? 'fa-solid fa-gear'} text-xs"></i>
+									<i class="{item.new_status === 'Request submitted' ? 'fa-solid fa-file-circle-plus' : activityIcons[status ?? ''] ?? 'fa-solid fa-gear'} text-xs" aria-hidden="true"></i>
 								</div>
 								<div class="min-w-0">
 									<p class="text-sm font-medium text-gray-700 leading-tight truncate">
-										{item.document_name}: {statusLabel(item.new_status as string)}
+										{item.document_name}: {item.new_status === 'Request submitted' ? 'Request submitted' : statusLabel(item.new_status as string)}
 									</p>
 									<p class="text-xs text-gray-400 mt-0.5">
 										{formatName(item.first_name, item.middle_name, item.last_name)} ·

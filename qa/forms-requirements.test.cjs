@@ -96,9 +96,9 @@ test('Wizard retains form downloads and shows signer instructions only when sign
 	for (const needsSignature of [true, false]) {
 		const data = { idStatus: 'verified', documents: [{ document_id: 1, name: 'Transcript', requirements: [{ name: 'Clearance Form', in_person: false, form_id: 4, needs_signature: needsSignature, signature_note: 'Adviser and Dean', form_title: 'Graduate clearance', form_files: [{ public_url: 'https://forms.invalid/form.pdf', name: 'form.pdf' }] }] }] };
 		const html = render(load(filename, { '$app/navigation': { goto() {} } }, source).default, { props: { data } }).body;
-		assert.match(html, /Download form/); assert.match(html, /href="https:\/\/forms.invalid\/form.pdf"/); assert.doesNotMatch(html, /multiple/);
+		assert.match(html, /Download form/); assert.match(html, /title="form.pdf"/); assert.match(source, /downloadStudentFile\(file.public_url, file.name\)/); assert.doesNotMatch(html, /multiple/);
 		if (needsSignature) assert.match(html, /Get this form signed by: Adviser and Dean, then upload a photo or PDF of the signed form\./);
-		else { assert.doesNotMatch(html, /Get this form signed by|Upload the signed form/); assert.match(html, /Upload the completed form/); }
+		else { assert.doesNotMatch(html, /Get this form signed by|Upload the signed form/); assert.match(html, /Upload Clearance Form/); }
 	}
 });
 
