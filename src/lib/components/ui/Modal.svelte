@@ -14,6 +14,7 @@
 
 	const { open, title, size = 'md', onclose, body, footer }: Props = $props();
 	const titleId = $props.id();
+	let panel = $state<HTMLDivElement>();
 
 	function manageFocus(panel: HTMLElement) {
 		const previousFocus = document.activeElement as HTMLElement | null;
@@ -46,7 +47,9 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (open && e.key === 'Escape') onclose();
+		if (!open || e.key !== 'Escape' || e.defaultPrevented) return;
+		const dialogs = document.querySelectorAll('[role="dialog"]');
+		if (dialogs[dialogs.length - 1] === panel) { e.preventDefault(); onclose(); }
 	}
 </script>
 
@@ -62,6 +65,7 @@
 	>
 		<!-- Modal panel -->
 		<div
+			bind:this={panel}
 			use:manageFocus
 			role="dialog"
 			aria-modal="true"
@@ -77,6 +81,7 @@
 					onclick={onclose}
 					class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
 					aria-label="Close modal"
+					title="Close modal"
 				>
 					<i class="fa-solid fa-xmark text-sm"></i>
 				</button>

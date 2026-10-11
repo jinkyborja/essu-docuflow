@@ -168,5 +168,5 @@ test('Signup renders labeled campus and required photo controls; uploaded pendin
 	assert.match(html, /id="signup-campus"/); assert.match(html, /id="signup-id-photo"[^>]*required/); assert.match(html, /up to 5 MB/);
 	const data = { layoutUser: { name: 'Juan Cruz', initials: 'JC', idStatus: 'pending', hasIdPhoto: true }, notifCount: 0 };
 	const layout = render(load('src/routes/student/+layout.svelte', { '$app/navigation': { goto: async () => {} }, '$app/stores': { page: writable({ url: new URL('http://localhost/student/dashboard'), data }) }, '$lib/stores/notifications': { notifUnreadCount: writable(0), startNotifications() {} }, '$lib/stores/sidebar': { sidebarCollapsed: writable(false), sidebarMobileOpen: writable(false) } }).default, { props: { data, children: () => {} } }).body;
-	assert.match(layout, /awaiting administrator review/); assert.doesNotMatch(layout, /Upload on My Profile/);
+	assert.match(layout, /Your account is being reviewed by the Graduate School office/); assert.doesNotMatch(layout, /Upload on My Profile/);
 });

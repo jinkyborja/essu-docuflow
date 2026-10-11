@@ -1,6 +1,13 @@
 <script lang="ts">
 	import type { RequirementSettings } from '$lib/server/requirements';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import { onMount } from 'svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import LoadError from '$lib/components/ui/LoadError.svelte';
+	import RowMenu from '$lib/components/ui/RowMenu.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { showToast } from '$lib/stores/toasts';
+	import { fetchAdminRequests, documentHasRequests, type AdminRequest } from '$lib/admin-requests';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -13,6 +20,11 @@
 
 	let documents = $state(data.documents as DocRow[]);
 
+	let requestUsage = $state<AdminRequest[]>([]), usageLoaded = $state(false), usageError = $state('');
+	let deleteTarget = $state<DocRow | null>(null), deleting = $state(false), deleteError = $state('');
+	onMount(() => { void loadUsage(); });
+	async function loadUsage() { try { requestUsage = await fetchAdminRequests(); usageLoaded = true; usageError = ''; } catch (error) { usageLoaded = false; usageError = (error as Error).message; showToast(usageError, 'error'); } }
+	function deleteReason(doc: DocRow) { return !usageLoaded ? usageError ? 'Could not check requests' : 'Checking requests' : documentHasRequests(doc.document_id, requestUsage) ? 'Used by requests' : ''; }
 	// Modal mode
 	let modalOpen = $state(false);
 	let editingId = $state<number | null>(null);
@@ -106,27 +118,29 @@
 				body: fd
 			});
 			const result = await res.json();
-			if (!res.ok) { saveError = result.error ?? 'Failed to save.'; return; }
+			if (!res.ok) { saveError = result.error ?? 'Failed to save.'; showToast(saveError, 'error'); return; }
+			modalOpen = false; showToast(editingId !== null ? 'Document updated.' : 'Document added.');
 			const listRes = await fetch('/api/documents');
+			if (!listRes.ok) throw new Error('Saved, but could not refresh documents. Reload this page.');
 			documents = await listRes.json();
 			modalOpen = false;
-		} catch {
-			saveError = 'Network error.';
+		} catch (error) {
+			saveError = (error as Error).message || 'Network error.'; showToast(saveError, 'error');
 		} finally {
 			saving = false;
 		}
 	}
 
-	async function handleDelete(id: number) {
-		if (!confirm('Delete this document? This cannot be undone.')) return;
-		const res = await fetch('/api/documents', {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ document_id: id })
-		});
-		if (res.ok) documents = documents.filter(d => d.document_id !== id);
+	async function handleDelete() {
+		if (!deleteTarget || deleting) return; const target = deleteTarget; deleting = true; deleteError = '';
+		try {
+			requestUsage = await fetchAdminRequests(); usageLoaded = true;
+			if (documentHasRequests(target.document_id, requestUsage)) throw new Error('This document is used by requests and cannot be deleted.');
+			const response = await fetch('/api/documents', {method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({document_id: target.document_id})});
+			const result = await response.json(); if (!response.ok) throw new Error(result.error ?? 'Could not delete document.');
+			documents = documents.filter(doc => doc.document_id !== target.document_id); deleteTarget = null; showToast('Document deleted.');
+		} catch (error) { deleteError = (error as Error).message; showToast(deleteError, 'error'); } finally { deleting = false; }
 	}
-
 	// Requirements arrive as rows from the server; nothing to parse.
 	function parseReqs(
 		reqs: DocRow['requirements'] | null | undefined
@@ -134,40 +148,30 @@
 		return reqs ?? [];
 	}
 
+	async function templateUrl(path: string) { const response = await fetch('/api/storage?bucket=templates&path=' + encodeURIComponent(path)); const result = await response.json(); if (!response.ok || !result.url) throw new Error(result.error ?? 'Could not open template.'); return result.url as string; }
 	async function openTemplate(path: string) {
-		const res = await fetch(`/api/storage?bucket=templates&path=${encodeURIComponent(path)}`);
-		const data = await res.json();
-		if (data.url) window.open(data.url, '_blank');
+		const preview = window.open('about:blank', '_blank');
+		if (!preview) { showToast('Allow pop-ups to view this template.', 'error'); return; }
+		preview.opener = null;
+		try { preview.location.replace(await templateUrl(path)); showToast('Template opened.'); }
+		catch (error) { preview.close(); showToast((error as Error).message, 'error'); }
 	}
-
-	async function downloadTemplate(path: string, name: string) {
-		const res = await fetch(`/api/storage?bucket=templates&path=${encodeURIComponent(path)}`);
-		const data = await res.json();
-		if (!data.url) return;
-		const a = document.createElement('a');
-		a.href = data.url;
-		a.download = name;
-		a.click();
-	}
+	async function downloadTemplate(path: string, name: string) { try { const url = await templateUrl(path); const response = await fetch(url); if (!response.ok) throw new Error('Could not download template.'); const objectUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = objectUrl; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); showToast('Template download started.'); } catch (error) { showToast((error as Error).message, 'error'); } }
 </script>
 
 <div class="space-y-5">
 	<!-- Header -->
 	<div class="page-toolbar flex items-center justify-between gap-3">
 		<p class="text-sm text-gray-500">Document catalog</p>
-		<button
-			onclick={openAdd}
-			class="flex items-center gap-2 px-4 py-2 bg-essu-green text-white rounded-lg text-sm font-medium hover:bg-essu-green-mid transition-colors"
-		>
-			<i class="fa-solid fa-plus text-xs"></i> Add Document
-		</button>
+		<Button onclick={openAdd} icon="fa-solid fa-plus">Add document</Button>
 	</div>
 
+	{#if usageError}<LoadError message="We couldn’t check linked requests. Please try again." onretry={() => void loadUsage()} />{:else if !usageLoaded}<p role="status" class="flex items-center gap-2 text-sm text-gray-600"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Checking linked requests…</p>{/if}
 	<!-- Document list -->
 	{#if documents.length === 0}
 		<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-16 text-center">
 			<i class="fa-solid fa-file-circle-plus text-4xl text-gray-200 mb-4 block"></i>
-			<p class="text-gray-500 text-sm">No documents yet. Add one to get started.</p>
+			<p class="text-gray-500 text-sm">No documents yet. Add one to get started.</p><div class="mt-4"><Button onclick={openAdd}>Add document</Button></div>
 		</div>
 	{:else}
 		<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -187,14 +191,7 @@
 								</p>
 							</div>
 						</div>
-						<div class="flex items-center gap-1 shrink-0">
-							<button onclick={() => openEdit(doc)} class="p-1.5 text-gray-300 hover:text-essu-green transition-colors" title="Edit" aria-label={`Edit ${doc.name}`}>
-								<i class="fa-solid fa-pen text-sm"></i>
-							</button>
-							<button onclick={() => handleDelete(doc.document_id)} class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Delete" aria-label={`Delete ${doc.name}`}>
-								<i class="fa-solid fa-trash text-sm"></i>
-							</button>
-						</div>
+						<RowMenu label={'Actions for ' + doc.name} items={[{label: 'Edit', onselect: () => openEdit(doc)}, {label: 'Delete', danger: true, disabled: !!deleteReason(doc), reason: deleteReason(doc), onselect: () => { deleteTarget = doc; deleteError = ''; }}]} />
 					</div>
 
 					<!-- Template -->
@@ -202,20 +199,8 @@
 						<div class="mt-3 flex items-center gap-2 text-xs bg-essu-green/5 border border-essu-green/20 rounded-lg px-3 py-2">
 							<i class="fa-solid fa-paperclip text-essu-green shrink-0"></i>
 							<span class="flex-1 truncate text-essu-green font-medium">{doc.template_name}</span>
-							<button
-								onclick={() => openTemplate(doc.template_path!)}
-								class="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-essu-green/30 text-essu-green hover:bg-essu-green hover:text-white transition-colors"
-								title="View"
-							>
-								<i class="fa-solid fa-eye"></i> View
-							</button>
-							<button
-								onclick={() => downloadTemplate(doc.template_path!, doc.template_name!)}
-								class="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-essu-green/30 text-essu-green hover:bg-essu-green hover:text-white transition-colors"
-								title="Download"
-							>
-								<i class="fa-solid fa-download"></i> Download
-							</button>
+							<Button variant="secondary" size="sm" onclick={() => void openTemplate(doc.template_path!)} icon="fa-solid fa-eye">View</Button>
+							<Button variant="secondary" size="sm" onclick={() => void downloadTemplate(doc.template_path!, doc.template_name!)} icon="fa-solid fa-download">Download</Button>
 						</div>
 					{/if}
 
@@ -249,7 +234,7 @@
 	open={modalOpen}
 	title={editingId !== null ? 'Edit Document' : 'Add Document'}
 	size="md"
-	onclose={() => (modalOpen = false)}
+	onclose={() => { if (!saving) modalOpen = false; }}
 >
 	{#snippet body()}
 		<form id="doc-form" onsubmit={handleSave} class="space-y-5">
@@ -349,6 +334,7 @@
 								<button
 									type="button"
 									onclick={() => { customReqs = customReqs.filter((_, j) => j !== i); }}
+									aria-label="Remove custom requirement" title="Remove custom requirement"
 									class="p-1.5 text-gray-300 hover:text-red-500 transition-colors"
 								>
 									<i class="fa-solid fa-xmark"></i>
@@ -386,10 +372,9 @@
 		</form>
 	{/snippet}
 	{#snippet footer()}
-		<button onclick={() => (modalOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-		<button type="submit" form="doc-form" disabled={saving} class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
-			{#if saving}<i class="fa-solid fa-circle-notch fa-spin"></i>{/if}
-			{editingId !== null ? 'Save Changes' : 'Save Document'}
-		</button>
+		<Button variant="secondary" disabled={saving} onclick={() => (modalOpen = false)}>Cancel</Button>
+		<Button type="submit" form="doc-form" loading={saving}>{editingId !== null ? 'Save changes' : 'Add document'}</Button>
 	{/snippet}
 </Modal>
+
+<ConfirmDialog open={!!deleteTarget} title="Delete document" message={'Delete “' + (deleteTarget?.name ?? 'this document') + '”? This cannot be undone.'} confirmLabel="Delete document" loading={deleting} error={deleteError} onclose={() => deleteTarget = null} onconfirm={() => void handleDelete()} />

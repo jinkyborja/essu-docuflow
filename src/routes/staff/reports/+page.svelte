@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { responsiveTable } from '$lib/responsive-table';
 	import { pluralize } from '$lib/formatting';
 	import { REQUEST_STATUSES, requestStatusKey, statusLabel, STATUS_COLORS, type RequestStatus } from '$lib/request-status';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -406,7 +407,7 @@
 			<header class="report-card-header"><div><h3>Recent Requests</h3><p>Latest requests in the selected period</p></div><span class="report-chart-total">{recentRequests.length} shown</span></header>
 			{#if recentRequests.length}
 				<div class="report-table-scroll">
-					<table class="report-recent-table"><thead><tr><th>Student</th><th>Document</th><th>Status</th><th>Requested</th><th><span class="sr-only">Open request</span></th></tr></thead>
+					<table use:responsiveTable class="responsive-table report-recent-table"><thead><tr><th>Student</th><th>Document</th><th>Status</th><th>Requested</th><th><span class="sr-only">Open request</span></th></tr></thead>
 						<tbody>{#each recentRequests as row}<tr><td><span class="report-student-unavailable" title="Student name is not included in the current report data">Not provided</span><small>{row.request_id}</small></td><td>{row.document_name}</td><td><Badge value={row.status.toLowerCase()} size="sm" /></td><td>{formatDate(row.date_requested)}</td><td><a class="report-open-link" href={`/staff/requests/${row.request_id}`} aria-label={`Review request ${row.request_id}`}><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Review</span></a></td></tr>{/each}</tbody>
 					</table>
 				</div>

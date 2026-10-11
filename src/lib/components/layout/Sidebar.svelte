@@ -4,7 +4,7 @@
 	import { tick } from 'svelte';
 	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
 
-	type NavItem = { label: string; icon: string; href: string; adminOnly?: boolean; badge?: number };
+	type NavItem = { label: string; icon: string; href: string; adminOnly?: boolean; badge?: number; locked?: boolean; lockedReason?: string };
 	interface Props { items: NavItem[]; role: 'staff' | 'student'; userRole?: string }
 
 	const { items, role, userRole }: Props = $props();
@@ -89,7 +89,7 @@
 				<p class="text-xs leading-tight {logoSub}">{logoLabel}</p>
 			</div>
 		{/if}
-		<button type="button" onclick={closeMobile} class="ml-auto lg:hidden h-10 w-10 rounded-lg text-white/80 hover:bg-white/10" aria-label="Close navigation"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+		<button type="button" onclick={closeMobile} class="ml-auto lg:hidden h-10 w-10 rounded-lg text-white/80 hover:bg-white/10" aria-label="Close navigation" title="Close navigation"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
 	</div>
 
 	<!-- Nav -->
@@ -108,7 +108,9 @@
 			{:else if role === 'student' && item.href === '/student/notifications'}
 				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Account</p>
 			{/if}
-			{#if disabled}
+			{#if item.locked}
+				<button type="button" aria-disabled="true" aria-label={item.label + '. ' + item.lockedReason} title={item.lockedReason} class="portal-nav-link locked-request-action flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-white/85"><i class="fa-solid fa-lock w-5 shrink-0 text-center" aria-hidden="true"></i>{#if !collapsed}<span>{item.label}</span>{/if}</button>
+			{:else if disabled}
 				<div
 					class="portal-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium opacity-40 cursor-not-allowed select-none"
 					title={collapsed ? item.label : 'Admin only'}
@@ -156,6 +158,7 @@
 			onclick={logout}
 			class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm {logoutCls}"
 			aria-label="Log out"
+			title="Log out"
 		>
 			<i class="fa-solid fa-right-from-bracket w-5 text-center shrink-0"></i>
 			{#if !collapsed}

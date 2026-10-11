@@ -40,6 +40,7 @@
 		onclick={() => sidebarMobileOpen.update((v) => !v)}
 		class="lg:hidden flex h-11 w-11 shrink-0 items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
 		aria-label="Toggle navigation"
+		title="Toggle navigation"
 		aria-controls="portal-navigation"
 		aria-expanded={$sidebarMobileOpen}
 	>
@@ -84,7 +85,7 @@
 				{avatarLabel}
 			</div>
 			<div class="hidden sm:block text-left">
-				<p class="text-sm font-medium text-gray-800 leading-tight">{displayName}</p>
+				<p class="topbar-full-name text-sm font-medium text-gray-800 leading-tight" title={displayName}>{displayName}</p>
 				{#if displayRole}
 					<p class="text-xs text-gray-500 leading-tight">{displayRole}</p>
 				{/if}

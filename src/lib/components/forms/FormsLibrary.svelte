@@ -2,18 +2,23 @@
 	import { onMount, tick } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import RowMenu from '$lib/components/ui/RowMenu.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { showToast } from '$lib/stores/toasts';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import LoadError from '$lib/components/ui/LoadError.svelte';
 	import { formCategories } from '$lib/data/forms';
 	type FormFile = { file_id?: number; page_no: number; storage_path: string | null; public_url: string; name: string; type: string; size?: number };
 	type FormRecord = { form_id: number; title: string; category: string; code: string | null; description: string; fields: string[]; download_name: string; files: FormFile[] };
 	let forms = $state<FormRecord[]>([]);
 	let loading = $state(true);
+	let loadError = $state('');
 	let { canManage }: { canManage: boolean } = $props();
 	let query = $state(''); let category = $state('All categories');
 	let modalOpen = $state(false); let deleteOpen = $state(false); let viewOpen = $state(false); let discardOpen = $state(false);
 	let editing = $state<FormRecord | null>(null); let selected = $state<FormRecord | null>(null);
 	let deleting = $state<FormRecord | null>(null); let saving = $state(false); let progress = $state(0);
-	let toastMessage = $state(''); let toastError = $state(false); let searchField = $state('');
+	let searchField = $state('');
 	let downloadFor = $state<number | null>(null);
 	let title = $state(''); let categoryValue = $state(''); let newCategory = $state(''); let code = $state(''); let description = $state('');
 	let initialTitle = $state(''); let initialDownloadName = $state(''); let editorAttempted = $state(false);
@@ -29,11 +34,11 @@
 	const editorValid = $derived(!!title.trim() && !!resolvedCategory && !!description.trim() && description.length <= 4000 && draftFiles.length >= 1 && draftFiles.length <= 5 && (!editing || editorDirty));
 	onMount(() => { void refresh(); });
 	async function refresh() {
-		loading = true;
-		try { const response = await fetch('/api/forms'); if (!response.ok) throw new Error((await response.json()).error || 'Could not load forms.'); forms = await response.json(); }
-		catch (e) { toast((e as Error).message, true); } finally { loading = false; }
+		loading = true; loadError = '';
+		try { const response = await fetch('/api/forms'); const result = await response.json(); if (!response.ok || !Array.isArray(result)) throw new Error(result?.error || 'Could not load forms.'); forms = result; }
+		catch (e) { loadError = (e as Error).message; toast(loadError, true); } finally { loading = false; }
 	}
-	function toast(message: string, error = false) { toastMessage = message; toastError = error; setTimeout(() => toastMessage = '', 4000); }
+	function toast(message: string, error = false) { showToast(message, error ? 'error' : 'success'); }
 	function slug(value: string) { return `ESSU-${value.normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '-').toLowerCase() || 'form'}`; }
 	function openEditor(form?: FormRecord) {
 		editorTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -100,10 +105,10 @@
 			const response = await fetch(editing ? `/api/forms/${editing.form_id}` : '/api/forms', { method: editing ? 'PUT' : 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 			const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not save form.');
 			closeEditor(); toast(editing ? 'Form updated.' : 'Form added.'); await refresh();
-		} catch (e) { inlineError = (e as Error).message; } finally { saving = false; activeUploadName = ''; }
+		} catch (e) { inlineError = (e as Error).message; toast(inlineError, true); } finally { saving = false; activeUploadName = ''; }
 	}
 	async function deleteForm() { if (!deleting) return; saving = true; try { const response = await fetch(`/api/forms/${deleting.form_id}`, { method: 'DELETE' }); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not delete form.'); deleteOpen = false; toast('Form deleted.'); await refresh(); } catch (e) { toast((e as Error).message, true); } finally { saving = false; } }
-	async function download(url: string, name: string) { try { const response = await fetch(url); if (!response.ok) throw new Error('Download failed'); const objectUrl = URL.createObjectURL(await response.blob()); const a = document.createElement('a'); a.href = objectUrl; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); } catch { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.download = name; a.click(); } }
+	async function download(url: string, name: string) { try { const response = await fetch(url); if (!response.ok) throw new Error('Could not download ' + name + '.'); const objectUrl = URL.createObjectURL(await response.blob()); const a = document.createElement('a'); a.href = objectUrl; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); toast('Download started: ' + name); } catch (error) { toast((error as Error).message, true); } }
 	function previewPages(form: FormRecord) { return form.files.filter((file) => isPreview(file.name)); }
 	function editableFilesFor(form: FormRecord) { return form.files.filter((file) => !isPreview(file.name)); }
 	function downloadEditable(form: FormRecord, file: FormFile) { download(file.public_url, outputName(form, file)); }
@@ -113,40 +118,24 @@
 		else { const file = previewPages(form).find((item) => item.page_no === pageNo); if (file) download(file.public_url, outputName(form, file)); }
 		downloadFor = null;
 	}
-	function trapModalFocus(event: KeyboardEvent) {
-		if (event.key === 'Escape' && modalOpen) {
-			event.stopImmediatePropagation();
-			event.preventDefault();
-			if (discardOpen) { discardOpen = false; void tick().then(() => titleInput?.focus()); }
-			else requestCloseEditor();
-			return;
-		}
-		if (event.key !== 'Tab' || !(modalOpen || deleteOpen || viewOpen || discardOpen)) return;
-		const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
-		const dialog = dialogs[dialogs.length - 1];
-		const focusable = dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
-		if (!focusable?.length) return;
-		const first = focusable[0], last = focusable[focusable.length - 1];
-		if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-		else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-	}
 	function cancelDiscard() { discardOpen = false; void tick().then(() => titleInput?.focus()); }
 </script>
 
-<svelte:window onkeydown={trapModalFocus} />
+
 
 <svelte:head><title>Forms | Portal</title></svelte:head>
 <div class="space-y-5">
 	<header class="page-toolbar flex flex-wrap items-center justify-between gap-4"><p class="text-sm text-gray-500">Official forms library</p>{#if canManage}<Button onclick={() => openEditor()} icon="fa-solid fa-plus">Add form</Button>{/if}</header>
 	<div class="flex flex-col gap-3 sm:flex-row"><label class="relative min-w-0 flex-1"><span class="sr-only">Search forms</span><i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i><input bind:value={query} class="h-11 w-full rounded-lg border border-gray-200 px-3 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" placeholder="Search forms" /></label><label class="sm:w-56"><span class="sr-only">Filter by category</span><select bind:value={category} class="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">{#each categories as item}<option>{item}</option>{/each}</select></label></div>
 	{#if loading}<div class="grid gap-4 xl:grid-cols-2" aria-live="polite">{#each [1, 2, 3, 4] as _}<div class="animate-pulse rounded-xl border border-gray-100 bg-white p-5 shadow-sm"><div class="flex gap-3"><div class="h-[72px] w-14 rounded-lg bg-gray-100"></div><div class="flex-1 space-y-3 py-2"><div class="h-4 w-1/2 rounded bg-gray-100"></div><div class="h-3 w-1/3 rounded bg-gray-100"></div><div class="h-3 w-2/3 rounded bg-gray-100"></div></div></div></div>{/each}<span class="sr-only">Loading forms</span></div>
+	{:else if loadError}<LoadError message="We couldn’t load the forms. Please try again." onretry={refresh} />
 	{:else if forms.length === 0 && canManage}<EmptyState message="No forms yet" description="Add a form to make it available to staff." icon="fa-solid fa-file-circle-plus" /><div class="-mt-12 pb-8 flex justify-center"><Button onclick={() => openEditor()} icon="fa-solid fa-plus">Add form</Button></div>
-	{:else if filtered.length === 0}<EmptyState message="No forms found" description="Try another search or category." />
+	{:else if filtered.length === 0}<EmptyState message={forms.length ? 'No forms found' : 'No forms available yet'} description={forms.length ? 'Try another search or category.' : 'Check back later or contact the Graduate School office.'} /><div class="flex justify-center pb-6">{#if forms.length}<Button variant="secondary" onclick={() => { query = ''; category = 'All categories'; }}>Clear filters</Button>{:else}<Button variant="secondary" onclick={refresh}>Try again</Button>{/if}</div>
 	{:else}<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">{#each filtered as form (form.form_id)}
-		<article class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"><div class="flex items-start justify-between gap-3"><div class="flex min-w-0 items-start gap-3"><button class="flex h-[72px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 text-2xl text-gray-400 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => { selected = form; viewOpen = true; }} aria-label={`View ${form.title}`}>
+		<article class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"><div class="flex items-start justify-between gap-3"><div class="flex min-w-0 items-start gap-3"><button class="flex h-[72px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 text-2xl text-gray-400 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => { selected = form; viewOpen = true; }} aria-label={`View ${form.title}`} title={`View ${form.title}`}>
 			<i class="fa-solid {previewPages(form).length ? 'fa-file-lines' : editableFilesFor(form).some((file) => ['doc','docx'].includes(extension(file.name))) ? 'fa-file-word' : editableFilesFor(form).length ? 'fa-file-excel' : 'fa-file-lines'}" aria-hidden="true"></i></button>
-			<div class="min-w-0"><h3 class="font-semibold text-gray-800 leading-snug">{form.title}</h3><div class="mt-1 flex flex-wrap items-center gap-2"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {categoryClass(form.category) || 'bg-gray-100 text-gray-700'}">{form.category}</span>{#if form.code}<span class="text-xs text-gray-500">{form.code}</span>{/if}</div><p class="mt-2 line-clamp-2 text-sm text-gray-600">{form.description}</p><p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">{#if previewPages(form).length}<span class="rounded-full border border-essu-green/20 bg-essu-green/5 px-2 py-0.5 text-essu-green">{previewPages(form).length} {previewPages(form).length === 1 ? 'page' : 'pages'}</span>{/if}{#if editableFilesFor(form).length}<span class="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-800">Editable</span>{/if}</p></div></div>{#if canManage}<div class="flex shrink-0 items-center gap-1"><button onclick={() => openEditor(form)} class="flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 transition-colors hover:text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30" title="Edit" aria-label={`Edit ${form.title}`}><i class="fa-solid fa-pen text-sm"></i></button><button onclick={() => { deleting = form; deleteOpen = true; }} class="flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 transition-colors hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-essu-green/30" title="Delete" aria-label={`Delete ${form.title}`}><i class="fa-solid fa-trash text-sm"></i></button></div>{/if}</div>
-				<div class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3"><button class="flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-essu-green hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => { selected = form; viewOpen = true; }}><i class="fa-solid fa-eye"></i>View</button>{#each editableFilesFor(form) as file}<button class="flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-essu-green hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => downloadEditable(form, file)}><i class="fa-solid fa-download"></i>{editableLabel(file)}</button>{/each}{#if previewPages(form).length}<button class="flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-essu-green hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30" onclick={() => downloadPreview(form)}><i class="fa-solid fa-download"></i>Download preview</button>{/if}</div>
+			<div class="min-w-0"><h3 class="font-semibold text-gray-800 leading-snug">{form.title}</h3><div class="mt-1 flex flex-wrap items-center gap-2"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {categoryClass(form.category) || 'bg-gray-100 text-gray-700'}">{form.category}</span>{#if form.code}<span class="text-xs text-gray-500">{form.code}</span>{/if}</div><p class="mt-2 line-clamp-2 text-sm text-gray-600">{form.description}</p><p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">{#if previewPages(form).length}<span class="rounded-full border border-essu-green/20 bg-essu-green/5 px-2 py-0.5 text-essu-green">{previewPages(form).length} {previewPages(form).length === 1 ? 'page' : 'pages'}</span>{/if}{#if editableFilesFor(form).length}<span class="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-800">Editable</span>{/if}</p></div></div>{#if canManage}<RowMenu label={'Actions for ' + form.title} items={[{label: 'Edit', onselect: () => openEditor(form)}, {label: 'Delete', danger: true, onselect: () => { deleting = form; deleteOpen = true; }}]} />{/if}</div>
+				<div class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3"><Button variant="secondary" size="sm" onclick={() => { selected = form; viewOpen = true; }} icon="fa-solid fa-eye">View</Button>{#each editableFilesFor(form) as file}<Button variant="secondary" size="sm" onclick={() => downloadEditable(form, file)} icon="fa-solid fa-download">{editableLabel(file)}</Button>{/each}{#if previewPages(form).length}<Button variant="secondary" size="sm" onclick={() => downloadPreview(form)} icon="fa-solid fa-download">Download preview</Button>{/if}</div>
 			</article>
 	{/each}</div>{/if}
 </div>
@@ -179,11 +168,11 @@
 						<div class="form-file-row">
 							<div class="form-file-thumb">{#if file.type === 'application/pdf' || file.public_url.toLowerCase().endsWith('.pdf')}<i class="fa-solid fa-file-pdf text-xl text-gray-500" aria-label="PDF"></i>{:else if file.preview}<img src={file.preview} alt="" class="h-full w-full object-cover object-top" onerror={(e) => { (e.currentTarget as HTMLImageElement).classList.add('hidden'); e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} /><i class="hidden fa-solid fa-file-image text-xl text-gray-400" aria-hidden="true"></i>{:else}<img src={file.public_url} alt="" class="h-full w-full object-cover object-top" onerror={(e) => { (e.currentTarget as HTMLImageElement).classList.add('hidden'); e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} /><i class="hidden fa-solid fa-file-image text-xl text-gray-400" aria-hidden="true"></i>{/if}</div>
 							<div class="min-w-0 flex-1"><div class="mb-1 flex items-center gap-2"><span class="form-page-badge">Page {i + 1}</span><span class="truncate text-sm font-medium text-gray-800">{file.name}</span></div><div class="flex items-center gap-2 text-xs text-gray-500">{#if file.file}<span>{(file.file.size / 1024).toFixed(0)} KB</span><span class="form-file-status form-file-new">New</span>{:else}<span class="form-file-status">Existing</span>{/if}</div>{#if saving && activeUploadName === file.name}<div class="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200"><div class="h-full bg-essu-green transition-all" style={`width:${progress}%`}></div></div>{/if}</div>
-							<button type="button" aria-label={`Move ${file.name} up`} class="form-file-action" onclick={() => moveFile(file, -1)} disabled={saving || i === 0}><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button><button type="button" aria-label={`Move ${file.name} down`} class="form-file-action" onclick={() => moveFile(file, 1)} disabled={saving || i === previewFiles.length - 1}><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button><button type="button" aria-label={`Remove ${file.name}`} class="form-file-action form-file-remove" onclick={() => removeFile(file)} disabled={saving}><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+							<button type="button" aria-label={`Move ${file.name} up`} title={`Move ${file.name} up`} class="form-file-action" onclick={() => moveFile(file, -1)} disabled={saving || i === 0}><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button><button type="button" aria-label={`Move ${file.name} down`} title={`Move ${file.name} down`} class="form-file-action" onclick={() => moveFile(file, 1)} disabled={saving || i === previewFiles.length - 1}><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button><button type="button" aria-label={`Remove ${file.name}`} title={`Remove ${file.name}`} class="form-file-action form-file-remove" onclick={() => removeFile(file)} disabled={saving}><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
 						</div>
 					{/each}
 					{#each editableFiles as file}
-						<div class="form-file-row"><div class="form-file-thumb"><i class="fa-solid {['doc','docx'].includes(extension(file.name)) ? 'fa-file-word text-blue-700' : 'fa-file-excel text-green-700'} text-2xl" aria-hidden="true"></i></div><div class="min-w-0 flex-1"><p class="truncate text-sm font-medium text-gray-800">{file.name}</p><div class="flex items-center gap-2 text-xs text-gray-500">{#if file.file || file.size}<span>{((file.file?.size ?? file.size ?? 0) / 1024).toFixed(0)} KB</span>{/if}{#if file.file}<span class="form-file-status form-file-new">New</span>{:else}<span class="form-file-status">Existing</span>{/if}</div></div><button type="button" aria-label={`Remove ${file.name}`} class="form-file-action form-file-remove" onclick={() => removeFile(file)} disabled={saving}><i class="fa-solid fa-trash" aria-hidden="true"></i></button></div>
+						<div class="form-file-row"><div class="form-file-thumb"><i class="fa-solid {['doc','docx'].includes(extension(file.name)) ? 'fa-file-word text-blue-700' : 'fa-file-excel text-green-700'} text-2xl" aria-hidden="true"></i></div><div class="min-w-0 flex-1"><p class="truncate text-sm font-medium text-gray-800">{file.name}</p><div class="flex items-center gap-2 text-xs text-gray-500">{#if file.file || file.size}<span>{((file.file?.size ?? file.size ?? 0) / 1024).toFixed(0)} KB</span>{/if}{#if file.file}<span class="form-file-status form-file-new">New</span>{:else}<span class="form-file-status">Existing</span>{/if}</div></div><button type="button" aria-label={`Remove ${file.name}`} title={`Remove ${file.name}`} class="form-file-action form-file-remove" onclick={() => removeFile(file)} disabled={saving}><i class="fa-solid fa-trash" aria-hidden="true"></i></button></div>
 					{/each}
 				</div>
 			</section>
@@ -191,20 +180,14 @@
 	{/snippet}
 	{#snippet footer()}<Button variant="secondary" onclick={requestCloseEditor} disabled={saving} class="rounded-[10px]">Cancel</Button><Button onclick={() => void save()} disabled={!editorValid || saving} loading={saving} class="rounded-[10px]">{editing ? 'Save changes' : 'Add form'}</Button>{/snippet}
 </Modal>
-<Modal open={discardOpen} title="Discard changes?" size="sm" onclose={cancelDiscard}>
-	{#snippet body()}<p class="text-sm text-gray-600">Your unsaved changes will be lost.</p>{/snippet}
-	{#snippet footer()}<Button variant="secondary" onclick={cancelDiscard}>Keep editing</Button><Button onclick={closeEditor}>Discard changes</Button>{/snippet}
-</Modal>
-<Modal open={deleteOpen} title="Delete form" onclose={() => !saving && (deleteOpen = false)}>
-	{#snippet body()}<p class="text-gray-700">Delete this form? Its files will be removed. This cannot be undone.</p><p class="mt-2 font-semibold">{deleting?.title}</p>{/snippet}
-	{#snippet footer()}<Button variant="secondary" onclick={() => deleteOpen = false} disabled={saving}>Cancel</Button><Button variant="danger" onclick={() => void deleteForm()} loading={saving}>Delete form</Button>{/snippet}
-</Modal>
+<ConfirmDialog open={discardOpen} title="Discard changes?" message="Your unsaved changes will be lost." confirmLabel="Discard changes" cancelLabel="Keep editing" onclose={cancelDiscard} onconfirm={closeEditor} />
+<ConfirmDialog open={deleteOpen} title="Delete form" message={'Delete “' + (deleting?.title ?? 'this form') + '”? Its files will be removed. This cannot be undone.'} confirmLabel="Delete form" loading={saving} onclose={() => deleteOpen = false} onconfirm={() => void deleteForm()} />
 {/if}
 <Modal open={viewOpen} title={selected?.title ?? 'View form'} size="xl" onclose={() => viewOpen = false}>
 	{#snippet body()}<div class="space-y-4">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}{#if selected && previewPages(selected).length === 0}<div class="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">Preview isn't available for Word files. Download the editable version to open it.</div>{/if}{#each selected ? previewPages(selected) : [] as file}<div><p class="mb-2 text-sm font-medium">Page {file.page_no}</p>{#if extension(file.name) === 'pdf'}<div class="flex items-center gap-3 rounded-lg bg-gray-50 p-6"><i class="fa-solid fa-file-pdf text-3xl text-red-500"></i><a href={file.public_url} target="_blank" rel="noopener" class="text-essu-green underline">Open PDF</a></div>{:else}<img src={file.public_url} alt={`${selected?.title} page ${file.page_no}`} class="mx-auto max-h-[65vh] rounded border border-gray-200 object-contain" />{/if}</div>{/each}</div>{/snippet}
 	{#snippet footer()}<Button variant="secondary" onclick={() => viewOpen = false}>Close</Button>{#if selected}{#each editableFilesFor(selected) as file}<Button onclick={() => downloadEditable(selected!, file)} icon="fa-solid fa-download">{editableLabel(file)}</Button>{/each}{#if previewPages(selected).length}<Button onclick={() => downloadPreview(selected!)} icon="fa-solid fa-download">Download preview</Button>{/if}{/if}{/snippet}
 </Modal>
-{#if toastMessage}<div class="fixed bottom-5 right-5 z-[70] rounded-lg px-4 py-3 text-sm text-white shadow-lg {toastError ? 'bg-red-700' : 'bg-essu-green'}" role="status" aria-live="polite">{toastMessage}</div>{/if}
+
 
 <style>
 	.form-label { display: block; margin-bottom: 6px; color: #26332c; font-size: 13px; font-weight: 600; }

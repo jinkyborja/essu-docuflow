@@ -108,7 +108,7 @@ test('Verified profiles show read-only academics and the office note; pending/re
 
 test('Eight statuses have shared distinct colors/labels, including legacy correction names and Badge rendering', () => {
 	assert.equal(new Set(Object.values(statuses.STATUS_COLORS).map(value => value.color)).size, 8);
-	assert.equal(statuses.statusLabel('Pending'), 'Pending review'); assert.equal(statuses.statusLabel('Correction Requested'), 'Needs correction');
+	assert.equal(statuses.statusLabel('Pending'), 'Pending'); assert.equal(statuses.statusLabel('Correction Requested'), 'Correction Requested');
 	assert.equal(statuses.statusLabel('ready_for_pickup'), 'Ready for pickup');
 	const badge = load('src/lib/components/ui/Badge.svelte').default;
 	for (const key of statuses.REQUEST_STATUSES) {
@@ -146,7 +146,7 @@ test('CSV exports all selected statuses, payment state and O.R. numbers, escapin
 	renderPage(filename, { requests: rows }, source, { captureExport: fn => { exportCsv = fn; }, URL: CsvURL, document: { createElement: () => ({ click() { clicked = true; } }) } });
 	exportCsv(); const csv = await blob.text();
 	assert.equal(clicked, true); assert.match(csv, /^"Request ID","Document","Status","Date Requested","Payment Status","O\.R\. Number"/);
-	assert.match(csv, /"REQ-2026-001","Transcript, ""Certified""","Pending review","Oct 10, 2020","submitted","OR-0007"/);
+	assert.match(csv, /"REQ-2026-001","Transcript, ""Certified""","Pending","Oct 10, 2020","submitted","OR-0007"/);
 	for (const key of statuses.REQUEST_STATUSES) assert.ok(csv.includes(`"${statuses.statusLabel(key)}"`));
 	assert.equal(csv.split('\r\n').length, 9);
 });
@@ -192,7 +192,10 @@ test('Needs action loads pending, submitted-payment and processing requests with
 		const query = queries.find(sql => sql.includes('CASE WHEN')); assert.match(query, /r\.status IN \('Pending', 'processing'\)/); assert.match(query, /r\.status = 'Approved' AND p\.status = 'submitted'/); assert.match(query, /r\.archived_at IS NULL/);
 		const html = renderPage('src/routes/staff/dashboard/+page.svelte', data);
 		assert.match(html, />Needs action<\/h2>/); assert.doesNotMatch(html, /Pending Approval Queue/);
-		for (const row of rows) { assert.ok(html.includes(row.action_needed)); assert.ok(html.includes(`/staff/requests/${row.request_id}`)); }
+		for (const row of rows) assert.ok(html.includes(`/staff/requests/${row.request_id}`));
+		const reviewLinks = html.match(/<a\b[^>]*>[\s\S]*?<\/a>/g) ?? [];
+		assert.equal(reviewLinks.filter(link => link.includes('fa-eye') && />Review</.test(link)).length, rows.length * 2);
+		assert.doesNotMatch(html, />Review requirements</);
 		assert.ok(html.includes('3 requests awaiting action'));
 	}
 });

@@ -243,14 +243,14 @@
 						<div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
 							<i class="fa-solid fa-lock text-gray-600 text-sm"></i>
 						</div>
-						<span class="text-sm font-medium text-gray-700">Change Password</span>
+						<span class="text-sm font-medium text-gray-700">Change password</span>
 						<i class="fa-solid fa-chevron-right text-xs text-gray-400 ml-auto"></i>
 					</button>
 					<button onclick={openEmail} class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left">
 						<div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
 							<i class="fa-solid fa-envelope text-gray-600 text-sm"></i>
 						</div>
-						<span class="text-sm font-medium text-gray-700">Change Email</span>
+						<span class="text-sm font-medium text-gray-700">Change email</span>
 						<i class="fa-solid fa-chevron-right text-xs text-gray-400 ml-auto"></i>
 					</button>
 				</div>
@@ -290,7 +290,7 @@
 		<button type="submit" form="personal-form" disabled={personalLoading}
 			class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
 			{#if personalLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-			Save Changes
+			Save changes
 		</button>
 	{/snippet}
 </Modal>
@@ -316,7 +316,7 @@
 		<button type="submit" form="professional-form" disabled={professionalLoading}
 			class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
 			{#if professionalLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-			Save Changes
+			Save changes
 		</button>
 	{/snippet}
 </Modal>
@@ -341,7 +341,7 @@
 					<div class="relative">
 						<input bind:value={currentPassword} type={showCurrent ? 'text' : 'password'} required
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" onclick={() => (showCurrent = !showCurrent)}
+						<button type="button" aria-label={showCurrent ? 'Hide current password' : 'Show current password'} title={showCurrent ? 'Hide current password' : 'Show current password'} onclick={() => (showCurrent = !showCurrent)}
 							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
 							<i class="fa-solid {showCurrent ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
 						</button>
@@ -352,7 +352,7 @@
 					<div class="relative">
 						<input bind:value={newPassword} type={showNew ? 'text' : 'password'} required minlength="8"
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" onclick={() => (showNew = !showNew)}
+						<button type="button" aria-label={showNew ? 'Hide new password' : 'Show new password'} title={showNew ? 'Hide new password' : 'Show new password'} onclick={() => (showNew = !showNew)}
 							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
 							<i class="fa-solid {showNew ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
 						</button>
@@ -363,7 +363,7 @@
 					<div class="relative">
 						<input bind:value={confirmPassword} type={showConfirm ? 'text' : 'password'} required
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" onclick={() => (showConfirm = !showConfirm)}
+						<button type="button" aria-label={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} title={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} onclick={() => (showConfirm = !showConfirm)}
 							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
 							<i class="fa-solid {showConfirm ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
 						</button>
@@ -378,7 +378,7 @@
 			<button type="submit" form="pw-form" disabled={passwordLoading}
 				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
 				{#if passwordLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-				Update Password
+				Update password
 			</button>
 		{/if}
 	{/snippet}
@@ -409,7 +409,7 @@
 					<div class="relative">
 						<input bind:value={emailPassword} type={showEmailPassword ? 'text' : 'password'} required autocomplete="current-password"
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" onclick={() => (showEmailPassword = !showEmailPassword)}
+						<button type="button" aria-label={showEmailPassword ? 'Hide password' : 'Show password'} title={showEmailPassword ? 'Hide password' : 'Show password'} onclick={() => (showEmailPassword = !showEmailPassword)}
 							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
 							<i class="fa-solid {showEmailPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
 						</button>
@@ -424,7 +424,7 @@
 			<button type="submit" form="email-form" disabled={emailLoading}
 				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
 				{#if emailLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-				Update Email
+				Update email
 			</button>
 		{/if}
 	{/snippet}

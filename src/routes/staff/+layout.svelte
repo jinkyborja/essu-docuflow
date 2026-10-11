@@ -2,7 +2,8 @@
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import TopBar from '$lib/components/layout/TopBar.svelte';
 	import PageIntro from '$lib/components/layout/PageIntro.svelte';
-	import { page } from '$app/stores';
+	import { page, navigating } from '$app/stores';
+	import LoadingState from '$lib/components/ui/LoadingState.svelte';
 	import { sidebarCollapsed } from '$lib/stores/sidebar';
 	import { notifUnreadCount, startNotifications } from '$lib/stores/notifications';
 	import { onMount } from 'svelte';
@@ -58,7 +59,7 @@
 
 		<main id="main-content" tabindex="-1" class="portal-main flex-1 mt-16 p-6">
 			<PageIntro title={pageTitle} role="staff" />
-			{@render children()}
+			{#if $navigating}<LoadingState label="Loading your workspace…" />{:else}{@render children()}{/if}
 		</main>
 	</div>
 </div>
