@@ -1,4 +1,10 @@
 <script lang="ts">
+	import TextField from '$lib/components/ui/TextField.svelte';
+	import SelectField from '$lib/components/ui/SelectField.svelte';
+	import TextArea from '$lib/components/ui/TextArea.svelte';
+	import FormSection from '$lib/components/ui/FormSection.svelte';
+	import FormActions from '$lib/components/ui/FormActions.svelte';
+	import {validateForm} from '$lib/components/ui/form-validation';
 	import { responsiveTable } from '$lib/responsive-table';
 	import LoadingState from '$lib/components/ui/LoadingState.svelte';
 	import LoadError from '$lib/components/ui/LoadError.svelte';
@@ -10,6 +16,7 @@
 	import type { MasterlistMatch } from '$lib/server/masterlist';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import RowMenu from '$lib/components/ui/RowMenu.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import StatusChip from '$lib/components/ui/StatusChip.svelte';
@@ -263,7 +270,7 @@
 </div>
 {:else}
 <div class="space-y-5">
-	{#if data.role === 'Admin'}<div class="flex justify-end"><Button onclick={() => masterlistOpen = true}>Masterlist</Button></div>{/if}
+	<PageHeader title="Student Management" description="Review student identities against the official enrollment masterlist.">{#snippet secondaryAction()}{#if data.role === 'Admin'}<Button variant="secondary" icon="fa-solid fa-list" onclick={() => masterlistOpen = true}>Masterlist</Button>{/if}{/snippet}</PageHeader>
 	{#if usageError}<LoadError message="We couldn’t check linked requests. Please try again." onretry={() => void loadRequestUsage()} />{:else if !usageLoaded}<p role="status" class="flex items-center gap-2 text-sm text-gray-600"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Checking linked requests…</p>{/if}
 	<!-- Search / Filter -->
 	<div class="flex flex-col sm:flex-row gap-3">
@@ -278,14 +285,14 @@
 		<div class="relative flex-1">
 			<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
 			<input
-				bind:value={search}
+				aria-label="Search students" bind:value={search}
 				type="text"
 				placeholder="Search by name, ID, email, or program..."
 				class="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 			/>
 		</div>
 		<select
-			bind:value={filterType}
+			aria-label="Student type" bind:value={filterType}
 			class="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700"
 		>
 			<option value="">All Types</option>
@@ -315,7 +322,7 @@
 			<div class="flex justify-center pb-6"><Button variant="secondary" onclick={() => { search = ''; filterType = ''; statusTab = 'all'; }}>View all students</Button></div>
 		{:else}
 			<!-- Mobile card list -->
-			<div class="xl:hidden divide-y divide-gray-100">
+			<div class="md:hidden divide-y divide-gray-100">
 				{#each filtered as s}
 					<div class="p-4 space-y-2">
 						<div class="flex items-start justify-between gap-2">
@@ -339,13 +346,13 @@
 						</div>
 						<div class="flex items-center justify-between">
 							<span class="text-xs text-gray-400">{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span>
-							<div class="row-actions flex flex-nowrap items-center gap-2"><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button><RowMenu items={rowItems(s)} label={'Actions for ' + fullName(s)} /></div>
+							<div class="row-actions flex flex-nowrap items-center gap-2"><Button variant={s.id_status === 'verified' ? 'secondary' : 'primary'} size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button><RowMenu items={rowItems(s)} label={'Actions for ' + fullName(s)} /></div>
 						</div>
 					</div>
 				{/each}
 			</div>
 			<!-- Desktop table -->
-			<div class="hidden xl:block overflow-x-auto">
+			<div class="hidden md:block overflow-x-auto">
 				<table class="student-list-table w-full text-sm">
 					<thead>
 						<tr class="bg-gray-50 border-b border-gray-100">
@@ -393,7 +400,7 @@
 									{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
 								<td class="px-4 py-3">
-									<div class="row-actions flex flex-nowrap items-center gap-2"><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button><RowMenu items={rowItems(s)} label={'Actions for ' + fullName(s)} /></div>
+									<div class="row-actions flex flex-nowrap items-center gap-2"><Button variant={s.id_status === 'verified' ? 'secondary' : 'primary'} size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button><RowMenu items={rowItems(s)} label={'Actions for ' + fullName(s)} /></div>
 								</td>
 							</tr>
 						{/each}
@@ -454,7 +461,7 @@
 				{/if}
 				{#if reviewStudent.id_status !== 'verified' && data.role === 'Admin' && !reviewLoading && reviewStudent.masterlistMatch}
 					{#if !reviewStudent.masterlistMatch.found}
-						<div class="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2"><label class="flex gap-2 text-sm text-amber-900"><input type="checkbox" bind:checked={verifyAnyway} class="accent-essu-green focus:ring-essu-green/30" />Verify anyway</label><label class="block text-sm text-gray-700">Short verification note (required)<textarea bind:value={overrideNote} maxlength="300" rows="2" class="mt-1 w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"></textarea></label></div>
+						<div class="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3"><label class="flex items-center gap-2 text-sm text-amber-900"><input type="checkbox" bind:checked={verifyAnyway}/>Verify anyway</label><TextArea label="Short verification note" required bind:value={overrideNote} maxlength={300} rows={2} helper="Explain why the office should verify this ID without a masterlist match."/></div>
 					{/if}
 				{/if}
 				{#if reviewError}
@@ -466,21 +473,21 @@
 			</div>
 		{/if}
 	{/snippet}
-	{#snippet footer()}
+	{#snippet footer()}<FormActions>
 		<button onclick={closeReview} disabled={reviewing} class="px-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-essu-green/30">Close</button>
 		{#if data.role === 'Admin' && reviewStudent && !reviewLoading && reviewStudent.masterlistMatch}
 			{#if reviewStudent.id_status !== 'verified'}
-				<Button variant="danger" onclick={() => { reviewError = ''; rejecting = true; }} disabled={reviewing}>Reject</Button><Button onclick={() => void decideId('verify')} loading={reviewing} disabled={photoRefreshing || !reviewStudent.has_id_photo || !reviewStudent.id_photo_url || photoPreviewError || (!reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()))} disabledReason={!reviewStudent.has_id_photo ? 'Upload a school ID photo first' : !reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()) ? 'Confirm the masterlist override and enter a note' : undefined}>Verify student</Button>
+				<RowMenu label="Student ID actions" items={[{label:"Reject student ID",danger:true,disabled:reviewing,onselect:()=>{reviewError="";rejecting=true;}}]}/><Button onclick={() => void decideId('verify')} loading={reviewing} disabled={photoRefreshing || !reviewStudent.has_id_photo || !reviewStudent.id_photo_url || photoPreviewError || (!reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()))} disabledReason={!reviewStudent.has_id_photo ? 'Upload a school ID photo first' : !reviewStudent.masterlistMatch.found && (!verifyAnyway || !overrideNote.trim()) ? 'Confirm the masterlist override and enter a note' : undefined}>Verify student</Button>
 			{/if}
 		{/if}
-	{/snippet}
+	</FormActions>{/snippet}
 </Modal>
 
 <!-- Edit Modal -->
 <Modal open={editOpen} title="Edit Student" size="md" onclose={() => { if (!saving) editOpen = false; }}>
 	{#snippet body()}
 		{#if editStudent}
-			<form id="edit-student-form" onsubmit={handleEdit} class="space-y-4">
+			<form use:validateForm id="edit-student-form" onsubmit={handleEdit} class="space-y-4"><FormSection>
 				{#if saveError}
 					<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
 						<i class="fa-solid fa-circle-exclamation mr-1"></i>{saveError}
@@ -489,137 +496,46 @@
 
 				<!-- Name row 1: First, Middle -->
 				<div class="grid grid-cols-2 gap-3">
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
-							First Name <span class="text-red-500">*</span>
-						</label>
-						<input
-							bind:value={editStudent.first_name}
-							type="text"
-							required
-							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-						/>
-					</div>
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
-							Middle Name <span class="text-xs text-gray-400 font-normal">(optional)</span>
-						</label>
-						<input
-							bind:value={editStudent.middle_name}
-							type="text"
-							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-						/>
-					</div>
+					<TextField label="First Name" bind:value={editStudent.first_name} type="text" required />
+					<TextField label="Middle Name (optional)" bind:value={editStudent.middle_name} type="text" />
 				</div>
 
 				<!-- Name row 2: Last, Suffix -->
 				<div class="grid grid-cols-3 gap-3">
-					<div class="col-span-2">
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
-							Last Name <span class="text-red-500">*</span>
-						</label>
-						<input
-							bind:value={editStudent.last_name}
-							type="text"
-							required
-							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-						/>
-					</div>
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">Suffix</label>
-						<select
-							bind:value={editStudent.suffix}
-							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white"
-						>
+					<TextField label="Last Name" bind:value={editStudent.last_name} type="text" required />
+					<SelectField label="Suffix" bind:value={editStudent.suffix}>
 							<option value={null}>None</option>
 							<option value="Jr.">Jr.</option>
 							<option value="Sr.">Sr.</option>
 							<option value="II">II</option>
 							<option value="III">III</option>
 							<option value="IV">IV</option>
-						</select>
-					</div>
+						</SelectField>
 				</div>
 
 				<!-- Student ID + Email -->
 				<div class="grid grid-cols-2 gap-3">
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
-							Student ID <span class="text-red-500">*</span>
-						</label>
-						<input
-							bind:value={editStudent.student_id}
-							type="text"
-							required
-							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-						/>
-					</div>
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
-							Email <span class="text-red-500">*</span>
-						</label>
-						<input
-							bind:value={editStudent.email}
-							type="email"
-							required
-							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-						/>
-					</div>
+					<TextField label="Student ID" bind:value={editStudent.student_id} type="text" required />
+					<TextField label="Email" bind:value={editStudent.email} type="email" required />
 				</div>
 
 				<!-- Program + Student Type -->
 				<div class="grid grid-cols-2 gap-3">
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
-							Program <span class="text-red-500">*</span>
-						</label>
-						<input
-							bind:value={editStudent.program}
-							type="text"
-							placeholder="e.g. Master of IT"
-							required
-							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-						/>
-					</div>
-					<div>
-						<label for="edit-student-campus" class="block text-sm font-medium text-gray-700 mb-1.5">Campus</label>
-						<select id="edit-student-campus" bind:value={editStudent.campus} class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+					<TextField label="Program" bind:value={editStudent.program} type="text" placeholder="e.g. Master of IT" required />
+					<SelectField label="Campus" id="edit-student-campus" bind:value={editStudent.campus}>
 							<option value={null}>Not collected</option>
 							{#each campuses as option}<option value={option.value}>{option.label}</option>{/each}
-						</select>
-					</div>
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
-							Student Type <span class="text-red-500">*</span>
-						</label>
-						<select
-							bind:value={editStudent.student_type}
-							required
-							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white"
-						>
+						</SelectField>
+					<SelectField label="Student Type" bind:value={editStudent.student_type} required>
 							<option value={null}>Select type</option>
 							<option value="Enrolled">Currently Enrolled</option>
 							<option value="Former">Former</option>
 							<option value="Alumni">Alumni</option>
-						</select>
-					</div>
+						</SelectField>
 				</div>
 
 				<!-- Last School Year -->
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">
-						Last School Year <span class="text-red-500">*</span>
-					</label>
-					<input
-						bind:value={editStudent.last_school_year}
-						type="number"
-						min={editStudent.student_type === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN}
-						max={SCHOOL_YEAR_MAX}
-						step="1"
-						required
-						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-					/>
-				</div>
+				<TextField label="Last School Year" bind:value={editStudent.last_school_year} type="number" min={editStudent.student_type === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN} max={SCHOOL_YEAR_MAX} required />
 
 				<!-- Verified toggle -->
 				<div class="flex items-center justify-between px-3 py-3 bg-gray-50 rounded-lg border border-gray-100">
@@ -639,13 +555,13 @@
 						<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-essu-green/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-essu-green"></div>
 					</label>
 				</div>
-			</form>
+			</FormSection></form>
 		{/if}
 	{/snippet}
-	{#snippet footer()}
+	{#snippet footer()}<FormActions>
 		<Button variant="secondary" disabled={saving} onclick={() => (editOpen = false)}>Cancel</Button>
 		<Button type="submit" form="edit-student-form" loading={saving}>Save changes</Button>
-	{/snippet}
+	</FormActions>{/snippet}
 </Modal>
 
 <ConfirmDialog open={deleteOpen} title="Delete student" message={'Delete ' + (deleteTarget ? fullName(deleteTarget) : 'this student') + '? This permanently removes their account.'} confirmLabel="Delete student" loading={deleting} error={deleteError} onclose={() => deleteOpen = false} onconfirm={() => void handleDelete()} />

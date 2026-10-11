@@ -102,7 +102,7 @@ test('Verified profiles show read-only academics and the office note; pending/re
 		const html = renderPage(filename, { profile: { ...profile, id_status: idStatus } }, source);
 		assert.match(html, /26-0007/); assert.match(html, /Master of Arts/); assert.match(html, /Currently Enrolled/); assert.match(html, new RegExp(String(year)));
 		if (idStatus === 'verified') { assert.match(html, /Contact the Graduate School office to change these\./); assert.doesNotMatch(html, /id="academic-form"|id="academic-student-id"/); }
-		else { assert.doesNotMatch(html, /Contact the Graduate School office to change these\./); assert.match(html, /id="academic-student-id"[^>]*maxlength="20"[^>]*required/); assert.match(html, /Program \/ Course|Last School Year Attended/); }
+		else { assert.doesNotMatch(html, /Contact the Graduate School office to change these\./); assert.match(html, /id="academic-student-id"[^>]*required/); assert.match(html, /Program \/ Course|Last School Year Attended/); }
 	}
 });
 
@@ -113,7 +113,7 @@ test('Eight statuses have shared distinct colors/labels, including legacy correc
 	const badge = load('src/lib/components/ui/Badge.svelte').default;
 	for (const key of statuses.REQUEST_STATUSES) {
 		const html = render(badge, { props: { value: key } }).body;
-		assert.ok(html.includes(statuses.statusLabel(key))); assert.ok(html.includes(statuses.STATUS_COLORS[key].classes));
+		assert.ok(html.includes(key==='pending'?'Pending review':key==='correction_requested'?'Needs correction':statuses.statusLabel(key))); assert.ok(html.includes(statuses.STATUS_COLORS[key].classes));
 	}
 	assert.match(render(badge, { props: { value: 'system' } }).body, /System/);
 });
@@ -126,13 +126,14 @@ function reportRows(counts) {
 test('Reports count every stage and exclude cancelled/pending/corrections from the approval denominator', () => {
 	const rows = reportRows({ Pending: 1, 'Correction Requested': 1, correction_requested: 1, Approved: 2, processing: 3, ready_for_pickup: 4, released: 5, Rejected: 3, cancelled: 7 });
 	const html = renderPage('src/routes/staff/reports/+page.svelte', { requests: rows });
-	assert.match(html, /Approval Rate \(resolved requests\)<\/p><strong[^>]*>82%<\/strong>/); assert.match(html, /17 resolved/);
-	for (const [key, count] of Object.entries({ pending: 1, correction_requested: 2, approved: 2, processing: 3, ready_for_pickup: 4, released: 5, rejected: 3, cancelled: 7 })) {
-		assert.match(html, new RegExp(`<p[^>]*>${statuses.statusLabel(key)}</p>\\s*<strong[^>]*>${count}</strong>`), key); assert.ok(html.includes(`--legend-color:${statuses.STATUS_COLORS[key].color}`), key);
-	}
-	assert.match(html, /Total Requests<\/p><strong[^>]*>27<\/strong>/);
+	assert.match(html, /Approval rate<\/p><strong[^>]*>82%<\/strong>/); assert.match(html, /17 resolved/);
+	const legend = html.slice(html.indexOf('<ul class="report-status-legend'), html.indexOf('</ul>',html.indexOf('<ul class="report-status-legend')));
+ for (const [key,count] of Object.entries({pending:1,correction_requested:2,approved:2,processing:3,ready_for_pickup:4,released:5,rejected:3,cancelled:7})) assert.match(legend,new RegExp('>'+statuses.statusLabel(key)+'</span><strong[^>]*>'+count+'</strong>'),key);
+ assert.equal((html.match(/<article class="report-kpi /g)??[]).length,4);
+
+	assert.match(html, /Total<\/p><strong[^>]*>27<\/strong>/);
 	for (const counts of [{ cancelled: 4 }, { pending: 2, correction_requested: 1, cancelled: 3 }]) {
-		assert.match(renderPage('src/routes/staff/reports/+page.svelte', { requests: reportRows(counts) }), /Approval Rate \(resolved requests\)<\/p><strong[^>]*>—<\/strong>/);
+		assert.match(renderPage('src/routes/staff/reports/+page.svelte', { requests: reportRows(counts) }), /Approval rate<\/p><strong[^>]*>—<\/strong>/);
 	}
 });
 

@@ -151,9 +151,7 @@
 				<input type="text" bind:value={search} aria-label="Search notifications" placeholder="Search notifications..." oninput={() => (currentPage = 1)} class="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30 w-full sm:w-44" />
 			</div>
 			{#if unreadCount > 0}
-				<button onclick={() => void markAllNotificationsRead()} class="min-h-11 px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-essu-green/30">
-					<i class="fa-solid fa-check-double mr-1 text-xs"></i>Mark all as read
-				</button>
+				<Button variant="secondary" icon="fa-solid fa-check-double" onclick={() => void markAllNotificationsRead()}>Mark all as read</Button>
 			{/if}
 		</div>
 	</div>
@@ -164,7 +162,7 @@
 				<EmptyState message={notifications.length ? 'No matching notifications' : 'No notifications yet'} description={notifications.length ? 'Clear the filters to see all notifications.' : 'Updates from the Graduate School office will appear here.'} icon="fa-regular fa-bell-slash" /><div class="flex justify-center pb-6">{#if notifications.length}<Button variant="secondary" onclick={() => { search = ''; activeFilter = 'all'; }}>Clear filters</Button>{:else}<Button variant="secondary" href="/student/forms">Browse forms</Button>{/if}</div>
 			</div>
 		{:else}
-			{#each paginated as notif}
+			{#each ['Today','Earlier'] as group}{@const today = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'Asia/Manila'})}{@const groupItems = paginated.filter(notif=>group==='Today' ? notif.date===today : notif.date!==today)}{#if groupItems.length}<h2 class="pt-4 pb-2 text-xl font-semibold">{group}</h2>{/if}{#each groupItems as notif}
 				{@const meta = typeIconMap[notif.type]}
 				<button
 					onclick={() => viewDetail(notif)}
@@ -193,7 +191,7 @@
 					</div>
 					<Badge value={notif.type} size="sm" /><span class="notification-open-action flex min-h-11 w-full items-center justify-start gap-2 border-t border-gray-100 pt-3 text-sm font-semibold text-essu-green md:hidden">View notification <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
 				</button>
-			{/each}
+			{/each}{/each}
 		{/if}
 	</div>
 
@@ -241,7 +239,5 @@
 			</div>
 		{/if}
 	{/snippet}
-	{#snippet footer()}
-		<button onclick={() => (detailOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Close</button>
-	{/snippet}
+	{#snippet footer()}<Button variant="secondary" onclick={() => detailOpen = false}>Close</Button>{/snippet}
 </Modal>

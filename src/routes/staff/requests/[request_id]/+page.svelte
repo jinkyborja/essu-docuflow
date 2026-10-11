@@ -1,4 +1,8 @@
 <script lang="ts">
+ import Button from '$lib/components/ui/Button.svelte';
+ import RowMenu from '$lib/components/ui/RowMenu.svelte';
+ import TextArea from '$lib/components/ui/TextArea.svelte';
+ import FileDrop from '$lib/components/ui/FileDrop.svelte';
 	import {invalidateAll} from '$app/navigation';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { showToast } from '$lib/stores/toasts';
@@ -193,12 +197,9 @@
 								{/if}
 							</div>
 							{#if !r.in_person && r.file_path}
-								<button
-									onclick={() => openFile(r.file_path!)}
-									class="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-essu-green hover:bg-essu-green/5 transition-colors"
-								>
+								<Button variant="ghost" onclick={() => openFile(r.file_path!)}>
 									<i class="fa-solid fa-eye"></i> View
-								</button>
+								</Button>
 							{/if}
 						</div>
 					{/each}
@@ -212,12 +213,9 @@
 			{#if req.approved_file_path}
 				<div class="bg-white rounded-xl border border-essu-green/30 shadow-sm p-5">
 					<p class="text-sm font-semibold text-essu-green mb-2"><i class="fa-solid fa-circle-check mr-2"></i>Approved Document</p>
-					<button
-						onclick={() => openFile(req.approved_file_path!)}
-						class="text-sm text-essu-green hover:underline flex items-center gap-2"
-					>
+					<Button variant="ghost" onclick={() => openFile(req.approved_file_path!)}>
 						<i class="fa-solid fa-download"></i> {req.approved_file_name ?? 'Download document'}
-					</button>
+					</Button>
 				</div>
 			{/if}
 		</div>
@@ -225,29 +223,14 @@
 		<!-- Sidebar: actions + history -->
 		<div class="space-y-4">
 			<!-- Actions -->
-			{#if currentStatus === 'Approved'}<div class="rounded-xl bg-white border border-essu-green/20 p-4 space-y-2"><p class="font-semibold text-sm text-essu-green">{delivered ? 'Delivery recorded' : 'Approved - ready for release'}</p><p class="text-xs text-gray-600">{delivered ? 'The office confirmed receipt of the documents.' : 'The student can download the approved file. Record delivery after confirming receipt; approval alone does not confirm delivery.'}</p>{#if !delivered}<button onclick={() => { actionError = ''; deliveryConfirm = true; }} disabled={submitting} class="px-3 py-2 rounded-lg bg-essu-green text-white text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">Record delivery</button>{/if}</div>{/if}
+			{#if currentStatus === 'Approved'}<div class="rounded-xl bg-white border border-essu-green/20 p-4 space-y-2"><p class="font-semibold text-sm text-essu-green">{delivered ? 'Delivery recorded' : 'Approved - ready for release'}</p><p class="text-xs text-gray-600">{delivered ? 'The office confirmed receipt of the documents.' : 'The student can download the approved file. Record delivery after confirming receipt; approval alone does not confirm delivery.'}</p>{#if !delivered}<Button onclick={() => { actionError = ''; deliveryConfirm = true; }} disabled={submitting} variant="primary">Record delivery</Button>{/if}</div>{/if}
 			{#if actionError}<p role="alert" class="text-sm text-red-700">{actionError}</p>{/if}
 			{#if currentStatus === 'Pending' || currentStatus === 'Correction Requested'}
 				<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
 					<p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Actions</p>
-					<button
-						onclick={() => { actionError = ''; approveOpen = true; }}
-						class="w-full flex items-center gap-2 px-4 py-2.5 bg-essu-green text-white rounded-lg text-sm font-medium hover:bg-essu-green-mid transition-colors"
-					>
-						<i class="fa-solid fa-circle-check"></i> Approve
-					</button>
-					<button
-						onclick={() => { actionError = ''; correctionOpen = true; }}
-						class="w-full flex items-center gap-2 px-4 py-2.5 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-sm font-medium hover:bg-yellow-100 transition-colors"
-					>
-						<i class="fa-solid fa-rotate-left"></i> Request Correction
-					</button>
-					<button
-						onclick={() => { actionError = ''; rejectOpen = true; }}
-						class="w-full flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
-					>
-						<i class="fa-solid fa-circle-xmark"></i> Reject
-					</button>
+					<Button onclick={() => { actionError = ''; approveOpen = true; }}  variant="primary">Approve</Button>
+					<Button onclick={() => { actionError = ''; correctionOpen = true; }}  variant="secondary">Request correction</Button>
+					<RowMenu label="Request actions" items={[{label:"Reject request",danger:true,disabled:submitting,onselect:()=>{actionError="";rejectOpen=true;}}]}/>
 				</div>
 			{/if}
 
@@ -283,7 +266,7 @@
 </div>
 
 <ConfirmDialog open={approveOpen} title="Approve request" message={'Approve ' + req.request_id + ' for ' + req.student_name + '?'} variant="primary" confirmLabel="Approve & Send" loading={submitting} disabled={!approvedFile} disabledReason="Upload the requested document first" error={actionError} onclose={() => approveOpen = false} onconfirm={() => void submitAction('approve')}>
-	{#snippet details()}<label class="block text-sm font-medium text-gray-700">Requested document (required)<input type="file" accept=".pdf,.doc,.docx,image/*" disabled={submitting} class="mt-2 block w-full text-sm" onchange={event => approvedFile = event.currentTarget.files?.[0] ?? null} /></label><label class="block text-sm text-gray-700">Note to student (optional)<textarea bind:value={adminMessage} rows="2" class="mt-2 w-full rounded-lg border border-gray-200 p-3 text-sm" disabled={submitting}></textarea></label>{/snippet}
+	{#snippet details()}<FileDrop label="Requested document" bind:file={approvedFile} accept=".pdf,.doc,.docx,image/*" disabled={submitting} required/><TextArea label="Note to student (optional)" bind:value={adminMessage} rows={2} disabled={submitting}/>{/snippet}
 </ConfirmDialog>
 <ConfirmDialog open={correctionOpen} title="Request correction" message={'Request corrected requirements for ' + req.request_id + '?'} variant="primary" requireReason minLength={10} confirmLabel="Send correction request" loading={submitting} disabled={!Object.values(flagged).some(Boolean)} disabledReason="Select a requirement to correct" error={actionError} onclose={() => correctionOpen = false} onconfirm={reason => { adminMessage = reason; void submitAction('correction'); }}>
 	{#snippet details()}<fieldset class="space-y-2"><legend class="mb-2 text-sm font-medium text-gray-700">Requirements needing correction</legend>{#each req.requirements.filter(requirement => !requirement.in_person) as requirement}<label class="flex items-center gap-3 rounded-lg border border-gray-200 p-3"><input type="checkbox" bind:checked={flagged[requirement.name]} disabled={submitting} class="accent-essu-green" /><span class="text-sm">{requirement.name}</span></label>{/each}</fieldset>{/snippet}

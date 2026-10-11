@@ -1,7 +1,13 @@
 <script lang="ts">
+	import SelectField from '$lib/components/ui/SelectField.svelte';
+	import TextField from '$lib/components/ui/TextField.svelte';
+	import FormSection from '$lib/components/ui/FormSection.svelte';
+	import FormActions from '$lib/components/ui/FormActions.svelte';
+	import {validateForm} from '$lib/components/ui/form-validation';
 	import { formatName, pluralize } from '$lib/formatting';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import RowMenu from '$lib/components/ui/RowMenu.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { showToast } from '$lib/stores/toasts';
@@ -126,14 +132,7 @@
 </div>
 {:else}
 <div class="space-y-5">
-	<!-- Header -->
-	<div class="flex items-center justify-between">
-		<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20">
-			{staffList.length} {pluralize(staffList.length, 'member')}
-		</span>
-		<Button onclick={openInvite} icon="fa-solid fa-paper-plane">Invite staff</Button>
-	</div>
-
+<PageHeader title="Staff Management" description="Manage the people who support your Graduate School office.">{#snippet action()}<Button onclick={openInvite} icon="fa-solid fa-paper-plane">Invite staff</Button>{/snippet}</PageHeader><p class="text-xs text-gray-500">{staffList.length} {pluralize(staffList.length,'member')}</p>
 	<!-- Table -->
 	<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
 		{#if staffList.length === 0}
@@ -230,46 +229,30 @@
 <Modal open={editOpen} title="Edit Staff Member" size="sm" onclose={() => { if (!editSaving) editOpen = false; }}>
 	{#snippet body()}
 		{#if editMember}
-			<form id="edit-staff-form" onsubmit={handleEdit} class="space-y-4">
+			<form use:validateForm id="edit-staff-form" onsubmit={handleEdit} class="space-y-4"><FormSection>
 				{#if editError}
 					<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
 						<i class="fa-solid fa-circle-exclamation mr-1"></i>{editError}
 					</div>
 				{/if}
 				<div class="grid grid-cols-2 gap-3">
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">First Name <span class="text-red-500">*</span></label>
-						<input bind:value={editMember.first_name} type="text" required class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-					</div>
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name <span class="text-red-500">*</span></label>
-						<input bind:value={editMember.last_name} type="text" required class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-					</div>
+					<TextField label="First Name" bind:value={editMember.first_name} type="text" required />
+					<TextField label="Last Name" bind:value={editMember.last_name} type="text" required />
 				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Position</label>
-					<input bind:value={editMember.position} type="text" placeholder="e.g. Registrar Staff" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></label>
-					<div class="grid grid-cols-2 gap-3">
-						{#each ['Staff', 'Admin'] as r}
-							<Button variant={editMember.role === r ? 'primary' : 'secondary'} disabled={editMember.user_id === currentUserId} disabledReason="You cannot change your own role" onclick={() => { if (editMember && editMember.user_id !== currentUserId) editMember.role = r as 'Staff' | 'Admin'; }}>{r}</Button>
-						{/each}
-					</div>
-				</div>
-			</form>
+				<TextField label="Position" bind:value={editMember.position} type="text" placeholder="e.g. Registrar Staff" />
+				<SelectField label="Role" bind:value={editMember.role} required disabled={editMember.user_id===currentUserId} helper={editMember.user_id===currentUserId ? 'You cannot change your own role':''}><option value="Staff">Staff</option><option value="Admin">Admin</option></SelectField>
+			</FormSection></form>
 		{/if}
 	{/snippet}
-	{#snippet footer()}
+	{#snippet footer()}<FormActions>
 		<Button variant="secondary" disabled={editSaving} onclick={() => (editOpen = false)}>Cancel</Button>
 		<Button type="submit" form="edit-staff-form" loading={editSaving}>Save changes</Button>
-	{/snippet}
+	</FormActions>{/snippet}
 </Modal>
 
 <ConfirmDialog open={deleteOpen} title="Delete staff member" message={'Delete ' + (deleteTarget ? formatName(deleteTarget.first_name, deleteTarget.middle_name, deleteTarget.last_name) : 'this staff member') + '? This permanently removes their account.'} confirmLabel="Delete staff member" loading={deleting} error={deleteError} onclose={() => deleteOpen = false} onconfirm={() => void handleDelete()} />
 <!-- Invite Modal -->
-<Modal open={inviteOpen} title="Invite Staff Member" size="sm" onclose={() => { if (!inviting) inviteOpen = false; }}>
+<Modal open={inviteOpen} closeDisabled={inviting} title="Invite Staff Member" size="sm" onclose={() => { if (!inviting) inviteOpen = false; }}>
 	{#snippet body()}
 		{#if inviteSuccess}
 			<div class="text-center py-4">
@@ -280,63 +263,35 @@
 				<p class="text-sm text-gray-500 mt-1">An invitation email has been sent to <span class="font-medium">{inviteEmail}</span>.</p>
 			</div>
 		{:else}
-			<form id="invite-form" onsubmit={handleInvite} class="space-y-4">
+			<form use:validateForm id="invite-form" onsubmit={handleInvite} class="space-y-4"><FormSection>
 				{#if inviteError}
 					<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
 						<i class="fa-solid fa-circle-exclamation mr-1"></i>{inviteError}
 					</div>
 				{/if}
 
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Email Address <span class="text-red-500">*</span></label>
-					<input
-						bind:value={inviteEmail}
-						type="email"
-						required
-						placeholder="staff@essu.edu.ph"
-						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-					/>
-				</div>
+				<TextField label="Email Address" bind:value={inviteEmail} type="email" required placeholder="staff@essu.edu.ph" />
 
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></label>
-					<div class="grid grid-cols-2 gap-3">
-						{#each ['Staff', 'Admin'] as r}
-							<button
-								type="button"
-								onclick={() => (inviteRole = r as 'Staff' | 'Admin')}
-								class="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center
-									{inviteRole === r ? 'border-essu-green bg-essu-green/5' : 'border-gray-200 hover:border-gray-300'}"
-							>
-								<i class="fa-solid {r === 'Admin' ? 'fa-shield-halved' : 'fa-user-tie'} text-lg
-									{inviteRole === r ? 'text-essu-green' : 'text-gray-400'}"></i>
-								<span class="text-sm font-medium {inviteRole === r ? 'text-essu-green' : 'text-gray-600'}">{r}</span>
-								<span class="text-xs text-gray-400 leading-tight">
-									{r === 'Admin' ? 'Full access' : 'Limited access'}
-								</span>
-							</button>
-						{/each}
-					</div>
-				</div>
-			</form>
+				<SelectField label="Role" bind:value={inviteRole} required><option value="Staff">Staff</option><option value="Admin">Admin</option></SelectField>
+			</FormSection></form>
 		{/if}
 	{/snippet}
-	{#snippet footer()}
+	{#snippet footer()}<FormActions>
 		{#if inviteSuccess}
-			<button
-				onclick={() => (inviteOpen = false)}
+			<Button
+				variant="secondary" onclick={() => (inviteOpen = false)}
 				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors"
 			>
 				Done
-			</button>
+			</Button>
 		{:else}
-			<button
-				onclick={() => (inviteOpen = false)}
+			<Button
+				variant="secondary" onclick={() => (inviteOpen = false)}
 				class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
 			>
 				Cancel
-			</button>
+			</Button>
 			<Button type="submit" form="invite-form" loading={inviting}>Send invitation</Button>
 		{/if}
-	{/snippet}
+	</FormActions>{/snippet}
 </Modal>

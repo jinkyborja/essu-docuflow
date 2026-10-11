@@ -1,0 +1,3 @@
+<script lang="ts">import type {Snippet} from 'svelte';let {title,description,children}: {title?:string;description?:string;children?:Snippet}=$props();</script>
+<fieldset class="form-section">{#if title}<legend>{title}</legend>{/if}{#if description}<p class="field-helper">{description}</p>{/if}<div class="form-section-fields">{#if children}{@render children()}{/if}</div></fieldset>
+<style>.form-section {border:0;padding:0;min-width:0;} legend {margin-bottom:var(--space-3);font-size:var(--type-card-title);font-weight:var(--weight-semibold);} .form-section-fields {display:grid;gap:var(--space-4);}</style>

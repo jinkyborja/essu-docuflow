@@ -4,6 +4,8 @@
 	import { REQUEST_STATUSES, requestStatusKey, statusLabel, STATUS_COLORS, type RequestStatus } from '$lib/request-status';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import StatusChip from '$lib/components/ui/StatusChip.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { page } from '$app/stores';
 	import type { PageData } from './$types';
 
@@ -151,7 +153,7 @@
 	};
 	const statusBreakdown = $derived(REQUEST_STATUSES.map(key => ({
 		key, label: statusLabel(key), icon: statusIcons[key], count: statusCounts[key],
-		color: STATUS_COLORS[key].color, share: total ? (statusCounts[key] / total) * 100 : 0
+		color: 'var(--color-' + ({pending:'warning',correction_requested:'correction',approved:'success',processing:'info',ready_for_pickup:'ready',released:'released',rejected:'danger',cancelled:'text-muted'}[key]) + ')' , share: total ? (statusCounts[key] / total) * 100 : 0
 	})));
 	const statusGradient = $derived.by(() => {
 		let edge = 0;
@@ -284,12 +286,8 @@
 					<label class="sr-only" for="report-end">End date</label>
 					<input id="report-end" type="date" bind:value={customEnd} min={customStart} />
 				{/if}
-				<button class="report-control-button report-export" onclick={exportCsv} disabled={filtered.length === 0}>
-					<i class="fa-solid fa-download" aria-hidden="true"></i> Export CSV
-				</button>
-				<button class="report-control-button report-print-button" onclick={() => window.print()}>
-					<i class="fa-solid fa-print" aria-hidden="true"></i> Print
-				</button>
+				<Button onclick={exportCsv} disabled={filtered.length===0} disabledReason="No requests in this period" icon="fa-solid fa-download">Export CSV</Button>
+				<Button variant="secondary" onclick={()=>window.print()} icon="fa-solid fa-print">Print</Button>
 			</div>
 		</div>
 	</header>
@@ -301,33 +299,33 @@
 				description={timeRange === 'custom' && (!customStart || !customEnd) ? 'Select both a start date and an end date to view report activity.' : 'There are no document requests for the selected dates. Widen the period to see more activity.'}
 				icon="fa-solid fa-chart-column"
 			/>
-			<button class="report-control-button report-export" onclick={tryWiderPeriod}>Try a wider period</button>
+			<Button variant="secondary" onclick={tryWiderPeriod}>Try a wider period</Button>
 		</section>
 	{:else}
 		<section class="report-kpis" aria-label="Request key performance indicators">
 			<article class="report-kpi report-kpi-total">
 				<div class="report-kpi-icon"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></div>
-				<div class="report-kpi-copy"><p>Total Requests</p><strong>{total}</strong><span>{total ? `100% of selected ${pluralize(total, 'request')}` : 'No requests'}</span></div>
+				<div class="report-kpi-copy"><p>Total</p><strong>{total}</strong><span>{total ? `100% of selected ${pluralize(total, 'request')}` : 'No requests'}</span></div>
 				{#if totalDelta !== null}<small class:positive={totalDelta <= 0} class:negative={totalDelta > 0} aria-label={deltaLabel(total, previousRows.length)}><i class="fa-solid {totalDelta > 0 ? 'fa-arrow-up' : totalDelta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(totalDelta).toFixed(0)}%</small>{/if}
 			</article>
-			{#each statusBreakdown as status}
+			{#each statusBreakdown.filter(status=>['pending','released'].includes(status.key)) as status}
 				{@const previousCount = previousRows.filter(row => requestStatusKey(row.status) === status.key).length}
 				{@const delta = previousWindow ? percentChange(status.count, previousCount) : null}
 				{@const improvesWithIncrease = approvedStatuses.includes(status.key)}
 				<article class="report-kpi">
-					<div class="report-kpi-icon" style={`color:${status.color};background:${status.color}18`}><i class={status.icon} aria-hidden="true"></i></div>
-					<div class="report-kpi-copy"><p>{status.label}</p><strong>{status.count}</strong><span>{total ? `${status.share.toFixed(0)}% of total` : 'No requests'}</span></div>
+					<div class="report-kpi-icon" style={`color:${status.color};background:color-mix(in srgb,${status.color} 10%,transparent)`}><i class={status.icon} aria-hidden="true"></i></div>
+					<div class="report-kpi-copy"><p>{status.key==='pending' ? 'Pending review':status.label}</p><strong>{status.count}</strong><span>{total ? `${status.share.toFixed(0)}% of total` : 'No requests'}</span></div>
 					{#if delta !== null}<small class:positive={improvesWithIncrease ? delta >= 0 : delta <= 0} class:negative={improvesWithIncrease ? delta < 0 : delta > 0} aria-label={deltaLabel(status.count, previousCount)}><i class="fa-solid {delta > 0 ? 'fa-arrow-up' : delta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(delta).toFixed(0)}%</small>{/if}
 				</article>
 			{/each}
 			<article class="report-kpi report-kpi-rate">
 				<div class="report-kpi-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>
-				<div class="report-kpi-copy"><p>Approval Rate (resolved requests)</p><strong>{resolved ? `${approvalRate.toFixed(0)}%` : '—'}</strong><span>{resolved} resolved · {resolved ? `${rejectionRate.toFixed(0)}%` : '—'} rejected</span></div>
+				<div class="report-kpi-copy"><p>Approval rate</p><strong>{resolved ? `${approvalRate.toFixed(0)}%` : '—'}</strong><span>{resolved} resolved · {resolved ? `${rejectionRate.toFixed(0)}%` : '—'} rejected</span></div>
 				{#if approvalRateDelta !== null}<small class:positive={approvalRateDelta >= 0} class:negative={approvalRateDelta < 0} aria-label={`${Math.abs(approvalRateDelta).toFixed(0)} percentage points vs previous period`}><i class="fa-solid {approvalRateDelta > 0 ? 'fa-arrow-up' : approvalRateDelta < 0 ? 'fa-arrow-down' : 'fa-minus'}" aria-hidden="true"></i>{Math.abs(approvalRateDelta).toFixed(0)} pts</small>{/if}
 			</article>
 		</section>
 
-		<p class="report-comparison-note">{comparisonText}</p>
+		<div class="report-stat-chips">{#each statusBreakdown.filter(status=>!['pending','released'].includes(status.key)) as status}<span><StatusChip value={status.key}/><strong>{status.count}</strong></span>{/each}</div><p class="report-comparison-note">{comparisonText}</p>
 
 		<section class="report-grid report-grid-primary">
 			<article class="report-card report-trend-card">
@@ -418,13 +416,7 @@
 
 <style>
 	.report-layout {
-		--report-border: #dfe8e2;
-		--report-muted: #607168;
-		--report-ink: #17251f;
-		--report-green: #1f6b50;
-		--report-surface: #fff;
-		--report-shadow: 0 1px 2px rgb(19 49 37 / 0.04), 0 8px 24px rgb(19 49 37 / 0.045);
-		color: var(--report-ink);
+		color: var(--color-text);
 	}
 
 	.report-page-header {
@@ -438,7 +430,7 @@
 	.report-subtitle,
 	.report-card-header p {
 		margin: 0.35rem 0 0;
-		color: var(--report-muted);
+		color: var(--color-text-muted);
 		font-size: 0.8rem;
 	}
 
@@ -453,12 +445,12 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.45rem;
-		border: 1px solid var(--report-border);
+		border: 1px solid var(--color-border);
 		border-radius: 999px;
-		background: #f8fbf9;
-		color: #385548;
-		font-size: 0.7rem;
-		font-weight: 650;
+		background: var(--color-surface-muted);
+		color: var(--color-text-soft);
+		font-size: var(--type-helper);
+		font-weight: var(--weight-semibold);
 		padding: 0.38rem 0.7rem;
 		white-space: nowrap;
 	}
@@ -474,65 +466,18 @@
 	.report-toolbar select,
 	.report-toolbar input {
 		min-height: 42px;
-		border: 1px solid var(--report-border);
-		border-radius: 0.65rem;
-		background: #fff;
-		color: var(--report-ink);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-card);
+		background: var(--color-surface);
+		color: var(--color-text);
 		font-size: 0.76rem;
 		padding: 0.55rem 0.7rem;
 	}
 
-	.report-control-button {
-		display: inline-flex;
-		min-height: 42px;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		border: 1px solid var(--report-border);
-		border-radius: 0.65rem;
-		background: #fff;
-		color: #344b40;
-		font-size: 0.76rem;
-		font-weight: 650;
-		padding: 0.55rem 0.8rem;
-		transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
-	}
-
-	.report-control-button:hover:not(:disabled) {
-		transform: translateY(-1px);
-		border-color: #9fbeaa;
-		background: #f3f8f4;
-	}
-
-	.report-control-button:focus-visible,
-	.report-toolbar select:focus-visible,
-	.report-toolbar input:focus-visible,
-	.report-open-link:focus-visible {
-		outline: 3px solid rgb(43 128 96 / 0.28);
-		outline-offset: 2px;
-	}
-
-	.report-control-button:disabled {
-		cursor: not-allowed;
-		opacity: 0.55;
-	}
-
-	.report-export {
-		border-color: #1f6b50;
-		background: #1f6b50;
-		color: #fff;
-	}
-
-	.report-export:hover:not(:disabled) {
-		border-color: #174f3e;
-		background: #174f3e;
-	}
-
-	.report-print-meta { display: none; }
 
 	.report-kpis {
 		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: 0.9rem;
 	}
 
@@ -543,10 +488,10 @@
 		min-height: 122px;
 		align-items: flex-start;
 		gap: 0.8rem;
-		border: 1px solid var(--report-border);
-		border-radius: 0.9rem;
-		background: var(--report-surface);
-		box-shadow: var(--report-shadow);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-card);
+		background: var(--color-surface);
+		box-shadow: none;
 		padding: 1rem 1rem 0.9rem;
 	}
 
@@ -557,91 +502,93 @@
 		flex: 0 0 auto;
 		place-items: center;
 		border-radius: 0.75rem;
-		background: #e8f1eb;
-		color: #216847;
+		background: var(--color-primary-soft);
+		color: var(--color-primary);
 	}
 
 	.report-kpi-copy { min-width: 0; }
-	.report-kpi-copy p { margin: 0; color: #596c61; font-size: 0.72rem; font-weight: 600; }
-	.report-kpi-copy strong { display: block; margin-top: 0.12rem; color: var(--report-ink); font-size: 1.65rem; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
-	.report-kpi-copy span { display: block; margin-top: 0.35rem; color: #65766d; font-size: 0.66rem; }
-	.report-kpi > small { position: absolute; right: 0.75rem; bottom: 0.72rem; display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.62rem; font-weight: 700; }
-	.report-kpi > small.positive { color: #236746; }
-	.report-kpi > small.negative { color: #a13c38; }
-	.report-kpi-rate .report-kpi-icon { background: #e7eef1; color: #315f76; }
+	.report-kpi-copy p { margin: 0; color: var(--color-text-muted); font-size: var(--type-helper); font-weight: 600; }
+	.report-kpi-copy strong { display: block; margin-top: 0.12rem; color: var(--color-text); font-size: 1.65rem; font-weight: var(--weight-semibold); line-height: 1.15; font-variant-numeric: tabular-nums; }
+	.report-kpi-copy span { display: block; margin-top: 0.35rem; color: var(--color-text-muted); font-size: var(--type-helper); }
+	.report-kpi > small { position: absolute; right: 0.75rem; bottom: 0.72rem; display: inline-flex; align-items: center; gap: 0.25rem; font-size: var(--type-helper); font-weight: var(--weight-semibold); }
+	.report-kpi > small.positive { color: var(--color-success); }
+	.report-kpi > small.negative { color: var(--color-danger); }
+	.report-kpi-rate .report-kpi-icon { background: var(--color-info-soft); color: var(--color-info); }
 
-	.report-comparison-note { margin: 0.6rem 0 1.15rem; color: #75847c; font-size: 0.67rem; text-align: right; }
+	.report-comparison-note { margin: 0.6rem 0 1.15rem; color: var(--color-text-muted); font-size: var(--type-helper); text-align: right; }
 
 	.report-grid { display: grid; gap: 1rem; margin-bottom: 1rem; }
-	.report-grid-primary { grid-template-columns: minmax(0, 2fr) minmax(290px, 1fr); }
+	.report-grid-primary { grid-template-columns: repeat(2,minmax(0,1fr)); align-items:stretch; }
 	.report-grid-secondary { grid-template-columns: minmax(0, 1.55fr) minmax(270px, 1fr); }
 
 	.report-card {
 		min-width: 0;
-		border: 1px solid var(--report-border);
-		border-radius: 0.9rem;
-		background: var(--report-surface);
-		box-shadow: var(--report-shadow);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-card);
+		background: var(--color-surface);
+		box-shadow: none;
 		padding: 1rem 1.1rem;
 	}
 
 	.report-card-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.8rem; }
-	.report-card-header h3 { margin: 0; color: var(--report-ink); font-size: 0.91rem; font-weight: 700; }
-	.report-chart-total { background: #f3f8f4; }
+	.report-card-header h3 { margin: 0; color: var(--color-text); font-size: 0.91rem; font-weight: var(--weight-semibold); }
+	
 
+	.report-stat-chips {display:flex;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-4);}
+	.report-stat-chips>span {display:flex;align-items:center;gap:var(--space-2);}
+	.report-grid-primary>.report-card {min-height:320px;}
 	.report-trend-plot { height: 205px; }
 	.report-trend-plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
-	.chart-axis { stroke: #cfdcd3; stroke-width: 1; }
-	.chart-gridline { stroke: #e6ede8; stroke-width: 1; stroke-dasharray: 4 6; }
-	.chart-area { fill: rgb(43 128 96 / 0.11); }
-	.chart-line { fill: none; stroke: #28724d; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-	.chart-point { fill: #fff; stroke: #28724d; stroke-width: 2; vector-effect: non-scaling-stroke; }
-	.report-trend-labels { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.3rem; color: #687971; font-size: 0.64rem; }
-	.report-chart-empty { margin: 0; border: 1px dashed var(--report-border); border-radius: 0.65rem; color: #66776e; font-size: 0.75rem; padding: 1.25rem; text-align: center; }
+	.chart-axis { stroke: var(--color-border-strong); stroke-width: 1; }
+	.chart-gridline { stroke: var(--color-border); stroke-width: 1; stroke-dasharray: 4 6; }
+	.chart-area { fill: var(--color-primary-soft); }
+	.chart-line { fill: none; stroke: var(--color-primary); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+	.chart-point { fill: var(--color-surface); stroke: var(--color-primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
+	.report-trend-labels { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.3rem; color: var(--color-text-muted); font-size: var(--type-helper); }
+	.report-chart-empty { margin: 0; border: 1px dashed var(--color-border); border-radius: var(--radius-card); color: var(--color-text-muted); font-size: 0.75rem; padding: 1.25rem; text-align: center; }
 
 	.report-donut-layout { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 0.4rem 0; }
 	.report-donut { display: grid; width: 150px; height: 150px; flex: 0 0 auto; place-items: center; border-radius: 50%; }
-	.report-donut::before { width: 68%; height: 68%; border-radius: 50%; background: #fff; content: ''; grid-area: 1 / 1; }
+	.report-donut::before { width: 68%; height: 68%; border-radius: 50%; background: var(--color-surface); content: ''; grid-area: 1 / 1; }
 	.report-donut > div { z-index: 1; display: flex; flex-direction: column; align-items: center; grid-area: 1 / 1; }
-	.report-donut strong { color: var(--report-ink); font-size: 1.45rem; line-height: 1.2; }
-	.report-donut span { color: #66776e; font-size: 0.65rem; }
+	.report-donut strong { color: var(--color-text); font-size: 1.45rem; line-height: 1.2; }
+	.report-donut span { color: var(--color-text-muted); font-size: var(--type-helper); }
 	.report-status-legend { display: grid; min-width: 0; gap: 0.65rem; margin: 0; padding: 0; list-style: none; }
-	.report-status-legend li { display: grid; grid-template-columns: 10px minmax(95px, 1fr) auto auto; align-items: center; gap: 0.45rem; color: #344b40; font-size: 0.67rem; }
+	.report-status-legend li { display: grid; grid-template-columns: 10px minmax(95px, 1fr) auto auto; align-items: center; gap: 0.45rem; color: var(--color-text-soft); font-size: var(--type-helper); }
 	.report-legend-key { width: 9px; height: 9px; border-radius: 2px; background: var(--legend-color); }
 	.report-legend-name { line-height: 1.3; }
 	.report-status-legend strong { font-variant-numeric: tabular-nums; }
-	.report-status-legend small { width: 2.4rem; color: #65766d; text-align: right; }
+	.report-status-legend small { width: 2.4rem; color: var(--color-text-muted); text-align: right; }
 
 	.report-document-bars { display: grid; gap: 0.8rem; }
 	.report-document-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(70px, 1.1fr) 2.4rem; align-items: center; gap: 0.75rem; }
-	.report-document-label { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 0.6rem; color: #33483d; font-size: 0.72rem; }
+	.report-document-label { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 0.6rem; color: var(--color-text-soft); font-size: var(--type-helper); }
 	.report-document-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.report-document-label strong { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
-	.report-document-track { height: 9px; overflow: hidden; border-radius: 999px; background: #edf2ee; }
-	.report-document-track span { display: block; height: 100%; border-radius: inherit; background: #2d7956; }
-	.report-document-row > small { color: #65766d; font-size: 0.65rem; text-align: right; }
+	.report-document-track { height: 9px; overflow: hidden; border-radius: 999px; background: var(--color-primary-soft); }
+	.report-document-track span { display: block; height: 100%; border-radius: inherit; background: var(--color-primary); }
+	.report-document-row > small { color: var(--color-text-muted); font-size: var(--type-helper); text-align: right; }
 	.report-rank-list { display: grid; gap: 0.45rem; margin: 0; padding: 0; list-style: none; }
-	.report-rank-list li { display: grid; min-height: 45px; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: 0.6rem; border-bottom: 1px solid #edf1ee; }
+	.report-rank-list li { display: grid; min-height: 45px; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: 0.6rem; border-bottom: 1px solid var(--color-border); }
 	.report-rank-list li:last-child { border-bottom: 0; }
-	.report-rank-number { color: #78877f; font-size: 0.67rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-	.report-rank-name { overflow: hidden; color: #30473b; font-size: 0.72rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-	.report-rank-list strong { min-width: 2rem; border-radius: 999px; background: #edf5ef; color: #245f43; font-size: 0.67rem; padding: 0.2rem 0.5rem; text-align: center; }
+	.report-rank-number { color: var(--color-text-muted); font-size: var(--type-helper); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+	.report-rank-name { overflow: hidden; color: var(--color-text); font-size: var(--type-helper); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+	.report-rank-list strong { min-width: 2rem; border-radius: 999px; background: var(--color-primary-soft); color: var(--color-primary-dark); font-size: var(--type-helper); padding: 0.2rem 0.5rem; text-align: center; }
 
 	.report-recent-card { padding: 0; overflow: hidden; }
-	.report-recent-card > .report-card-header { margin: 0; border-bottom: 1px solid var(--report-border); padding: 1rem 1.1rem; }
+	.report-recent-card > .report-card-header { margin: 0; border-bottom: 1px solid var(--color-border); padding: 1rem 1.1rem; }
 	.report-table-scroll { overflow-x: auto; }
-	.report-recent-table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 0.74rem; }
-	.report-recent-table th { position: sticky; top: 0; color: #5e7066; background: #f6f9f7; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.03em; padding: 0.72rem 1rem; text-align: left; text-transform: uppercase; }
-	.report-recent-table td { border-top: 1px solid #edf1ee; color: #33483d; padding: 0.72rem 1rem; vertical-align: middle; }
-	.report-recent-table tbody tr:hover { background: #f8fbf9; }
+	.report-recent-table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: var(--type-helper); }
+	.report-recent-table th { position: sticky; top: 0; color: var(--color-text-muted); background: var(--color-surface-muted); font-size: var(--type-helper); font-weight: var(--weight-semibold); letter-spacing: 0.03em; padding: 0.72rem 1rem; text-align: left; text-transform: uppercase; }
+	.report-recent-table td { border-top: 1px solid var(--color-border); color: var(--color-text-soft); padding: 0.72rem 1rem; vertical-align: middle; }
+	.report-recent-table tbody tr:hover { background: var(--color-surface-muted); }
 	.report-recent-table td:first-child { min-width: 145px; }
-	.report-recent-table td:first-child small { display: block; margin-top: 0.14rem; color: #728078; font-family: ui-monospace, monospace; font-size: 0.63rem; }
-	.report-student-unavailable { color: #65766d; font-size: 0.68rem; font-style: italic; }
-	.report-open-link { display: inline-flex; min-height: 40px; align-items: center; gap: 0.4rem; color: #1f6b50; font-size: 0.68rem; font-weight: 700; text-decoration: none; }
-	.report-open-link:hover { color: #174f3e; text-decoration: underline; }
-	.report-empty-page { display: flex; min-height: 330px; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--report-border); border-radius: 0.9rem; background: #fff; box-shadow: var(--report-shadow); padding: 1.5rem; }
+	.report-recent-table td:first-child small { display: block; margin-top: 0.14rem; color: var(--color-text-muted); font-family: ui-monospace, monospace; font-size: var(--type-helper); }
+	.report-student-unavailable { color: var(--color-text-muted); font-size: var(--type-helper); font-style: italic; }
+	.report-open-link { display: inline-flex; min-height: 40px; align-items: center; gap: 0.4rem; color: var(--color-primary); font-size: var(--type-helper); font-weight: var(--weight-semibold); text-decoration: none; }
+	.report-open-link:hover { color: var(--color-primary-dark); text-decoration: underline; }
+	.report-empty-page { display: flex; min-height: 330px; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: none; padding: 1.5rem; }
 	.report-empty-page :global(.ui-empty-state) { padding: 1.5rem 1rem 0.8rem; }
-	.report-empty-page .report-control-button { margin-bottom: 1.3rem; }
 
 	@media (max-width: 1100px) {
 		.report-page-header { align-items: flex-start; flex-direction: column; }
@@ -652,11 +599,11 @@
 	}
 
 	@media (max-width: 760px) {
+		.report-recent-table {min-width:0;}
 		.report-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 		.report-toolbar { display: grid; width: 100%; grid-template-columns: 1fr 1fr; }
 		.report-toolbar select { grid-column: 1 / -1; }
 		.report-toolbar input { min-width: 0; width: 100%; }
-		.report-control-button { min-height: 44px; }
 	}
 
 	@media (max-width: 480px) {
@@ -670,27 +617,26 @@
 		.report-document-row > small { grid-column: 2; grid-row: 2; }
 		.report-toolbar { grid-template-columns: 1fr; }
 		.report-toolbar select { grid-column: auto; }
-		.report-control-button { width: 100%; }
 	}
 
 	@media print {
-		:global(body) { background: #fff !important; color: #111 !important; }
+		:global(body) { background: var(--color-surface) !important; color: var(--color-text) !important; }
 		:global(.portal-sidebar), :global(.portal-topbar), .report-toolbar, .report-comparison-note { display: none !important; }
 		:global(.portal-main) { max-width: none !important; margin: 0 !important; padding: 0 !important; }
-		.report-layout { color: #111; }
-		.report-print-meta { display: block; margin-bottom: 1rem; border-bottom: 1px solid #888; padding-bottom: 0.5rem; }
-		.report-print-meta p { margin: 0.2rem 0; color: #333; font-size: 9pt; }
-		.report-print-title { font-size: 15pt !important; font-weight: 700; }
+		.report-layout { color: var(--color-text); }
+		.report-print-meta { display: block; margin-bottom: 1rem; border-bottom: 1px solid var(--color-text-muted); padding-bottom: 0.5rem; }
+		.report-print-meta p { margin: 0.2rem 0; color: var(--color-text-soft); font-size: 9pt; }
+		.report-print-title { font-size: 15pt !important; font-weight: var(--weight-semibold); }
 		.report-page-header { display: none; }
 		.report-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; }
-		.report-kpi, .report-card { break-inside: avoid; box-shadow: none; border-color: #aaa; }
+		.report-kpi, .report-card { break-inside: avoid; box-shadow: none; border-color: var(--color-border-strong); }
 		.report-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
 		.report-grid-primary { grid-template-columns: 2fr 1fr; }
 		.report-card { margin-bottom: 0.55rem; padding: 0.65rem; }
 		.report-trend-plot { height: 150px; }
 		.report-donut { width: 115px; height: 115px; }
-		.report-recent-table { min-width: 0; font-size: 8pt; }
+		.report-recent-table { min-width: 0; font-size: var(--type-helper); }
 		.report-recent-table th, .report-recent-table td { padding: 0.35rem; }
-		.report-open-link { color: #111; }
+		.report-open-link { color: var(--color-text); }
 	}
 </style>

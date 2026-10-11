@@ -4,6 +4,9 @@
 	import { untrack } from 'svelte';
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';
+	import RowMenu from './RowMenu.svelte';
+	import FileDrop from './FileDrop.svelte';
+	import TextField from './TextField.svelte';
 	import ConfirmDialog from './ConfirmDialog.svelte';
 	import LoadingState from './LoadingState.svelte';
 	import LoadError from './LoadError.svelte';
@@ -81,21 +84,15 @@
 	}
 	const template = 'data:text/csv;charset=utf-8,' + encodeURIComponent('student_id,last_name,first_name,middle_name,program,campus,status,school_year\r\n26-0001,Dela Cruz,Juan,,Master of Information Technology,Guiuan,Enrolled,2026-2027\r\n');
 </script>
-<Modal {open} title="Graduate School enrollment masterlist" size="lg" onclose={close}>
+<Modal {open} title="Graduate School enrollment masterlist" size="xl" width="960px" onclose={close} closeDisabled={busy} dirty={!!file}>
+{#snippet headerActions()}<RowMenu label="Masterlist actions" items={[{label:'Clear masterlist',danger:true,disabled:busy || loading,reason:'Wait for the current action to finish',onselect:()=>requestDelete('all')}]} />{/snippet}
 	{#snippet body()}
 		<div class="space-y-4">
 			<p class="text-xs text-gray-600">Include historical enrollment records for Former students and Alumni. The masterlist supports one record per student ID; importing that ID again updates its record.</p>
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<a href={template} download="enrollment-masterlist-template.csv" class="text-sm text-essu-green underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">Download CSV template</a>
-				<Button variant="danger" onclick={() => requestDelete('all')} disabled={busy || loading} loading={clearing}>Delete all students</Button>
 			</div>
-			<div role="region" aria-label="CSV upload" ondragover={e => e.preventDefault()} ondrop={e => { e.preventDefault(); if (!busy) chooseFile(e.dataTransfer?.files[0] ?? null); }} class="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-				<label class="block text-sm text-gray-600">Drop a CSV here or choose a file (maximum 2 MB)
-					<input type="file" accept=".csv,text/csv" disabled={busy} onchange={e => chooseFile(e.currentTarget.files?.[0] ?? null)} class="mt-2 block w-full text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-				</label>
-				{#if file}<p class="mt-2 text-xs text-gray-600">Selected: {file.name}</p>{/if}
-				<Button onclick={() => void importFile()} disabled={!file || busy || loading} loading={busy && !deletion}>Import CSV</Button>
-			</div>
+<FileDrop label="Import enrollment CSV" {file} accept=".csv,text/csv" maxSize={2*1024*1024} disabled={busy} helper="One record per student ID. Maximum 2 MB." onchange={candidate=>chooseFile(candidate)} /><Button onclick={() => void importFile()} disabled={!file || busy || loading} disabledReason={!file ? 'Choose a CSV first' : undefined} loading={busy && !deletion}>Import CSV</Button>
 			{#if summary}
 				<div role="status" class="p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">Added: {summary.added}. Updated: {summary.updated}. Skipped: {summary.skipped}.</div>
 				{#if summary.reasons.length}<details class="text-xs text-gray-600"><summary>Skipped rows and reasons</summary><ul class="mt-2 max-h-40 overflow-auto">{#each summary.reasons as reason}<li>Row {reason.row}: {reason.reason}</li>{/each}</ul></details>{/if}
@@ -107,15 +104,17 @@
 				<button disabled={busy || loading} class="rounded-lg border border-gray-200 px-3 py-2 text-sm text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30">Search</button>
 			</form>
 			{#if loading}<LoadingState label="Loading masterlist…" />{:else if loadError}<LoadError message="We couldn’t load the masterlist. Please try again." onretry={() => void loadRows()} />{:else}<div class="overflow-x-auto border border-gray-100 rounded-lg">
-				<table use:responsiveTable class="responsive-table w-full text-xs text-left"><thead class="bg-gray-50"><tr>{#each ['Student ID','Name','Program','Campus','Status','School year','Action'] as label}<th class="p-2">{label}</th>{/each}</tr></thead>
-					<tbody>{#each rows as row}<tr class="border-t border-gray-100"><td class="p-2 font-mono">{row.student_id}</td><td class="p-2">{formatName(row.first_name, row.middle_name, row.last_name)}</td><td class="p-2">{row.program}</td><td class="p-2">{row.campus ?? '-'}</td><td class="p-2">{row.status ?? '-'}</td><td class="p-2">{row.school_year ?? '-'}</td><td class="p-2"><button onclick={() => requestDelete(row)} disabled={busy || loading} class="text-red-600 focus:outline-none focus:ring-2 focus:ring-essu-green/30" aria-label={'Delete ' + row.student_id}>Delete</button></td></tr>{/each}</tbody>
+				<table use:responsiveTable class="responsive-table masterlist-table w-full text-sm text-left"><thead class="bg-gray-50"><tr>{#each ['Student ID','Name','Program','Campus','Status','School year','Action'] as label}<th class="p-2">{label}</th>{/each}</tr></thead>
+					<tbody>{#each rows as row}<tr class="border-t border-gray-100"><td class="p-2 font-mono">{row.student_id}</td><td class="p-2">{formatName(row.first_name, row.middle_name, row.last_name)}</td><td class="p-2">{row.program}</td><td class="p-2">{row.campus ?? '-'}</td><td class="p-2">{row.status ?? '-'}</td><td class="p-2">{row.school_year ?? '-'}</td><td class="p-2"><RowMenu label={'Actions for ' + row.student_id} items={[{label:'Delete entry',danger:true,disabled:busy||loading,reason:'Wait for the current action to finish',onselect:()=>requestDelete(row)}]} /></td></tr>{/each}</tbody>
 				</table>
 				<div class="space-y-3 p-4 text-sm text-gray-600">{#if !rows.length}<p>No entries found. {search ? 'Clear your search to see all entries.' : 'Import a CSV to add students.'}</p>{#if search}<Button variant="secondary" onclick={() => { search = ''; void loadRows(1); }}>Clear search</Button>{:else}<Button variant="secondary" href={template}>Download CSV template</Button>{/if}{/if}</div>
 			</div>
 			{/if}<div class="flex flex-wrap justify-between items-center gap-3 text-xs text-gray-500"><button onclick={() => loadRows(page - 1)} disabled={page <= 1 || busy || loading} class="border rounded-lg px-3 py-2 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Previous</button><span>Page {page} / {Math.max(1, Math.ceil(total / 20))} ({total} entries)</span><button onclick={() => loadRows(page + 1)} disabled={page * 20 >= total || busy || loading} class="border rounded-lg px-3 py-2 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Next</button></div>
 		</div>
 	{/snippet}
-	{#snippet footer()}<button onclick={close} disabled={busy} class="px-4 py-2 text-sm border rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Close</button>{/snippet}
+	{#snippet footer()}<Button variant="secondary" onclick={close} disabled={busy}>Close</Button>{/snippet}
 </Modal>
 
-<ConfirmDialog open={!!deletion} title={deletion === 'all' ? 'Delete all masterlist students' : 'Delete masterlist entry'} message={deletion === 'all' ? 'Permanently delete every masterlist entry across all pages, including entries hidden by your search? Student accounts and existing verification decisions are kept.' : 'Delete the masterlist entry for ' + (deletion?.student_id ?? '') + '?'} confirmLabel={deletion === 'all' ? 'Delete all students' : 'Delete entry'} loading={busy} {error} onclose={cancelDelete} onconfirm={confirmDelete} />
+<ConfirmDialog open={!!deletion} title={deletion === 'all' ? 'Clear enrollment masterlist' : 'Delete masterlist entry'} message={deletion === 'all' ? 'Permanently delete every enrollment-masterlist entry across all pages, including entries hidden by search. This does not delete student accounts or change existing verification decisions.' : 'Delete the masterlist entry for ' + (deletion?.student_id ?? '') + '?'} confirmLabel={deletion === 'all' ? 'Clear masterlist' : 'Delete entry'} requiredText={deletion === 'all' ? 'CLEAR' : ''} loading={busy} {error} onclose={cancelDelete} onconfirm={confirmDelete} />
+
+<style>.masterlist-table {table-layout:fixed;} .masterlist-table :is(th,td):nth-child(1){width:92px;white-space:nowrap;} .masterlist-table :is(th,td):nth-child(2){width:170px;} .masterlist-table :is(th,td):nth-child(3){width:auto;} .masterlist-table :is(th,td):nth-child(4){width:82px;white-space:nowrap;} .masterlist-table :is(th,td):nth-child(5){width:92px;white-space:nowrap;} .masterlist-table :is(th,td):nth-child(6){width:108px;white-space:nowrap;} .masterlist-table :is(th,td):nth-child(7){width:64px;white-space:nowrap;} @media(max-width:767px){.masterlist-table :is(th,td){width:auto;white-space:normal;}}</style>

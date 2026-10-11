@@ -1,4 +1,9 @@
 <script lang="ts">
+ import TextField from '$lib/components/ui/TextField.svelte';
+ import Button from '$lib/components/ui/Button.svelte';
+ import FormSection from '$lib/components/ui/FormSection.svelte';
+ import FormActions from '$lib/components/ui/FormActions.svelte';
+ import {validateForm} from '$lib/components/ui/form-validation';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -50,15 +55,15 @@
 			<div class="auth-content">
 				<div class="auth-heading"><div class="auth-accent"></div><h1>Create a new password</h1><p>Choose a strong password you haven't used before.</p></div>
 				{#if !token}
-					<div class="auth-status"><div class="auth-status-icon" style="background:#fdecec;color:#a93e3b"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i></div><p>Invalid or missing reset link.</p><a href="/login" class="auth-link">Back to Sign In</a></div>
+					<div class="auth-status"><div class="auth-status-icon" style="background:var(--color-danger-soft);color:var(--color-danger)"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i></div><p>Invalid or missing reset link.</p><a href="/login" class="auth-link">Back to Sign In</a></div>
 				{:else if success}
 					<div class="auth-status"><div class="auth-status-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div><h2>Password updated!</h2><p>Redirecting you to the login page…</p></div>
 				{:else}
 					{#if error}<div class="auth-message" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>{error}</span></div>{/if}
-					<form onsubmit={handleSubmit} class="auth-form">
-						<div class="auth-field"><label for="reset-password">New Password</label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="reset-password" bind:value={password} type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" required minlength="8" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onclick={() => (showPassword = !showPassword)}><i class="fa-solid {showPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
-						<div class="auth-field"><label for="reset-confirm">Confirm Password</label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="reset-confirm" bind:value={confirmPassword} type={showConfirm ? 'text' : 'password'} placeholder="Repeat password" required /><button type="button" aria-label={showConfirm ? 'Hide password' : 'Show password'} onclick={() => (showConfirm = !showConfirm)}><i class="fa-solid {showConfirm ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
-						<button type="submit" disabled={loading} class="auth-submit">{#if loading}<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>{/if}Set New Password <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+					<form use:validateForm onsubmit={handleSubmit} class="auth-form"><FormSection>
+						<TextField label="New password" bind:value={password} required type="password" minlength={8} passwordRules/>
+						<TextField label="Confirm password" bind:value={confirmPassword} required type="password" validator={value => value === password ? "" : "Passwords do not match."}/>
+						</FormSection><FormActions><Button type="submit" loading={loading}>Set new password</Button></FormActions>
 					</form>
 					<div class="auth-status-link"><a href="/login" class="auth-link">← Back to Sign In</a></div>
 				{/if}

@@ -1,8 +1,15 @@
 <script lang="ts">
+	import TextField from '$lib/components/ui/TextField.svelte';
+	import SelectField from '$lib/components/ui/SelectField.svelte';
+	import FormSection from '$lib/components/ui/FormSection.svelte';
+	import FormActions from '$lib/components/ui/FormActions.svelte';
+	import {validateForm} from '$lib/components/ui/form-validation';
 	import type { RequirementSettings } from '$lib/server/requirements';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { onMount } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import FileDrop from '$lib/components/ui/FileDrop.svelte';
 	import LoadError from '$lib/components/ui/LoadError.svelte';
 	import RowMenu from '$lib/components/ui/RowMenu.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -161,10 +168,7 @@
 
 <div class="space-y-5">
 	<!-- Header -->
-	<div class="page-toolbar flex items-center justify-between gap-3">
-		<p class="text-sm text-gray-500">Document catalog</p>
-		<Button onclick={openAdd} icon="fa-solid fa-plus">Add document</Button>
-	</div>
+	<PageHeader title="Documents" description="Manage requestable documents, templates and their requirements.">{#snippet action()}<Button onclick={openAdd} icon="fa-solid fa-plus">Add document</Button>{/snippet}</PageHeader><p class="requirement-legend"><i class="fa-solid fa-link" aria-hidden="true"></i>Linked form <i class="fa-solid fa-signature" aria-hidden="true"></i>Signatures required</p>
 
 	{#if usageError}<LoadError message="We couldn’t check linked requests. Please try again." onretry={() => void loadUsage()} />{:else if !usageLoaded}<p role="status" class="flex items-center gap-2 text-sm text-gray-600"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Checking linked requests…</p>{/if}
 	<!-- Document list -->
@@ -184,25 +188,15 @@
 								<i class="fa-solid fa-file-lines text-essu-green"></i>
 							</div>
 							<div class="min-w-0">
-								<h3 class="font-semibold text-gray-800 truncate">{doc.name}</h3>
+								<h3 class="text-xl font-semibold text-gray-800">{doc.name}</h3>
 								<p class="text-xs text-gray-400 mt-0.5">
 									Added by {doc.uploaded_by_name} ·
 									{new Date(doc.upload_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</p>
 							</div>
 						</div>
-						<RowMenu label={'Actions for ' + doc.name} items={[{label: 'Edit', onselect: () => openEdit(doc)}, {label: 'Delete', danger: true, disabled: !!deleteReason(doc), reason: deleteReason(doc), onselect: () => { deleteTarget = doc; deleteError = ''; }}]} />
+						
 					</div>
-
-					<!-- Template -->
-					{#if doc.template_path}
-						<div class="mt-3 flex items-center gap-2 text-xs bg-essu-green/5 border border-essu-green/20 rounded-lg px-3 py-2">
-							<i class="fa-solid fa-paperclip text-essu-green shrink-0"></i>
-							<span class="flex-1 truncate text-essu-green font-medium">{doc.template_name}</span>
-							<Button variant="secondary" size="sm" onclick={() => void openTemplate(doc.template_path!)} icon="fa-solid fa-eye">View</Button>
-							<Button variant="secondary" size="sm" onclick={() => void downloadTemplate(doc.template_path!, doc.template_name!)} icon="fa-solid fa-download">Download</Button>
-						</div>
-					{/if}
 
 					<!-- Requirements -->
 					{#if reqs.length > 0}
@@ -222,7 +216,7 @@
 						</div>
 					{:else}
 						<p class="mt-3 text-xs text-gray-400">No requirements set.</p>
-					{/if}
+					{/if}<footer class="document-card-footer"><div class="flex flex-wrap gap-2">{#if doc.template_path}<Button variant="secondary" size="sm" onclick={()=>void openTemplate(doc.template_path!)} icon="fa-solid fa-eye">View</Button><Button variant="secondary" size="sm" onclick={()=>void downloadTemplate(doc.template_path!,doc.template_name!)} icon="fa-solid fa-download">Download</Button>{:else}<Button variant="secondary" size="sm" disabled disabledReason="No template uploaded" icon="fa-solid fa-eye">View</Button><Button variant="secondary" size="sm" disabled disabledReason="No template uploaded" icon="fa-solid fa-download">Download</Button>{/if}</div><RowMenu label={'Actions for ' + doc.name} items={[{label: 'Edit', onselect: () => openEdit(doc)}, {label: 'Delete', danger: true, disabled: !!deleteReason(doc), reason: deleteReason(doc), onselect: () => { deleteTarget = doc; deleteError = ''; }}]} /></footer>
 				</div>
 			{/each}
 		</div>
@@ -237,28 +231,17 @@
 	onclose={() => { if (!saving) modalOpen = false; }}
 >
 	{#snippet body()}
-		<form id="doc-form" onsubmit={handleSave} class="space-y-5">
+		<form use:validateForm id="doc-form" onsubmit={handleSave} class="space-y-5"><FormSection>
 			{#if saveError}
 				<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
 					<i class="fa-solid fa-circle-exclamation mr-1"></i>{saveError}
 				</div>
 			{/if}
 
-			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1.5">Document Name <span class="text-red-500">*</span></label>
-				<input
-					bind:value={docName}
-					type="text"
-					placeholder="e.g. Transcript of Records"
-					required
-					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-				/>
-			</div>
+			<TextField label="Document Name" bind:value={docName} type="text" placeholder="e.g. Transcript of Records" required />
 
 			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1.5">
-					Template File <span class="text-gray-400 font-normal text-xs">(optional — PDF or Word)</span>
-				</label>
+				
 
 				{#if existingTemplateName && !removeTemplate && !templateFile}
 					<div class="flex items-center gap-2 px-3 py-2.5 border border-essu-green/30 bg-essu-green/5 rounded-lg text-sm mb-2">
@@ -271,23 +254,14 @@
 				{/if}
 
 				{#if !existingTemplateName || removeTemplate || templateFile}
-					<label class="flex items-start gap-3 px-3 py-2.5 border border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-essu-green/50 hover:bg-essu-green/5 transition-all">
-						<i class="fa-solid fa-upload text-gray-400 shrink-0 mt-0.5"></i>
-						<span class="text-sm min-w-0 break-words {templateFile ? 'text-essu-green font-medium' : 'text-gray-400'}">
-							{templateFile ? templateFile.name : 'Click to upload template'}
-						</span>
-						<input type="file" accept=".pdf,.doc,.docx" class="hidden" onchange={(e) => {
-							const f = (e.target as HTMLInputElement).files?.[0];
-							if (f) { templateFile = f; removeTemplate = false; }
-						}} />
-					</label>
+<FileDrop label="Template file" bind:file={templateFile} accept=".pdf,.doc,.docx" helper="Optional PDF or Word template." onchange={file=>{if(file)removeTemplate=false;}} />
 				{/if}
 			</div>
 
 			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-3">
+				<p class="mb-3 text-sm font-medium text-gray-700">
 					Requirements <span class="text-gray-400 font-normal text-xs">(what students must submit)</span>
-				</label>
+				</p>
 				<div class="space-y-3">
 					{#each reqOptions as req, i}
 						<div class="border border-gray-100 rounded-lg p-3 {req.checked ? 'bg-essu-green/5 border-essu-green/30' : ''}">
@@ -304,16 +278,12 @@
 									Requires in-person submission at the office
 								</label>
 								<div class="mt-3 space-y-2">
-									<label class="block text-xs text-gray-600">Linked form
-										<select bind:value={reqOptions[i].form_id} class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+									<SelectField label="Linked form" bind:value={reqOptions[i].form_id}>
 											<option value={null}>None</option>
 											{#each forms as form}<option value={form.form_id}>{form.title}</option>{/each}
-										</select>
-									</label>
+										</SelectField>
 									<label class="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" bind:checked={reqOptions[i].needs_signature} class="accent-essu-green focus:ring-essu-green/30" />Needs signatures</label>
-									<label class="block text-xs text-gray-600">Signature note
-										<input bind:value={reqOptions[i].signature_note} maxlength="200" placeholder="Signatures: Librarian, Cashier, Dean" class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-									</label>
+									<TextField label="Signature note" bind:value={reqOptions[i].signature_note} maxlength={200} placeholder="Signatures: Librarian, Cashier, Dean" />
 									<p class="text-xs text-gray-400">Form and signature settings apply wherever this requirement is used.</p>
 
 								</div>
@@ -325,12 +295,7 @@
 					{#each customReqs as _, i}
 						<div class="border border-gray-200 rounded-lg p-3 bg-gray-50/50">
 							<div class="flex items-center gap-2 mb-2">
-								<input
-									bind:value={customReqs[i].name}
-									type="text"
-									placeholder="e.g. Medical Certificate"
-									class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-								/>
+								<div class="min-w-0 flex-1"><TextField label="Requirement name" bind:value={customReqs[i].name} placeholder="e.g. Medical certificate" required/></div>
 								<button
 									type="button"
 									onclick={() => { customReqs = customReqs.filter((_, j) => j !== i); }}
@@ -345,16 +310,12 @@
 								Requires in-person submission at the office
 							</label>
 							<div class="mt-3 space-y-2">
-								<label class="block text-xs text-gray-600">Linked form
-									<select bind:value={customReqs[i].form_id} class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+								<SelectField label="Linked form" bind:value={customReqs[i].form_id}>
 										<option value={null}>None</option>
 										{#each forms as form}<option value={form.form_id}>{form.title}</option>{/each}
-									</select>
-								</label>
+									</SelectField>
 								<label class="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" bind:checked={customReqs[i].needs_signature} class="accent-essu-green focus:ring-essu-green/30" />Needs signatures</label>
-								<label class="block text-xs text-gray-600">Signature note
-									<input bind:value={customReqs[i].signature_note} maxlength="200" placeholder="Signatures: Librarian, Cashier, Dean" class="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-								</label>
+								<TextField label="Signature note" bind:value={customReqs[i].signature_note} maxlength={200} placeholder="Signatures: Librarian, Cashier, Dean" />
 								<p class="text-xs text-gray-400">Form and signature settings apply wherever this requirement is used.</p>
 
 							</div>
@@ -365,16 +326,18 @@
 						onclick={() => { customReqs = [...customReqs, { name: '', in_person: false, ...emptySettings() }]; }}
 						class="w-full flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-essu-green/50 hover:text-essu-green hover:bg-essu-green/5 transition-all"
 					>
-						<i class="fa-solid fa-plus text-xs"></i> Add Custom Requirement
+						<i class="fa-solid fa-plus text-xs"></i> Add custom requirement
 					</button>
 				</div>
 			</div>
-		</form>
+		</FormSection></form>
 	{/snippet}
-	{#snippet footer()}
+	{#snippet footer()}<FormActions>
 		<Button variant="secondary" disabled={saving} onclick={() => (modalOpen = false)}>Cancel</Button>
 		<Button type="submit" form="doc-form" loading={saving}>{editingId !== null ? 'Save changes' : 'Add document'}</Button>
-	{/snippet}
+	</FormActions>{/snippet}
 </Modal>
 
 <ConfirmDialog open={!!deleteTarget} title="Delete document" message={'Delete “' + (deleteTarget?.name ?? 'this document') + '”? This cannot be undone.'} confirmLabel="Delete document" loading={deleting} error={deleteError} onclose={() => deleteTarget = null} onconfirm={() => void handleDelete()} />
+
+<style>.requirement-legend {display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-2);font-size:var(--type-helper);color:var(--color-text-muted);} .document-card-footer {display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:var(--space-6);padding-top:var(--space-4);border-top:1px solid var(--color-border);}</style>

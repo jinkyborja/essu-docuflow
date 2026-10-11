@@ -48,11 +48,11 @@
 	<Sidebar items={studentNav} role="student" />
 
 	<div
-		class="portal-content min-w-0 flex-1 flex flex-col transition-all duration-300 {collapsed ? 'lg:ml-16' : 'lg:ml-60'}"
+		class="portal-content" class:collapsed
 	>
-		<TopBar title={pageTitle} />
+		<TopBar />
 
-		<main id="main-content" tabindex="-1" class="portal-main flex-1 mt-16 p-6">
+		<main id="main-content" tabindex="-1" class="portal-main">
 			<PageIntro title={pageTitle} role="student" />
 			{#if data.layoutUser.idStatus === 'pending'}
 				<section class="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" aria-label="Account review"><p>Your account is being reviewed by the Graduate School office.</p><Button href="/student/forms">Browse forms</Button></section>

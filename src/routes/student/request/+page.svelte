@@ -83,7 +83,7 @@
 	{#if data.idStatus !== 'verified'}
 		<Button href="/student/forms" icon="fa-solid fa-file-lines">Browse forms</Button>
 	{:else}
-		<div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"><StepIndicator {steps} {currentStep} /></div>
+		<div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"><StepIndicator {steps} {currentStep} disabled={submitting} onstep={step=>{if(step<currentStep && !submitting)currentStep=step;}} /></div>
 		<div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
 			{#if currentStep === 1}
 				<h2 class="mb-1 text-lg font-semibold text-gray-800">Select Document</h2>
@@ -116,7 +116,7 @@
 						</section>
 					{:else}<p class="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">No requirements needed for these documents. Click Next to continue.</p>{/each}
 				</div>
-				<div class="mt-6 flex flex-wrap items-center justify-between gap-3"><Button variant="secondary" icon="fa-solid fa-chevron-left" onclick={prev}>Back</Button><div class="text-right">{#if !canProceed}<p class="mb-2 text-xs text-gray-600" aria-live="polite">{nextReason}</p>{/if}<Button onclick={next} disabled={!canProceed} disabledReason={nextReason} icon="fa-solid fa-chevron-right" iconRight>Next</Button></div></div>
+				<div class="wizard-actions sticky bottom-0 z-10 mt-6 flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" icon="fa-solid fa-chevron-left" onclick={prev}>Back</Button><div class="text-right">{#if !canProceed}<p class="mb-2 text-xs text-gray-600" aria-live="polite">{nextReason}</p>{/if}<Button onclick={next} disabled={!canProceed} disabledReason={nextReason} icon="fa-solid fa-chevron-right" iconRight>Next</Button></div></div>
 			{:else}
 				<h2 class="mb-1 text-lg font-semibold text-gray-800">Review &amp; Submit</h2><p class="mb-5 text-sm text-gray-500">Check your documents and files before submitting.</p>
 				<label for="request-purpose" class="mb-2 block text-sm font-medium text-gray-700">Purpose (required)</label><select id="request-purpose" bind:value={purpose} disabled={submitting} class="mb-5 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="" disabled>Select a purpose...</option>{#each requestPurposes as item}<option value={item}>{item}</option>{/each}</select>
@@ -127,9 +127,11 @@
 				</div>
 				{#if submitError}<p class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{submitError} Your selected files are still here.</p>{/if}
 				<div class="mt-5 flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800"><i class="fa-solid fa-circle-info mt-0.5 shrink-0" aria-hidden="true"></i><p>After you submit, you can replace requirement files while the request is pending. You cannot change the selected documents.</p></div>
-				<div class="mt-6 flex flex-wrap items-center justify-between gap-3"><Button variant="secondary" onclick={prev} disabled={submitting} icon="fa-solid fa-chevron-left">Back</Button><div class="text-right">{#if !purpose.trim()}<p class="mb-2 text-xs text-gray-600">Select a purpose to submit</p>{/if}<Button onclick={submitRequest} loading={submitting} loadingLabel="Submitting…" disabled={!canProceed} disabledReason={!purpose.trim() ? 'Select a purpose to submit' : nextReason} icon="fa-solid fa-paper-plane">Submit request</Button></div></div>{#if submitting}<p class="sr-only" role="status">Submitting…</p>{/if}
+				<div class="wizard-actions sticky bottom-0 z-10 mt-6 flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onclick={prev} disabled={submitting} icon="fa-solid fa-chevron-left">Back</Button><div class="text-right">{#if !purpose.trim()}<p class="mb-2 text-xs text-gray-600">Select a purpose to submit</p>{/if}<Button onclick={submitRequest} loading={submitting} loadingLabel="Submitting…" disabled={!canProceed} disabledReason={!purpose.trim() ? 'Select a purpose to submit' : nextReason} icon="fa-solid fa-paper-plane">Submit request</Button></div></div>{#if submitting}<p class="sr-only" role="status">Submitting…</p>{/if}
 			{/if}
 		</div>
 	{/if}
 </div>
 <ConfirmDialog open={successOpen} title="Request submitted" message="Your document request has been submitted. You can track its progress in My Documents." variant="primary" confirmLabel="View my request" cancelLabel="New request" onclose={reset} onconfirm={() => goto('/student/documents#' + encodeURIComponent(submittedId), { invalidateAll: true })}>{#snippet details()}<p class="text-sm text-gray-600">Request ID</p><p class="break-all font-mono text-lg font-bold text-essu-green">{submittedId}</p>{/snippet}</ConfirmDialog>
+
+<style>.wizard-actions {padding:var(--space-4);margin-inline:calc(-1 * var(--space-4));border-top:1px solid var(--color-border);background:var(--color-surface);}</style>

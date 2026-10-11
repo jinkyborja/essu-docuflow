@@ -1,4 +1,9 @@
 <script lang="ts">
+ import TextField from '$lib/components/ui/TextField.svelte';
+ import Button from '$lib/components/ui/Button.svelte';
+ import FormSection from '$lib/components/ui/FormSection.svelte';
+ import FormActions from '$lib/components/ui/FormActions.svelte';
+ import {validateForm} from '$lib/components/ui/form-validation';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -36,37 +41,10 @@
 		}
 	}
 </script>
-
-<div class="auth-shell">
-	<div class="auth-card">
-		<aside class="auth-left" aria-label="ESSU DocuFlow introduction">
-			<div class="auth-photo" aria-hidden="true"></div>
-			<div class="auth-brand-chip"><span class="auth-brand-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></span><span><strong>ESSU DocuFlow</strong><small>Student Document Request Portal</small></span></div>
-			<div class="auth-copy"><h2>Welcome to your ESSU staff workspace.</h2><ol class="auth-steps" aria-label="How DocuFlow works"><li><span>1</span>Request</li><li><span>2</span>Track</li><li><span>3</span>Receive</li></ol><a class="auth-pill" href="/login">Already have an account? Sign in <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>
-		</aside>
-		<section class="auth-right" aria-label="Staff account setup">
-			<div class="auth-content auth-staff-content">
-				{#if !data.valid}
-					<div class="auth-status"><div class="auth-status-icon" style="background:#fdecec;color:#a93e3b"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></div><h2>Invalid or Expired Link</h2><p>This invitation link is no longer valid. Please ask your admin to send a new invite.</p></div>
-				{:else if success}
-					<div class="auth-status"><div class="auth-status-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div><h2>Account Created!</h2><p>Your {data.role} account has been set up. You can now log in.</p><a href="/login" class="auth-link">Go to Login <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i></a></div>
-				{:else}
-					<div class="auth-heading"><div class="auth-accent"></div><h1>Set up your staff account</h1><p>Complete your details to activate your account.</p></div>
-					<div class="auth-email-badge"><i class="fa-solid fa-envelope" aria-hidden="true"></i><span>{data.email}</span><span class="auth-role">{data.role}</span></div>
-					{#if error}<div class="auth-message" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>{error}</span></div>{/if}
-					<form onsubmit={handleSubmit} class="auth-form">
-						<div class="auth-grid">
-							<div class="auth-field"><label for="staff-first">First Name <span>*</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="staff-first" bind:value={firstName} type="text" required autocomplete="given-name" /></div></div>
-							<div class="auth-field"><label for="staff-last">Last Name <span>*</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="staff-last" bind:value={lastName} type="text" required autocomplete="family-name" /></div></div>
-							<div class="auth-field" style="grid-column:1/-1"><label for="staff-position">Position / Title <span>(optional)</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input id="staff-position" bind:value={position} type="text" placeholder="e.g. Registrar, Records Officer" autocomplete="organization-title" /></div></div>
-							<div class="auth-field"><label for="staff-password">Password <span>*</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="staff-password" bind:value={password} type={showPassword ? 'text' : 'password'} required autocomplete="new-password" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onclick={() => (showPassword = !showPassword)}><i class="fa-solid {showPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
-							<div class="auth-field"><label for="staff-confirm">Confirm Password <span>*</span></label><div class="auth-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="staff-confirm" bind:value={confirmPassword} type={showConfirm ? 'text' : 'password'} required autocomplete="new-password" /><button type="button" aria-label={showConfirm ? 'Hide password' : 'Show password'} onclick={() => (showConfirm = !showConfirm)}><i class="fa-solid {showConfirm ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i></button></div></div>
-						</div>
-						<button type="submit" disabled={submitting} class="auth-submit">{#if submitting}<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>{/if}Create Account <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
-					</form>
-				{/if}
-			</div>
-		</section>
-	</div>
-	<p class="auth-footer">Eastern Samar State University &middot; Graduate School</p>
-</div>
+<div class="auth-shell"><div class="auth-card"><aside class="auth-left" aria-label="ESSU DocuFlow introduction"><div class="auth-photo" aria-hidden="true"></div><div class="auth-brand-chip"><span class="auth-brand-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></span><span><strong>ESSU DocuFlow</strong><small>Student Document Request Portal</small></span></div><div class="auth-copy"><h2>Welcome to your ESSU staff workspace.</h2><a class="auth-pill" href="/login">Already have an account? Sign in <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div></aside><section class="auth-right" aria-label="Staff account setup"><div class="auth-content auth-staff-content">
+ {#if !data.valid}<div class="auth-status"><div class="auth-status-icon" style="background:var(--color-danger-soft);color:var(--color-danger)"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></div><h2>Invalid or expired link</h2><p>This invitation link is no longer valid. Please ask your admin to send a new invite.</p><Button variant="secondary" href="/login">Back to sign in</Button></div>
+ {:else if success}<div class="auth-status"><div class="auth-status-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div><h2>Account created</h2><p>Your {data.role} account has been set up. You can now log in.</p><Button href="/login">Sign in</Button></div>
+ {:else}<div class="auth-heading"><div class="auth-accent"></div><h1>Set up your staff account</h1><p>Complete your details to activate your account.</p></div><div class="auth-email-badge"><i class="fa-solid fa-envelope" aria-hidden="true"></i><span>{data.email}</span><span class="auth-role">{data.role}</span></div>
+ {#if error}<div class="auth-message" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>{error}</span></div>{/if}
+ <form use:validateForm onsubmit={handleSubmit} class="auth-form"><FormSection><div class="auth-grid"><TextField label="First name" bind:value={firstName} required autocomplete="given-name" validator={value=>value.trim()?'':'Enter your first name.'}/><TextField label="Last name" bind:value={lastName} required autocomplete="family-name" validator={value=>value.trim()?'':'Enter your last name.'}/></div><TextField label="Position" bind:value={position} placeholder="e.g. Office clerk"/><TextField label="Password" bind:value={password} type="password" minlength={8} required passwordRules autocomplete="new-password"/><TextField label="Confirm password" bind:value={confirmPassword} type="password" required autocomplete="new-password" validator={value=>value===password?'':'Passwords do not match.'}/></FormSection><FormActions><Button type="submit" loading={submitting} loadingLabel="Creating account…">Create account</Button></FormActions></form>{/if}
+ </div></section></div><p class="auth-footer">Eastern Samar State University · Graduate School</p></div>

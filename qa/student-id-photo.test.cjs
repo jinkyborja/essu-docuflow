@@ -247,7 +247,7 @@ test('Dashboard/profile banners appear once for pending/rejected students; verif
 			assert.equal((html.match(/Your ID could not be verified/g) ?? []).length, status === 'rejected' ? 1 : 0);
 		}
 		const html = renderPage('src/routes/student/profile/+page.svelte', { profile: { first_name: 'Juan', middle_name: null, last_name: 'Cruz', id_status: status, has_id_photo: false } }, '/student/profile');
-		assert.equal(html.includes('id="school-id-photo"'), status !== 'verified'); assert.doesNotMatch(html, /<img/);
+		assert.equal(html.includes('aria-label="School ID photo (front)"'), status !== 'verified'); assert.doesNotMatch(html, /<img/);
 	}
 });
 

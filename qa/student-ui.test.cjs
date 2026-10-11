@@ -48,7 +48,7 @@ test('Uploaded and correction file chips announce the file status',()=>{
 test('Loading, load failure and empty request states show a status or next action',()=>{
  assert.match(html('src/lib/components/ui/LoadingState.svelte',{}),/role="status"/);
  const failure=html('src/lib/components/ui/ErrorState.svelte',{status:500,message:'Internal Error'});assert.match(failure,/Try again/);assert.doesNotMatch(failure,/Internal Error/);
- const empty=html('src/routes/student/documents/+page.svelte',{data:{requests:[]}});assert.match(empty,/No requests yet/);assert.match(empty,/Request a document/);
+ const empty=html('src/routes/student/documents/+page.svelte',{data:{requests:[],layoutUser:{idStatus:"verified"}}});assert.match(empty,/No requests yet/);assert.match(empty,/Request a document/);
 });
 test('Dates use the office calendar and file sizes are readable',()=>{
  const {formatDate}=load('src/lib/request-flow.ts');assert.equal(formatDate('2026-10-11T08:00:00Z'),'Oct 11, 2026');assert.equal(formatDate('invalid'),'Not recorded');

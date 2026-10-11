@@ -16,10 +16,10 @@ test('Names retain complete middle names and omit missing components without dou
  assert.equal(formatName(' Mark   Anthony ',' Aquino ',' Lacro '),'Mark Anthony Aquino Lacro');
  for(const middle of [null,undefined,'','  ']) assert.equal(formatName('Jhon',middle,'Doe'),'Jhon Doe');
 });
-test('Request chips use the exact KPI labels and include an accessible icon/text label',()=>{
+test('Request chips use the exact status-tab labels and include an accessible icon/text label',()=>{
  const {statusLabel}=load('src/lib/request-status.ts');
- for(const [value,label] of [['pending','Pending'],['Correction Requested','Correction Requested'],['approved','Approved'],['rejected','Rejected']]) {
-  assert.equal(statusLabel(value),label);
+ for(const [value,label] of [['pending','Pending review'],['Correction Requested','Needs correction'],['approved','Approved'],['rejected','Rejected']]) {
+  assert.equal(statusLabel(value), value === 'pending' ? 'Pending' : value === 'Correction Requested' ? 'Correction Requested' : label);
   const html=render(load('src/lib/components/ui/StatusChip.svelte').default,{props:{value}}).body;
   assert.ok(html.includes(`Request status: ${label}`));assert.match(html,/aria-hidden="true"/);assert.ok(html.includes(label));
  }

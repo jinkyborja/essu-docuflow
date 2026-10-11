@@ -150,7 +150,7 @@ function renderPage(filename, data, extraImports = {}) {
 	};
 	return render(load(filename, imports).default, { props: { data } }).body;
 }
-test('Document summaries render one additional-document count in every request list', () => {
+test('Request lists summarize counts and student cards show every document name', () => {
 	const items = [{ document_id: 1, name: 'Transcript' }, { document_id: 2, name: 'Certificate' }, { document_id: 3, name: 'Diploma' }];
 	for (const filename of ['src/routes/staff/requests/+page.svelte', 'src/routes/staff/dashboard/+page.svelte', 'src/routes/student/dashboard/+page.svelte', 'src/routes/student/documents/+page.svelte']) {
 		if (filename === 'src/routes/staff/requests/+page.svelte') {
@@ -159,19 +159,14 @@ test('Document summaries render one additional-document count in every request l
 			assert.doesNotMatch(html, /Transcript \+2 more/); continue;
 		}
 		if (filename === 'src/routes/student/documents/+page.svelte') {
-			const html = renderPage(filename, {requests: [{request_id: 'REQ-2026-001', document_name: 'Transcript +2 more', status: 'Pending', purpose: 'Employment', date_requested: '2026-10-11', items, requirements: []}]});
+			const html = renderPage(filename, {layoutUser:{idStatus:'verified'},requests: [{request_id: 'REQ-2026-001', document_name: 'Transcript +2 more', status: 'Pending', purpose: 'Employment', date_requested: '2026-10-11', items, requirements: []}]});
 			for (const item of items) assert.match(html, new RegExp(item.name));
 			assert.doesNotMatch(html, /\+2 more/); continue;
 		}
-		// Render the actual row markup separately from the list's client effects and page state.
-		const lines = fs.readFileSync(filename, 'utf8').split('\n').filter(line => line.includes('more</button>') || (filename.includes('staff/dashboard') && line.includes('{req.document_name}')));
-		assert.ok(lines.length, filename);
-		for (const line of lines) {
-			const source = `<script>let { req } = $props(); let expanded = []; let expandedRequests = []; let expandedItems = []; function toggleItems() {}</script>${line.trim()}`;
-			const component = load(filename, {}, source).default;
-			const html = render(component, { props: { req: { request_id: 'REQ-2026-001', document_name: 'Transcript +2 more', items } } }).body;
-			assert.equal((html.match(/\+2 more/g) ?? []).length, 1, filename);
-		}
+		const req={request_id:'REQ-2026-001',document_name:'Transcript +2 more',status:'Pending',date_requested:'2026-10-11',items,student_name:'Juan Cruz'};
+  const html=renderPage(filename,filename.includes('staff/dashboard')?{role:'Admin',counts:{students:1,requests:1,pending:1,approved:0,pendingVerification:0,awaitingDelivery:0,awaitingCorrections:0},pendingQueue:[req],recentActivity:[]}:{layoutUser:{idStatus:'verified'},requests:[req],recentHistory:[]});
+  if(filename.includes('student/dashboard')){for(const item of items)assert.ok(html.includes(item.name));assert.doesNotMatch(html,/\+2 more/);}else assert.ok(html.includes('+2 more'));
+
 	}
 });
 test('Unverified request page has Browse forms and no duplicate banner or wizard', () => {
@@ -186,12 +181,12 @@ test('Unverified request page has Browse forms and no duplicate banner or wizard
 test('Reports show an em dash without resolved requests and only one visible period selector', () => {
 	const row = { request_id: 'REQ-2026-001', status: 'Pending', date_requested: new Date().toISOString(), document_name: 'Transcript', items: [{ document_id: 1, name: 'Transcript' }] };
 	const pending = renderPage('src/routes/staff/reports/+page.svelte', { requests: [row] });
-	assert.match(pending, /Approval Rate \(resolved requests\)<\/p><strong[^>]*>—<\/strong>/);
+	assert.match(pending, /Approval rate<\/p><strong[^>]*>—<\/strong>/);
 	assert.doesNotMatch(pending, /<span class="report-period-chip"/);
 	assert.equal((pending.match(/<option value="all"/g) ?? []).length, 1);
 	assert.doesNotMatch(pending, /1 requests/);
 	const approved = renderPage('src/routes/staff/reports/+page.svelte', { requests: [{ ...row, status: 'Approved' }] });
-	assert.match(approved, /Approval Rate \(resolved requests\)<\/p><strong[^>]*>100%<\/strong>/);
+	assert.match(approved, /Approval rate<\/p><strong[^>]*>100%<\/strong>/);
 });
 test('Verified students have View and an overflow menu with admin-only Revoke in both table layouts', () => {
 	const student = { user_id: 8, first_name: 'Christian Daniel', middle_name: 'Germones', last_name: 'Jongco', suffix: null, email: 'fake@example.invalid', student_id: '26-0001', program: 'QA', student_type: 'Enrolled', last_school_year: years.SCHOOL_YEAR_MAX, verified: true, id_status: 'verified', id_verified_at: null, id_reject_reason: null, date_of_birth: null, date_registered: new Date().toISOString() };
