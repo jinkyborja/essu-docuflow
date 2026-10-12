@@ -4,6 +4,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import RowMenu from '$lib/components/ui/RowMenu.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import TextField from '$lib/components/forms/TextField.svelte';
 	import { showToast } from '$lib/stores/toasts';
 	import type { PageData } from './$types';
 
@@ -287,16 +288,7 @@
 					</div>
 				{/if}
 
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Email Address <span class="text-red-500">*</span></label>
-					<input
-						bind:value={inviteEmail}
-						type="email"
-						required
-						placeholder="staff@essu.edu.ph"
-						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-					/>
-				</div>
+				<TextField label="Email address" bind:value={inviteEmail} type="email" required placeholder="staff@essu.edu.ph" error={inviteError} />
 
 				<div>
 					<label class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></label>

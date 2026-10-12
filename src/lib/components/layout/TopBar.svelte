@@ -1,100 +1,47 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import UserMenu from './UserMenu.svelte';
 	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
-	import { notifUnreadCount } from '$lib/stores/notifications';
 
-	interface Props {
-		title: string;
-	}
-
-	const { title }: Props = $props();
-
-	const collapsed = $derived($sidebarCollapsed);
-
-	// Session data comes straight from the layout server load (staff/+layout.server.ts
-	// and student/+layout.server.ts both return `layoutUser`) — no client-side store.
-	type LayoutUser = { name: string; initials: string; position?: string; program?: string };
-	const user = $derived($page.data.layoutUser as LayoutUser | undefined);
-
-	const avatarLabel = $derived(user?.initials || '?');
-	const displayName = $derived(user?.name ?? 'User');
-	// Staff show their position; students show their program. Graduate School has no
-	// year levels, so no year is displayed.
-	const displayRole = $derived(user?.position ?? user?.program ?? '');
-	const unread = $derived($notifUnreadCount);
+	let { user, role, userRole, unread = 0 }: {
+		user: { name: string; initials: string; position?: string; program?: string };
+		role: 'staff' | 'student';
+		userRole?: string;
+		unread?: number;
+	} = $props();
+	let desktop = $state(false);
 	let previousUnread = $state(0);
 	let announcement = $state('');
-	$effect(() => {
-		if (unread > previousUnread) announcement = 'New notification';
-		previousUnread = unread;
-	});
+	const notificationHref = $derived(role === 'student' ? '/student/notifications' : '/staff/notifications');
+	const menuLabel = $derived(desktop ? $sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation' : 'Open navigation');
+	$effect(() => { if (unread > previousUnread) announcement = 'New notification'; previousUnread = unread; });
+	onMount(() => { desktop = window.matchMedia('(min-width: 1024px)').matches; });
+	function toggleNavigation() {
+		if (desktop) sidebarCollapsed.update(value => !value);
+		else sidebarMobileOpen.update(value => !value);
+	}
 </script>
 
-<header
-	class="portal-topbar fixed top-0 right-0 z-20 h-16 bg-white border-b border-gray-100 shadow-sm flex items-center px-4 gap-3 transition-all duration-300
-		{collapsed ? 'left-16' : 'left-60'}
-		max-lg:left-0"
->
-	<!-- Mobile hamburger -->
-	<button
-		onclick={() => sidebarMobileOpen.update((v) => !v)}
-		class="lg:hidden flex h-11 w-11 shrink-0 items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-		aria-label="Toggle navigation"
-		title="Toggle navigation"
-		aria-controls="portal-navigation"
-		aria-expanded={$sidebarMobileOpen}
-	>
-		<i class="fa-solid fa-bars"></i>
-	</button>
+<svelte:window onresize={() => desktop = window.matchMedia('(min-width: 1024px)').matches} />
 
-	<!-- Page title -->
-	<button
-		onclick={() => sidebarCollapsed.update((v) => !v)}
-		class="hidden lg:flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
-		aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-		aria-controls="portal-navigation"
-		aria-expanded={!collapsed}
-		title="Toggle navigation (Ctrl+B)"
-	><i class="fa-solid fa-bars-staggered" aria-hidden="true"></i></button>
-	<div class="flex-1 min-w-0"><p class="topbar-workspace">ESSU DocuFlow</p><p class="text-sm font-medium text-gray-800 truncate">{title}</p></div>
-
-	<div class="flex items-center gap-2">
-		<a
-			href={$page.url.pathname.startsWith('/student') ? '/student/notifications' : '/staff/notifications'}
-			class="portal-notification-link relative flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100 hover:text-essu-green transition-colors"
-			aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
-			title="Notifications"
-		>
-			<i class="fa-regular fa-bell"></i>
-			{#if unread > 0}
-				{#key unread}
-				<span class="portal-notification-count absolute right-0.5 top-0.5 min-w-4 rounded-full bg-essu-green px-1 text-center text-[10px] leading-4 text-white" aria-hidden="true">
-					{unread > 9 ? '9+' : unread}
-				</span>
-				{/key}
-			{/if}
-		</a>
-		<span class="sr-only" aria-live="polite">{announcement}</span>
-		<!-- Profile shortcut; logout remains in the sidebar. -->
-		<a
-			href={$page.url.pathname.startsWith('/student') ? '/student/profile' : '/staff/profile'}
-			class="portal-user-link flex items-center gap-2 pl-3 border-l border-gray-100 rounded-lg"
-			aria-label="Open profile"
-		>
-			<div class="w-8 h-8 rounded-full bg-essu-green flex items-center justify-center text-white text-xs font-bold shrink-0">
-				{avatarLabel}
-			</div>
-			<div class="hidden sm:block text-left">
-				<p class="topbar-full-name text-sm font-medium text-gray-800 leading-tight" title={displayName}>{displayName}</p>
-				{#if displayRole}
-					<p class="text-xs text-gray-500 leading-tight">{displayRole}</p>
-				{/if}
-			</div>
-		</a>
+<header class="portal-topbar" class:collapsed={$sidebarCollapsed} aria-label="Account and navigation">
+	<Button variant="ghost" icon="fa-solid fa-bars" ariaLabel={menuLabel} title={desktop ? `${menuLabel} (Ctrl+B)` : menuLabel} ariaControls="portal-navigation" ariaExpanded={desktop ? !$sidebarCollapsed : $sidebarMobileOpen} onclick={toggleNavigation} class="shell-hamburger" />
+	<div class="topbar-actions">
+		<a href={notificationHref} class="notification-bell" aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'} title="Notifications"><i class="fa-regular fa-bell" aria-hidden="true"></i>{#if unread > 0}<span class="notification-count" aria-hidden="true">{unread > 99 ? '99+' : unread}</span>{/if}</a>
+		<UserMenu {user} {role} {userRole} compact />
 	</div>
+	<span class="sr-only" aria-live="polite">{announcement}</span>
 </header>
+
 <style>
-	.portal-notification-count { animation: notification-scale-in 150ms ease-out; }
-	@keyframes notification-scale-in { from { transform: scale(0.7); } to { transform: scale(1); } }
-	@media (prefers-reduced-motion: reduce) { .portal-notification-count { animation: none; } }
+	.portal-topbar { position: fixed; inset: 0 0 auto 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 var(--space-4); border-bottom: 1px solid var(--color-border); background: var(--color-surface); transition: left var(--motion-fast); }
+	.topbar-actions { display: flex; align-items: center; gap: var(--space-4); }
+	:global(.shell-hamburger.ui-button) { padding: 0; }
+	:global(.shell-hamburger.ui-button i) { font-size: var(--font-size-card-title); }
+	.notification-bell { position: relative; display: grid; place-items: center; width: var(--control-height); height: var(--control-height); border-radius: var(--radius-control); color: var(--color-text-muted); font-size: var(--font-size-card-title); text-decoration: none; transition: background-color var(--motion-fast), color var(--motion-fast); }
+	.notification-bell:hover { background: var(--color-primary-soft); color: var(--color-primary); }
+	.notification-count { position: absolute; top: 0; right: -4px; display: grid; place-items: center; min-width: 20px; height: 20px; padding-inline: var(--space-1); border-radius: var(--radius-control); background: var(--color-primary); color: var(--color-surface); font-size: var(--font-size-helper); font-weight: var(--font-weight-semibold); }
+	@media (min-width: 1024px) { .portal-topbar { left: var(--sidebar-width); padding-inline: var(--space-8); } .portal-topbar.collapsed { left: var(--sidebar-width-collapsed); } }
+	@media (pointer: coarse) { .notification-bell { width: var(--control-height-touch); height: var(--control-height-touch); } }
 </style>

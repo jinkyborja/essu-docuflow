@@ -1,169 +1,169 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { tick } from 'svelte';
-	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
+	import { onMount, tick } from 'svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Card from '$lib/components/ui/Card.svelte';
+	import UserMenu from './UserMenu.svelte';
+	import { sidebarCollapsed, sidebarMobileOpen, logoutPending } from '$lib/stores/sidebar';
 
 	type NavItem = { label: string; icon: string; href: string; adminOnly?: boolean; badge?: number; locked?: boolean; lockedReason?: string };
-	interface Props { items: NavItem[]; role: 'staff' | 'student'; userRole?: string }
-
-	const { items, role, userRole }: Props = $props();
-
-	const collapsed  = $derived($sidebarCollapsed && !$sidebarMobileOpen);
-	const mobileOpen = $derived($sidebarMobileOpen);
+	interface Props {
+		items: NavItem[];
+		role: 'staff' | 'student';
+		userRole?: string;
+		user: { name: string; initials: string; position?: string; program?: string };
+	}
+	const { items, role, userRole, user }: Props = $props();
+	let desktop = $state(false);
+	const collapsed = $derived(desktop && $sidebarCollapsed);
+	const mobileOpen = $derived(!desktop && $sidebarMobileOpen);
 	const currentPath = $derived($page.url.pathname);
+	const requestAction = $derived(role === 'student' ? items.find(item => item.href === '/student/request') : undefined);
+	const logoLabel = $derived(role === 'staff' ? userRole?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Staff Portal' : 'Student Portal');
 	let navigation: HTMLElement;
+
+	onMount(handleResize);
 	$effect(() => {
 		if (!mobileOpen) return;
 		const previousFocus = document.activeElement as HTMLElement | null;
 		const previousOverflow = document.body.style.overflow;
+		let active = true;
 		document.body.style.overflow = 'hidden';
-		void tick().then(() => navigation?.querySelector<HTMLElement>('a[aria-current="page"], button')?.focus());
-		return () => { document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
+		void tick().then(() => { if (active) navigation?.querySelector<HTMLElement>('.drawer-close button')?.focus(); });
+		return () => {
+			active = false;
+			document.body.style.overflow = previousOverflow;
+			void tick().then(() => { if (previousFocus?.isConnected) previousFocus.focus(); });
+		};
 	});
-
-	const logoLabel = $derived(
-		role === 'staff'
-			? (userRole?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Staff Portal')
-			: 'Student Portal'
-	);
-	const activeItem = 'bg-essu-gold/25 text-essu-gold';
-	const activeIcon = 'text-essu-gold';
-	const activeDot  = 'bg-essu-gold';
-	const logoSub    = 'text-essu-gold/90';
-	const logoBadge  = 'bg-essu-gold/20 text-essu-gold';
-	const logoutCls  = 'text-essu-gold/80 hover:bg-essu-gold/10 hover:text-essu-gold';
 
 	function isActive(href: string) {
 		return currentPath === href || (href !== '/' && currentPath.startsWith(href));
 	}
-
 	function closeMobile() { sidebarMobileOpen.set(false); }
-	function handleResize() { if (window.innerWidth >= 1024 && mobileOpen) closeMobile(); }
+	function handleResize() {
+		desktop = window.matchMedia('(min-width: 1024px)').matches;
+		if (desktop && $sidebarMobileOpen) closeMobile();
+	}
 
 	async function logout() {
 		await fetch('/api/logout', { method: 'POST' });
 		goto('/login');
 	}
+	async function handleLogout() {
+		if ($logoutPending) return;
+		logoutPending.set(true);
+		try { await logout(); }
+		finally { logoutPending.set(false); }
+	}
 
-	function handleKeydown(e: KeyboardEvent) {
-		if (mobileOpen && e.key === 'Escape') { closeMobile(); return; }
-		if (mobileOpen && e.key === 'Tab') {
-			const controls = navigation.querySelectorAll<HTMLElement>('a[href], button:not([disabled])');
+	function handleKeydown(event: KeyboardEvent) {
+		if (mobileOpen && event.key === 'Escape') { event.preventDefault(); closeMobile(); return; }
+		if (mobileOpen && event.key === 'Tab') {
+			const controls = Array.from(navigation.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex="0"]')).filter(control => control.getClientRects().length > 0);
 			const first = controls[0], last = controls[controls.length - 1];
-			if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
-			else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+			if (!first) { event.preventDefault(); navigation.focus(); return; }
+			if (!navigation.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
+			else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+			else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 		}
-		if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-			e.preventDefault();
-			sidebarCollapsed.update((v) => !v);
+		if (desktop && (event.ctrlKey || event.metaKey) && event.key === 'b') {
+			event.preventDefault(); sidebarCollapsed.update(value => !value);
 		}
 	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} onresize={handleResize} />
 
-<!-- Mobile backdrop -->
-{#if mobileOpen}
-	<div class="fixed inset-0 z-30 bg-black/40 lg:hidden" onclick={closeMobile} role="presentation"></div>
-{/if}
+{#if mobileOpen}<div class="sidebar-overlay" onclick={closeMobile} role="presentation"></div>{/if}
 
-<!-- Sidebar — same green background for both roles -->
-<aside
-	bind:this={navigation}
-	id="portal-navigation"
-	class="portal-sidebar fixed top-0 left-0 h-full z-40 flex flex-col bg-linear-to-b from-essu-green to-essu-green-mid
-		text-white shadow-xl transition-all duration-300 ease-in-out
-		{collapsed ? 'w-16' : 'w-60'}
-		{mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}"
-	aria-label="Sidebar navigation"
->
-	<!-- Brand -->
-	<div class="flex items-center h-16 px-3 border-b border-white/10 shrink-0">
-		<div class="portal-brand-mark w-10 h-10 rounded-xl {logoBadge} flex items-center justify-center shrink-0">
-			<i class="fa-solid fa-graduation-cap text-lg"></i>
-		</div>
-		{#if !collapsed}
-			<div class="ml-3 overflow-hidden">
-				<p class="text-sm font-bold leading-tight">ESSU</p>
-				<p class="text-xs leading-tight {logoSub}">{logoLabel}</p>
-			</div>
-		{/if}
-		<button type="button" onclick={closeMobile} class="ml-auto lg:hidden h-10 w-10 rounded-lg text-white/80 hover:bg-white/10" aria-label="Close navigation" title="Close navigation"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+<aside bind:this={navigation} id="portal-navigation" class="portal-sidebar" class:collapsed class:mobile-open={mobileOpen} inert={!desktop && !mobileOpen} role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen ? true : undefined} aria-label="Sidebar navigation" tabindex="-1">
+	<div class="sidebar-brand">
+		<div class="portal-brand-mark" aria-hidden="true"><i class="fa-solid fa-graduation-cap"></i></div>
+		{#if !collapsed}<div class="brand-copy"><p>ESSU</p><span>{logoLabel}</span></div>{/if}
+		<div class="drawer-close"><Button variant="ghost" icon="fa-solid fa-xmark" ariaLabel="Close navigation" onclick={closeMobile} class="sidebar-close" /></div>
 	</div>
 
-	<!-- Nav -->
-	<nav class="flex-1 overflow-y-auto py-3 px-2 space-y-0.5" aria-label="Main navigation">
-		{#each items as item}
+	<nav class="sidebar-nav" aria-label="Main navigation">
+		{#if requestAction}
+			<div class="request-button-slot">
+				<Button variant="secondary" href={requestAction.href} icon={requestAction.locked ? 'fa-solid fa-lock' : requestAction.icon} disabled={requestAction.locked} disabledReason={requestAction.lockedReason} title={requestAction.locked ? 'Available after your ID is verified' : requestAction.label} ariaLabel={collapsed ? requestAction.label : undefined} onclick={closeMobile} class="request-button">
+					{#if !collapsed}{requestAction.label}{/if}
+				</Button>
+			</div>
+		{/if}
+		{#each items.filter(item => item !== requestAction) as item}
 			{@const active = isActive(item.href)}
 			{@const disabled = item.adminOnly && userRole !== 'Admin'}
 			{#if role === 'staff' && item.href === '/staff/requests'}
-				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Work queue</p>
+				<p class="portal-nav-section" class:rail-label={collapsed}>Work queue</p>
 			{:else if role === 'staff' && item.href === '/staff/students'}
-				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Administration</p>
+				<p class="portal-nav-section" class:rail-label={collapsed}>Administration</p>
 			{:else if role === 'staff' && item.href === '/staff/reports'}
-				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Workspace</p>
+				<p class="portal-nav-section" class:rail-label={collapsed}>Workspace</p>
 			{:else if role === 'student' && item.href === '/student/documents'}
-				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Requests</p>
+				<p class="portal-nav-section" class:rail-label={collapsed}>Requests</p>
 			{:else if role === 'student' && item.href === '/student/notifications'}
-				<p class="portal-nav-section {collapsed ? 'sr-only' : ''}">Account</p>
+				<p class="portal-nav-section" class:rail-label={collapsed}>Account</p>
 			{/if}
-			{#if item.locked}
-				<button type="button" aria-disabled="true" aria-label={item.label + '. ' + item.lockedReason} title={item.lockedReason} class="portal-nav-link locked-request-action flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-white/85"><i class="fa-solid fa-lock w-5 shrink-0 text-center" aria-hidden="true"></i>{#if !collapsed}<span>{item.label}</span>{/if}</button>
-			{:else if disabled}
-				<div
-					class="portal-nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium opacity-40 cursor-not-allowed select-none"
-					title={collapsed ? item.label : 'Admin only'}
-				>
-					<i class="{item.icon} w-5 text-center shrink-0 text-white/50"></i>
-					{#if !collapsed}
-						<span class="truncate text-white/50">{item.label}</span>
-						<i class="fa-solid fa-lock ml-auto text-xs text-white/40 shrink-0"></i>
-					{/if}
-				</div>
+			{#if disabled}
+				<span class="portal-nav-link unavailable" role="link" aria-disabled="true" tabindex="0" title={`${item.label}: Admin only`} aria-label={`${item.label}: Admin only`}><i class={item.icon} aria-hidden="true"></i>{#if !collapsed}<span class="nav-label">{item.label}</span><i class="fa-solid fa-lock nav-lock" aria-hidden="true"></i>{/if}</span>
 			{:else}
-				<a
-					href={item.href}
-					onclick={closeMobile}
-					class="portal-nav-link relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group
-						{active ? activeItem : 'text-white/70 hover:bg-white/10 hover:text-white'}"
-					aria-current={active ? 'page' : undefined}
-					title={collapsed ? item.label : undefined}
-				>
-					<div class="relative shrink-0">
-						<i class="{item.icon} w-5 text-center
-							{active ? activeIcon : 'text-white/70 group-hover:text-white'}"></i>
-						{#if collapsed && item.badge && item.badge > 0}
-							<span class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" aria-hidden="true"></span>
-						{/if}
-					</div>
-					{#if !collapsed}
-						<span class="truncate">{item.label}</span>
-						{#if item.badge && item.badge > 0}
-							<span class="ml-auto text-xs bg-red-500 text-white rounded-full px-1.5 leading-5 font-semibold min-w-5 text-center shrink-0">
-								{item.badge > 9 ? '9+' : item.badge}
-							</span>
-						{:else if active}
-							<span class="ml-auto w-1.5 h-1.5 rounded-full {activeDot} shrink-0"></span>
-						{/if}
-					{/if}
+				<a href={item.href} onclick={closeMobile} class="portal-nav-link" aria-current={active ? 'page' : undefined} aria-label={collapsed ? `${item.label}${item.badge ? `, ${item.badge} unread` : ''}` : undefined} title={collapsed ? `${item.label}${item.badge ? ` (${item.badge})` : ''}` : undefined}>
+					<i class={item.icon} aria-hidden="true"></i>
+					{#if !collapsed}<span class="nav-label">{item.label}</span>{/if}
+					{#if item.badge && item.badge > 0}<span class="nav-count" aria-label={`${item.badge} unread`}>{item.badge > 99 ? '99+' : item.badge}</span>{/if}
 				</a>
 			{/if}
 		{/each}
 	</nav>
 
-	<!-- Logout -->
-	<div class="shrink-0 border-t border-white/10 p-2">
-		<button
-			onclick={logout}
-			class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-sm {logoutCls}"
-			aria-label="Log out"
-			title="Log out"
-		>
-			<i class="fa-solid fa-right-from-bracket w-5 text-center shrink-0"></i>
-			{#if !collapsed}
-				<span>Log out</span>
-			{/if}
-		</button>
+	<div class="sidebar-footer">
+		{#if collapsed}<UserMenu {user} {role} {userRole} compact location="sidebar" />{:else}<Card class="sidebar-user-card"><UserMenu {user} {role} {userRole} location="sidebar" /></Card>{/if}
+		<div class="logout-slot"><Button id="portal-logout" variant="ghost" icon="fa-solid fa-right-from-bracket" ariaLabel="Log out" title="Log out" loading={$logoutPending} disabled={$logoutPending} onclick={handleLogout} class="sidebar-logout">{#if !collapsed}Log out{/if}</Button></div>
+		<!-- The avatar menus activate this same control, preserving the logout action. -->
 	</div>
 </aside>
+
+<style>
+	.portal-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 40; display: flex; flex-direction: column; width: var(--sidebar-width); height: 100dvh; border-right: 1px solid color-mix(in srgb, var(--color-surface) 16%, var(--color-primary)); background: var(--color-primary); color: var(--color-surface); transform: translateX(-100%); transition: width var(--motion-fast), transform var(--motion-fast); }
+	.portal-sidebar.mobile-open { transform: translateX(0); }
+	.sidebar-overlay { position: fixed; inset: 0; z-index: 30; background: color-mix(in srgb, var(--color-text) 56%, transparent); }
+	.sidebar-brand { display: flex; flex-shrink: 0; align-items: center; gap: var(--space-3); height: 64px; padding: 0 var(--space-4); border-bottom: 1px solid color-mix(in srgb, var(--color-surface) 16%, var(--color-primary)); }
+	.portal-brand-mark { display: grid; place-items: center; flex-shrink: 0; width: var(--control-height); height: var(--control-height); border: 1px solid color-mix(in srgb, var(--color-accent) 50%, var(--color-primary)); border-radius: var(--radius-control); background: color-mix(in srgb, var(--color-accent) 12%, var(--color-primary)); color: var(--color-accent); font-size: var(--font-size-card-title); }
+	.brand-copy { min-width: 0; }
+	.brand-copy p { margin: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+	.brand-copy span { color: var(--color-primary-soft); font-size: var(--font-size-helper); }
+	.drawer-close { margin-left: auto; }
+	.drawer-close :global(.sidebar-close.ui-button) { padding: 0; border-color: transparent; color: var(--color-primary-soft); }
+	.drawer-close :global(.sidebar-close.ui-button:hover) { background: var(--color-primary-hover); }
+	.drawer-close :global(.sidebar-close i) { font-size: var(--font-size-card-title); }
+	.sidebar-nav { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4); }
+	.portal-nav-section { margin: var(--space-6) 0 var(--space-2); padding-inline: var(--space-3); color: var(--color-primary-soft); font-size: var(--font-size-helper); font-weight: var(--font-weight-semibold); line-height: var(--line-height); letter-spacing: 0.06em; text-transform: uppercase; }
+	.rail-label { height: 1px; margin: var(--space-4) 0; padding: 0; overflow: hidden; clip-path: inset(50%); }
+	.portal-nav-link { position: relative; display: flex; align-items: center; gap: var(--space-3); width: 100%; height: var(--control-height); margin-bottom: var(--space-1); padding: 0 var(--space-3); border-radius: var(--radius-control); background: transparent; color: var(--color-primary-soft); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: var(--line-height); text-decoration: none; transition: background-color var(--motion-fast), color var(--motion-fast); }
+	.portal-nav-link > i { width: 20px; flex-shrink: 0; font-size: var(--font-size-card-title); text-align: center; }
+	.portal-nav-link:hover { background: color-mix(in srgb, var(--color-primary-hover) 80%, var(--color-primary)); color: var(--color-surface); }
+	.portal-nav-link:focus-visible, .drawer-close :global(button:focus-visible), .request-button-slot :global(a:focus-visible), .request-button-slot :global(.button-tooltip:focus-visible), .logout-slot :global(button:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 3px; box-shadow: var(--focus-ring); }
+	.portal-nav-link[aria-current='page'] { background: var(--color-primary-hover); color: var(--color-surface); }
+	.portal-nav-link[aria-current='page']::before { position: absolute; inset: 0 auto 0 0; width: 3px; border-radius: var(--radius-control) 0 0 var(--radius-control); background: var(--color-accent); content: ''; }
+	.nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.nav-count { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding-inline: var(--space-1); border-radius: var(--radius-control); background: var(--color-accent); color: var(--color-text); font-size: var(--font-size-helper); font-weight: var(--font-weight-semibold); }
+	.portal-nav-link.unavailable { cursor: not-allowed; }
+	.portal-nav-link > .nav-lock { width: auto; font-size: var(--font-size-helper); }
+	.request-button-slot { margin-bottom: var(--space-4); }
+	.request-button-slot :global(.button-tooltip) { width: 100%; }
+	.request-button-slot :global(.request-button.ui-button) { width: 100%; padding-inline: var(--space-3); border-color: var(--color-accent); background: var(--color-accent); color: var(--color-text); }
+	.request-button-slot :global(.request-button.ui-button:hover:not(:disabled):not([aria-disabled='true'])) { background: color-mix(in srgb, var(--color-accent) 90%, var(--color-surface)); border-color: var(--color-accent); }
+	.request-button-slot :global(.request-button.ui-button:disabled), .request-button-slot :global(.request-button.ui-button[aria-disabled='true']) { background: color-mix(in srgb, var(--color-accent) 12%, var(--color-primary)); border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-primary)); color: var(--color-primary-soft); }
+	.request-button-slot :global(.request-button i) { font-size: var(--font-size-card-title); }
+	.request-button-slot :global(.reason-tooltip) { top: calc(100% + var(--space-2)); bottom: auto; max-width: 100%; }
+	.sidebar-footer { display: flex; flex-direction: column; gap: var(--space-2); flex-shrink: 0; padding: var(--space-4); border-top: 1px solid color-mix(in srgb, var(--color-surface) 16%, var(--color-primary)); }
+	.logout-slot :global(.button-tooltip) { width: 100%; }
+	.logout-slot :global(.sidebar-logout.ui-button) { width: 100%; justify-content: flex-start; padding-inline: var(--space-3); border-color: transparent; background: transparent; color: var(--color-primary-soft); }
+	.logout-slot :global(.sidebar-logout.ui-button:hover:not(:disabled)), .logout-slot :global(.sidebar-logout.ui-button:disabled) { background: var(--color-primary-hover); color: var(--color-surface); }
+	.logout-slot :global(.sidebar-logout i) { font-size: var(--font-size-card-title); }
+	@media (min-width: 1024px) { .portal-sidebar { transform: none; } .portal-sidebar.collapsed { width: var(--sidebar-width-collapsed); } .drawer-close { display: none; } .collapsed .sidebar-brand { justify-content: center; padding-inline: var(--space-4); } .collapsed .portal-nav-link { justify-content: center; padding-inline: 0; } .collapsed .nav-count { position: absolute; top: 0; right: -4px; min-width: 20px; height: 20px; } .collapsed .request-button-slot :global(.request-button.ui-button), .collapsed .logout-slot :global(.sidebar-logout.ui-button) { justify-content: center; padding: 0; } }
+	@media (pointer: coarse) { .portal-nav-link { height: var(--control-height-touch); } .collapsed .sidebar-nav, .collapsed .sidebar-footer { padding-inline: var(--space-3); } }
+</style>

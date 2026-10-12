@@ -4,7 +4,9 @@
 	import { untrack } from 'svelte';
 	import Modal from './Modal.svelte';
 	import Button from './Button.svelte';
+	import RowMenu from './RowMenu.svelte';
 	import ConfirmDialog from './ConfirmDialog.svelte';
+	import FileDrop from '$lib/components/forms/FileDrop.svelte';
 	import LoadingState from './LoadingState.svelte';
 	import LoadError from './LoadError.svelte';
 	import { showToast } from '$lib/stores/toasts';
@@ -13,6 +15,7 @@
 	let rows = $state<MasterlistRow[]>([]), search = $state(''), page = $state(1), total = $state(0);
 	let busy = $state(false), loading = $state(false), error = $state(''), file = $state<File | null>(null);
 	let clearing = $state(false), message = $state(''), loadError = $state('');
+	let uploadFiles = $state<File[]>([]);
 	let deletion = $state<'all' | MasterlistRow | null>(null);
 	function requestDelete(target: 'all' | MasterlistRow) { if (!busy && !loading) { deletion = target; error = ''; } }
 	function cancelDelete() { if (!busy) deletion = null; }
@@ -41,8 +44,8 @@
 	function chooseFile(candidate: File | null) {
 		if (busy) return;
 		error = ''; summary = null; message = '';
-		if (candidate && candidate.size > 2 * 1024 * 1024) { error = 'CSV must be at most 2 MB.'; file = null; return; }
-		file = candidate;
+		if (candidate && candidate.size > 2 * 1024 * 1024) { error = 'CSV must be at most 2 MB.'; file = null; uploadFiles = []; return; }
+		file = candidate; uploadFiles = candidate ? [candidate] : [];
 	}
 	async function importFile() {
 		if (!file || busy || loading) return;
@@ -52,7 +55,7 @@
 			const res = await fetch('/api/masterlist/import', {method: 'POST', body: data});
 			const result = await res.json();
 			if (!res.ok) { error = result.error ?? result.message ?? 'Import failed.'; showToast(error, 'error'); return; }
-			summary = result; file = null; showToast('Masterlist import complete. Added: ' + result.added + '. Updated: ' + result.updated + '. Skipped: ' + result.skipped + '.'); await loadRows(1);
+			summary = result; file = null; uploadFiles = []; showToast('Masterlist import complete. Added: ' + result.added + '. Updated: ' + result.updated + '. Skipped: ' + result.skipped + '.'); await loadRows(1);
 		} catch { error = 'Import failed. Please try again.'; showToast(error, 'error'); } finally { busy = false; }
 	}
 	async function remove(row: MasterlistRow) {
@@ -73,7 +76,7 @@
 			const res = await fetch('/api/masterlist', {method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({confirm: true})});
 			const result = await res.json();
 			if (!res.ok) { error = result.error ?? result.message ?? 'Could not delete masterlist entries.'; showToast(error, 'error'); return; }
-			rows = []; total = 0; search = ''; page = 1; file = null; summary = null;
+			rows = []; total = 0; search = ''; page = 1; file = null; uploadFiles = []; summary = null;
 			message = result.deleted === 0 ? 'The masterlist is already empty.' : `${result.deleted} masterlist ${result.deleted === 1 ? 'entry' : 'entries'} deleted.`;
 			deletion = null; showToast(message); await loadRows(1);
 		} catch { error = 'Could not delete masterlist entries. Please try again.'; showToast(error, 'error'); }
@@ -82,18 +85,15 @@
 	const template = 'data:text/csv;charset=utf-8,' + encodeURIComponent('student_id,last_name,first_name,middle_name,program,campus,status,school_year\r\n26-0001,Dela Cruz,Juan,,Master of Information Technology,Guiuan,Enrolled,2026-2027\r\n');
 </script>
 <Modal {open} title="Graduate School enrollment masterlist" size="lg" onclose={close}>
+	{#snippet headerActions()}<RowMenu label="Masterlist actions" items={[{label: 'Clear enrollment masterlist', danger: true, onselect: () => requestDelete('all')}]} />{/snippet}
 	{#snippet body()}
 		<div class="space-y-4">
 			<p class="text-xs text-gray-600">Include historical enrollment records for Former students and Alumni. The masterlist supports one record per student ID; importing that ID again updates its record.</p>
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<a href={template} download="enrollment-masterlist-template.csv" class="text-sm text-essu-green underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">Download CSV template</a>
-				<Button variant="danger" onclick={() => requestDelete('all')} disabled={busy || loading} loading={clearing}>Delete all students</Button>
 			</div>
-			<div role="region" aria-label="CSV upload" ondragover={e => e.preventDefault()} ondrop={e => { e.preventDefault(); if (!busy) chooseFile(e.dataTransfer?.files[0] ?? null); }} class="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-				<label class="block text-sm text-gray-600">Drop a CSV here or choose a file (maximum 2 MB)
-					<input type="file" accept=".csv,text/csv" disabled={busy} onchange={e => chooseFile(e.currentTarget.files?.[0] ?? null)} class="mt-2 block w-full text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-				</label>
-				{#if file}<p class="mt-2 text-xs text-gray-600">Selected: {file.name}</p>{/if}
+			<div>
+				<FileDrop label="CSV import" bind:files={uploadFiles} accept=".csv,text/csv" maxBytes={2 * 1024 * 1024} helper="Drop a CSV here or browse. Maximum 2 MB." onchange={(files) => chooseFile(files[0] ?? null)} />
 				<Button onclick={() => void importFile()} disabled={!file || busy || loading} loading={busy && !deletion}>Import CSV</Button>
 			</div>
 			{#if summary}
@@ -118,4 +118,4 @@
 	{#snippet footer()}<button onclick={close} disabled={busy} class="px-4 py-2 text-sm border rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-essu-green/30">Close</button>{/snippet}
 </Modal>
 
-<ConfirmDialog open={!!deletion} title={deletion === 'all' ? 'Delete all masterlist students' : 'Delete masterlist entry'} message={deletion === 'all' ? 'Permanently delete every masterlist entry across all pages, including entries hidden by your search? Student accounts and existing verification decisions are kept.' : 'Delete the masterlist entry for ' + (deletion?.student_id ?? '') + '?'} confirmLabel={deletion === 'all' ? 'Delete all students' : 'Delete entry'} loading={busy} {error} onclose={cancelDelete} onconfirm={confirmDelete} />
+<ConfirmDialog open={!!deletion} title={deletion === 'all' ? 'Clear enrollment masterlist' : 'Delete masterlist entry'} message={deletion === 'all' ? 'Permanently delete every enrollment masterlist entry across all pages, including entries hidden by your search. Student accounts and existing verification decisions are kept.' : 'Delete the masterlist entry for ' + (deletion?.student_id ?? '') + '?'} confirmLabel={deletion === 'all' ? 'Clear masterlist' : 'Delete entry'} requirePhrase={deletion === 'all' ? 'CLEAR' : ''} loading={busy} {error} onclose={cancelDelete} onconfirm={confirmDelete} />

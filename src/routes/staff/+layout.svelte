@@ -4,7 +4,7 @@
 	import PageIntro from '$lib/components/layout/PageIntro.svelte';
 	import { page, navigating } from '$app/stores';
 	import LoadingState from '$lib/components/ui/LoadingState.svelte';
-	import { sidebarCollapsed } from '$lib/stores/sidebar';
+	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
 	import { notifUnreadCount, startNotifications } from '$lib/stores/notifications';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
@@ -12,10 +12,11 @@
 
 	const { children, data }: { children: Snippet; data: LayoutData } = $props();
 
-	onMount(() => startNotifications(data.notifCount ?? 0));
+	let mounted = $state(false);
+	onMount(() => { mounted = true; return startNotifications(data.notifCount ?? 0); });
 	$effect(() => { notifUnreadCount.set(data.notifCount ?? 0); });
 
-	const unread = $derived($notifUnreadCount);
+	const unread = $derived(mounted ? $notifUnreadCount : data.notifCount ?? 0);
 
 	const staffNav = $derived([
 		{ label: 'Dashboard',     icon: 'fa-solid fa-gauge-high',    href: '/staff/dashboard' },
@@ -49,15 +50,17 @@
 
 <div class="portal-layout flex min-h-screen bg-gray-50">
 	<a href="#main-content" class="skip-link">Skip to main content</a>
-	<Sidebar items={staffNav} role="staff" userRole={data.role} />
+	<Sidebar items={staffNav} role="staff" userRole={data.role} user={data.layoutUser} />
 
 	<!-- Main content area — offset by sidebar width -->
 	<div
-		class="portal-content min-w-0 flex-1 flex flex-col transition-all duration-300 {collapsed ? 'lg:ml-16' : 'lg:ml-60'}"
+		class="portal-content"
+		class:collapsed
+		inert={$sidebarMobileOpen}
 	>
-		<TopBar title={pageTitle} />
+		<TopBar role="staff" userRole={data.role} user={data.layoutUser} {unread} />
 
-		<main id="main-content" tabindex="-1" class="portal-main flex-1 mt-16 p-6">
+		<main id="main-content" tabindex="-1" class="portal-main">
 			<PageIntro title={pageTitle} role="staff" />
 			{#if $navigating}<LoadingState label="Loading your workspace…" />{:else}{@render children()}{/if}
 		</main>

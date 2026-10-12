@@ -4,6 +4,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Card from '$lib/components/ui/Card.svelte';
 	import { showToast } from '$lib/stores/toasts';
 	import { markAllRead as markStoreAllRead, markOneRead, notifUnreadCount } from '$lib/stores/notifications';
 	import type { PageData } from './$types';
@@ -120,88 +121,28 @@
 		task:    { icon: 'fa-solid fa-clipboard-list',    color: 'text-purple-600', bg: 'bg-purple-50' },
 		system:  { icon: 'fa-solid fa-gear',              color: 'text-gray-600',   bg: 'bg-gray-100'  }
 	};
+
+	const dayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
+	const todayIds = $derived(new Set(data.history.filter(h => !Number.isNaN(Date.parse(String(h.changed_at))) && dayFormat.format(new Date(String(h.changed_at))) === dayFormat.format(new Date())).map(h => String(h.history_id))));
+	const notificationGroups = $derived([{ label: 'Today', items: paginated.filter(notif => todayIds.has(notif.id)) }, { label: 'Earlier', items: paginated.filter(notif => !todayIds.has(notif.id)) }]);
 </script>
 
-<div class="space-y-5">
-	<div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-		<div class="flex items-center gap-2 flex-wrap">
-			{#each filterOptions as opt}
-				<button
-					onclick={() => { activeFilter = opt; currentPage = 1; }}
-					class="px-3 py-1.5 text-sm rounded-lg font-medium capitalize transition-colors
-						{activeFilter === opt ? 'bg-essu-blue text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}"
-				>
-					{opt}
-				</button>
-			{/each}
-		</div>
-		<div class="flex items-center gap-2 flex-wrap sm:ml-auto">
-			<span class="inline-flex items-center gap-1.5 text-sm text-gray-500 bg-white border border-gray-200 rounded-lg px-3 py-2">
-				<i class="fa-regular fa-bell text-gray-400 text-xs"></i>
-				<span class="font-semibold text-gray-700">{notifications.length}</span> total
-			</span>
-			{#if unreadCount > 0}
-				<span class="inline-flex items-center gap-1.5 text-sm text-orange-600 bg-white border border-gray-200 rounded-lg px-3 py-2">
-					<i class="fa-solid fa-envelope text-xs"></i>
-					<span class="font-semibold">{unreadCount}</span> unread
-				</span>
-			{/if}
-			<div class="relative">
-				<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-				<input type="text" bind:value={search} aria-label="Search notifications" placeholder="Search notifications..." oninput={() => (currentPage = 1)} class="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30 w-full sm:w-44" />
-			</div>
-			{#if unreadCount > 0}
-				<button onclick={() => void markAllNotificationsRead()} class="min-h-11 px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-essu-green/30">
-					<i class="fa-solid fa-check-double mr-1 text-xs"></i>Mark all as read
-				</button>
-			{/if}
-		</div>
+<div class="student-notifications">
+	<div class="notification-toolbar">
+		<div class="notification-filters" aria-label="Notification types">{#each filterOptions as opt}<Button variant="secondary" ariaPressed={activeFilter === opt} class={activeFilter === opt ? 'notification-filter selected' : 'notification-filter'} onclick={() => { activeFilter = opt; currentPage = 1; }}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</Button>{/each}</div>
+		<div class="notification-controls"><span class="notification-total"><i class="fa-regular fa-bell" aria-hidden="true"></i>{notifications.length} total{#if unreadCount > 0} · {unreadCount} unread{/if}</span><label class="notification-search"><span class="sr-only">Search notifications</span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" bind:value={search} placeholder="Search notifications…" oninput={() => currentPage = 1} /></label>{#if unreadCount > 0}<Button variant="secondary" icon="fa-solid fa-check-double" onclick={() => void markAllNotificationsRead()}>Mark all as read</Button>{/if}</div>
 	</div>
-
-	<div class="space-y-2">
-		{#if paginated.length === 0}
-			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-				<EmptyState message={notifications.length ? 'No matching notifications' : 'No notifications yet'} description={notifications.length ? 'Clear the filters to see all notifications.' : 'Updates from the Graduate School office will appear here.'} icon="fa-regular fa-bell-slash" /><div class="flex justify-center pb-6">{#if notifications.length}<Button variant="secondary" onclick={() => { search = ''; activeFilter = 'all'; }}>Clear filters</Button>{:else}<Button variant="secondary" href="/student/forms">Browse forms</Button>{/if}</div>
-			</div>
-		{:else}
-			{#each paginated as notif}
-				{@const meta = typeIconMap[notif.type]}
-				<button
-					onclick={() => viewDetail(notif)}
-					class="notification-item w-full text-left bg-white rounded-xl border shadow-sm p-4 hover:shadow-md transition-all flex items-start gap-4
-						{!notif.isRead ? 'border-essu-blue/30 bg-blue-50/20' : 'border-gray-100'}"
-				>
-					<div class="w-10 h-10 rounded-xl {meta.bg} {meta.color} flex items-center justify-center shrink-0">
-						<i class="{meta.icon} text-sm"></i>
-					</div>
-					<div class="flex-1 min-w-0">
-						<div class="flex items-start justify-between gap-2">
-							<div class="flex items-center gap-2">
-								<p class="text-sm {notif.isRead ? 'font-medium' : 'font-bold'} text-gray-800">{notif.title}</p>
-								{#if !notif.isRead}
-									<span class="w-2 h-2 bg-essu-blue rounded-full inline-block shrink-0"></span>
-								{/if}
-							</div>
-							<p class="text-xs text-gray-400 whitespace-nowrap shrink-0">{notif.date}</p>
-						</div>
-						<p class="text-sm text-gray-500 mt-0.5 line-clamp-2">{notif.message}</p>
-						{#if notif.actionItems?.length}
-							<p class="text-xs text-essu-blue mt-1 font-medium">
-								<i class="fa-solid fa-list-check mr-1"></i>{notif.actionItems.length} action{notif.actionItems.length > 1 ? 's' : ''} required
-							</p>
-						{/if}
-					</div>
-					<Badge value={notif.type} size="sm" /><span class="notification-open-action flex min-h-11 w-full items-center justify-start gap-2 border-t border-gray-100 pt-3 text-sm font-semibold text-essu-green md:hidden">View notification <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
-				</button>
-			{/each}
-		{/if}
-	</div>
-
-	{#if filtered.length > itemsPerPage}
-		<div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-2">
-			<Pagination totalItems={filtered.length} {itemsPerPage} {currentPage} onPageChange={(p) => (currentPage = p)} />
-		</div>
+	{#if paginated.length === 0}
+		<Card><EmptyState message={notifications.length ? 'No matching notifications' : 'No notifications yet'} description={notifications.length ? 'Clear the filters to see all notifications.' : 'Updates from the Graduate School office will appear here.'} icon="fa-regular fa-bell-slash" />{#snippet footer()}{#if notifications.length}<Button variant="secondary" onclick={() => { search = ''; activeFilter = 'all'; }}>Clear filters</Button>{:else}<Button variant="secondary" href="/student/forms">Browse forms</Button>{/if}{/snippet}</Card>
+	{:else}
+		{#each notificationGroups as group}{#if group.items.length}<section class="notification-group" aria-label={group.label}><h2>{group.label}</h2><div class="notification-list">{#each group.items as notif (notif.id)}
+			{@const meta = typeIconMap[notif.type]}
+			<button type="button" class="student-notification-item" class:unread={!notif.isRead} onclick={() => viewDetail(notif)} aria-label={notif.title + (notif.isRead ? '' : ', unread')}>
+				<span class="notification-icon" aria-hidden="true"><i class={meta.icon}></i></span><span class="notification-copy"><span class="notification-heading"><span class="notification-title">{notif.title}</span>{#if !notif.isRead}<span class="unread-dot" aria-hidden="true"></span>{/if}</span><span class="notification-message">{notif.message}</span>{#if notif.actionItems?.length}<span class="notification-action-note"><i class="fa-solid fa-list-check" aria-hidden="true"></i>{notif.actionItems.length} action{notif.actionItems.length > 1 ? 's' : ''} required</span>{/if}</span><span class="notification-meta"><span>{notif.date}</span><Badge value={notif.type} size="sm" /></span>
+			</button>
+		{/each}</div></section>{/if}{/each}
 	{/if}
+	{#if filtered.length > itemsPerPage}<Card><Pagination totalItems={filtered.length} {itemsPerPage} {currentPage} onPageChange={(p) => currentPage = p} /></Card>{/if}
 </div>
 
 <Modal open={detailOpen} title="Notification" size="md" onclose={() => (detailOpen = false)}>
@@ -242,6 +183,34 @@
 		{/if}
 	{/snippet}
 	{#snippet footer()}
-		<button onclick={() => (detailOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Close</button>
+		<Button variant="secondary" onclick={() => (detailOpen = false)}>Close</Button>
 	{/snippet}
 </Modal>
+
+<style>
+	.student-notifications { display: flex; flex-direction: column; gap: var(--space-6); }
+	.notification-toolbar, .notification-filters, .notification-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+	.notification-toolbar { justify-content: space-between; gap: var(--space-4); }
+	.notification-filters { gap: var(--space-2); }
+	:global(.notification-filter.selected.ui-button) { border-color: var(--color-primary); background: var(--color-primary-soft); color: var(--color-primary); }
+	.notification-total { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--font-size-helper); }
+	.notification-search { position: relative; flex: 1; min-width: 160px; }
+	.notification-search > i { position: absolute; top: 50%; left: var(--space-3); transform: translateY(-50%); color: var(--color-text-muted); }
+	.notification-search input { width: 100%; min-height: var(--control-height); padding: var(--space-2) var(--space-3) var(--space-2) var(--space-8); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); font-size: var(--font-size-input); }
+	h2 { margin: 0 0 var(--space-3); color: var(--color-text); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); }
+	.notification-list { display: flex; flex-direction: column; gap: var(--space-3); }
+	.student-notification-item { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-4); width: 100%; padding: var(--space-6); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); color: var(--color-text); font-size: var(--font-size-body); line-height: var(--line-height); text-align: left; cursor: pointer; transition: background-color var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast); }
+	.student-notification-item:hover { border-color: var(--color-primary); background: var(--color-primary-soft); box-shadow: var(--shadow-raised); }
+	.student-notification-item:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; box-shadow: var(--focus-ring); }
+	.student-notification-item.unread { border-color: var(--color-primary); }
+	.notification-icon { display: grid; place-items: center; flex-shrink: 0; width: var(--control-height); height: var(--control-height); border-radius: var(--radius-control); background: var(--color-primary-soft); color: var(--color-primary); font-size: var(--font-size-card-title); }
+	.notification-copy { flex: 1; min-width: 0; }
+	.notification-heading { display: flex; align-items: flex-start; gap: var(--space-2); }
+	.notification-title { font-weight: var(--font-weight-medium); }
+	.unread .notification-title { font-weight: var(--font-weight-semibold); }
+	.unread-dot { flex-shrink: 0; width: var(--space-2); height: var(--space-2); margin-top: var(--space-2); border-radius: 50%; background: var(--color-primary); }
+	.notification-message { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; margin-top: var(--space-1); color: var(--color-text-muted); }
+	.notification-action-note { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); color: var(--color-primary); font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); }
+	.notification-meta { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--font-size-helper); }
+	@media (max-width: 639px) { .notification-controls { width: 100%; } .notification-meta { flex-basis: 100%; flex-direction: row; justify-content: space-between; } }
+</style>

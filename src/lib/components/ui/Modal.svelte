@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { fly, fade } from 'svelte/transition';
 	import { tick } from 'svelte';
+	import Button from './Button.svelte';
 
 	interface Props {
 		open: boolean;
@@ -10,9 +10,12 @@
 		onclose: () => void;
 		body?: Snippet;
 		footer?: Snippet;
+		headerActions?: Snippet;
+		closeDisabled?: boolean;
+		descriptionId?: string;
 	}
 
-	const { open, title, size = 'md', onclose, body, footer }: Props = $props();
+	const { open, title, size = 'md', onclose, body, footer, headerActions, closeDisabled = false, descriptionId }: Props = $props();
 	const titleId = $props.id();
 	let panel = $state<HTMLDivElement>();
 
@@ -43,11 +46,11 @@
 	};
 
 	function handleBackdrop(e: MouseEvent) {
-		if (e.target === e.currentTarget) onclose();
+		if (!closeDisabled && e.target === e.currentTarget) onclose();
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (!open || e.key !== 'Escape' || e.defaultPrevented) return;
+		if (!open || closeDisabled || e.key !== 'Escape' || e.defaultPrevented) return;
 		const dialogs = document.querySelectorAll('[role="dialog"]');
 		if (dialogs[dialogs.length - 1] === panel) { e.preventDefault(); onclose(); }
 	}
@@ -58,8 +61,7 @@
 {#if open}
 	<!-- Backdrop -->
 	<div
-		class="ui-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-		transition:fade={{ duration: 150 }}
+		class="ui-modal-backdrop"
 		role="presentation"
 		onclick={handleBackdrop}
 	>
@@ -70,25 +72,19 @@
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby={titleId}
+			aria-describedby={descriptionId}
 			tabindex="-1"
-			class="ui-modal-panel relative w-full {sizeClass[size]} bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
-			transition:fly={{ y: 20, duration: 200 }}
+			class="ui-modal-panel {sizeClass[size]}"
 		>
 			<!-- Header -->
-			<div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-				<h2 id={titleId} class="text-lg font-semibold text-gray-800">{title}</h2>
-				<button
-					onclick={onclose}
-					class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-					aria-label="Close modal"
-					title="Close modal"
-				>
-					<i class="fa-solid fa-xmark text-sm"></i>
-				</button>
+			<div class="modal-header">
+				<h2 id={titleId}>{title}</h2>
+				{#if headerActions}<div class="modal-header-actions">{@render headerActions()}</div>{/if}
+				<Button variant="ghost" icon="fa-solid fa-xmark" ariaLabel="Close modal" onclick={onclose} disabled={closeDisabled} />
 			</div>
 
 			<!-- Body -->
-			<div class="overflow-y-auto flex-1 px-6 py-4">
+			<div class="modal-body">
 				{#if body}
 					{@render body()}
 				{/if}
@@ -96,10 +92,22 @@
 
 			<!-- Footer -->
 			{#if footer}
-				<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+				<div class="modal-footer">
 					{@render footer()}
 				</div>
 			{/if}
 		</div>
 	</div>
 {/if}
+
+<style>
+	.ui-modal-backdrop { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: var(--space-4); background: color-mix(in srgb, var(--color-text) 56%, transparent); transition: opacity var(--motion-fast); }
+	.ui-modal-panel { position: relative; display: flex; flex-direction: column; width: 100%; max-height: calc(100dvh - var(--space-8)); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-surface); color: var(--color-text); font-size: var(--font-size-body); line-height: var(--line-height); transition: opacity var(--motion-fast), transform var(--motion-fast); }
+	.modal-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4) var(--space-6); border-bottom: 1px solid var(--color-border); }
+	.modal-header-actions { margin-left: auto; }
+	h2 { margin: 0; font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); }
+	.modal-body { flex: 1; overflow-y: auto; padding: var(--space-6); }
+	.modal-footer { display: flex; flex-shrink: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-3); padding: var(--space-4) var(--space-6); border-top: 1px solid var(--color-border); }
+	@starting-style { .ui-modal-backdrop { opacity: 0; } .ui-modal-panel { opacity: 0; transform: translateY(var(--space-2)); } }
+	@media (max-width: 639px) { .ui-modal-backdrop { align-items: flex-end; padding: 0; } .ui-modal-panel { max-height: 90dvh; border-radius: var(--radius-panel) var(--radius-panel) 0 0; } .modal-header, .modal-footer, .modal-body { padding-left: var(--space-4); padding-right: var(--space-4); } }
+</style>

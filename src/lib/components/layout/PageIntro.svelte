@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	const { title, role }: { title: string; role: 'student' | 'staff' } = $props();
 	const descriptions: Record<string, string> = {
 		'/student/dashboard': 'Your requests, updates and next steps, all in one place.',
@@ -21,16 +23,15 @@
 	const description = $derived(descriptions[$page.url.pathname] ?? 'Review the details, requirements and request history.');
 </script>
 
-<div class="page-intro">
-	<div>
-		<p class="page-eyebrow">Graduate School <span aria-hidden="true">/</span> {role === 'student' ? 'Student workspace' : 'Office workspace'}</p>
-		<h1>{title}</h1>
-		<p class="page-description">{description}</p>
-	</div>
-	{#if role === 'student' && ['/student/dashboard', '/student/documents'].includes($page.url.pathname)}
-		<a class="page-primary-action" href={$page.data.layoutUser?.idStatus === 'verified' ? '/student/request' : '/student/forms'}>
-			<i class="fa-solid {$page.data.layoutUser?.idStatus === 'verified' ? 'fa-plus' : 'fa-file-lines'}" aria-hidden="true"></i>
-			{$page.data.layoutUser?.idStatus === 'verified' ? 'New request' : 'Browse forms'}
-		</a>
-	{/if}
+<div class="portal-page-header">
+	{#if role === 'student' && $page.url.pathname === '/student/documents'}
+		<PageHeader {title} {description}>
+			{#snippet actions()}<Button href={$page.data.layoutUser?.idStatus === 'verified' ? '/student/request' : '/student/forms'} icon="fa-solid {$page.data.layoutUser?.idStatus === 'verified' ? 'fa-plus' : 'fa-file-lines'}">{$page.data.layoutUser?.idStatus === 'verified' ? 'New request' : 'Browse forms'}</Button>{/snippet}
+		</PageHeader>
+	{:else}<PageHeader {title} {description} />{/if}
 </div>
+
+<style>
+	.portal-page-header { margin-bottom: var(--space-6); }
+	@media print { .portal-page-header { display: none; } }
+</style>

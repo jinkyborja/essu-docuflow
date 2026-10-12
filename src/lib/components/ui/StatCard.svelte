@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Card from './Card.svelte';
 	interface Props {
 		label: string;
 		value: string | number;
@@ -23,21 +24,21 @@
 	const colors = $derived(colorMap[color]);
 </script>
 
-<div class="ui-stat-card bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
+<Card class="ui-stat-card flex items-center gap-4" hover>
 	<div class="shrink-0 w-12 h-12 rounded-xl {colors.icon} flex items-center justify-center">
 		<i class="{icon} text-xl"></i>
 	</div>
 	<div class="flex-1 min-w-0">
-		<p class="text-sm text-gray-500 leading-snug">{label}</p>
-		<p class="text-2xl font-bold text-gray-800 leading-tight">{value}</p>
+		<p class="text-sm text-gray-500">{label}</p>
+		<p class="text-2xl font-semibold text-gray-800">{value}</p>
 		{#if subtitle}
 			<p class="text-xs text-gray-400 mt-0.5">{subtitle}</p>
 		{/if}
 		{#if trend}
 			<p class="text-xs mt-1 {trend.value >= 0 ? 'text-green-600' : 'text-red-500'}">
-				<i class="fa-solid {trend.value >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'} text-[10px]"></i>
+				<i class="fa-solid {trend.value >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'} text-xs"></i>
 				{Math.abs(trend.value)}% {trend.label ?? 'vs last month'}
 			</p>
 		{/if}
 	</div>
-</div>
+</Card>

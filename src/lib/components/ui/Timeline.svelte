@@ -21,11 +21,11 @@
 							: 'bg-gray-200'}"
 			>
 				{#if event.status === 'completed'}
-					<i class="fa-solid fa-check text-white text-[10px]"></i>
+					<i class="fa-solid fa-check text-white text-xs"></i>
 				{:else if event.status === 'current'}
-					<i class="fa-solid fa-circle text-white text-[8px]"></i>
+					<i class="fa-solid fa-circle text-white text-xs"></i>
 				{:else}
-					<i class="fa-regular fa-circle text-gray-400 text-[10px]"></i>
+					<i class="fa-regular fa-circle text-gray-400 text-xs"></i>
 				{/if}
 			</span>
 

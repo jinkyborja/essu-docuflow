@@ -16,15 +16,24 @@
 		onchange(selected);
 	}
 </script>
-<div class="space-y-2">
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<div class="min-w-0 flex-1">
-			{#if file}<p class="break-words text-sm font-medium text-gray-800">{file.name}</p><p class="text-xs text-gray-500">{formatFileSize(file.size)}</p>{/if}
-			<label for={id} class="sr-only">Upload {name}</label>
-			<input bind:this={input} {id} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*" {disabled} onchange={choose} class="max-w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-essu-green/10 file:px-3 file:py-2 file:text-essu-green {file ? 'hidden' : 'block'}" />
-		</div>
+<div class="requirement-picker">
+	<div class="picker-row">
+		<div class="file-copy">{#if file}<p class="file-name">{file.name}</p><p class="file-detail">{formatFileSize(file.size)}</p>{:else}<p class="file-detail">No file selected</p>{/if}</div>
+		<label for={id} class="sr-only">Upload {name}</label>
+		<input bind:this={input} {id} type="file" tabindex="-1" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*" {disabled} onchange={choose} class="sr-only" />
 		<StatusChip kind="file" value={file ? 'uploaded' : 'missing'} />
-		{#if file}<div class="flex items-center gap-2"><Button variant="secondary" size="sm" {disabled} onclick={() => input?.click()}>Replace</Button><Button variant="ghost" size="sm" {disabled} onclick={() => { error = ''; if (input) input.value = ''; onchange(null); }}>Remove</Button></div>{/if}
+		<div class="picker-actions"><Button variant={file ? 'ghost' : 'secondary'} icon="fa-solid fa-arrow-up-from-bracket" {disabled} onclick={() => input?.click()}>{file ? 'Replace' : 'Choose file'}</Button>{#if file}<Button variant="ghost" icon="fa-solid fa-xmark" {disabled} onclick={() => { error = ''; if (input) input.value = ''; onchange(null); }}>Remove</Button>{/if}</div>
 	</div>
-	{#if error}<p role="alert" class="text-xs text-red-700">{error}</p>{/if}
+	{#if error}<p role="alert" class="file-error">{error}</p>{/if}
 </div>
+
+<style>
+	.requirement-picker { display: flex; flex-direction: column; gap: var(--space-2); }
+	.picker-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+	.file-copy { flex: 1 1 160px; min-width: 0; }
+	p { margin: 0; line-height: var(--line-height); }
+	.file-name { color: var(--color-text); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); overflow-wrap: anywhere; }
+	.file-detail { color: var(--color-text-muted); font-size: var(--font-size-helper); }
+	.picker-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+	.file-error { color: var(--color-danger); font-size: var(--font-size-helper); }
+</style>

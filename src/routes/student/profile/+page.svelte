@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Card from '$lib/components/ui/Card.svelte';
 	import StatusChip from '$lib/components/ui/StatusChip.svelte';
 	import LoadError from '$lib/components/ui/LoadError.svelte';
 	import { showToast } from '$lib/stores/toasts';
@@ -299,108 +300,76 @@
 	}
 </script>
 
-<div class="max-w-4xl mx-auto space-y-5">
-	<section id="school-id-photo-card" class="scroll-mt-24 space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-label="School ID photo">
-		<div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold text-gray-800">School ID photo</h3><StatusChip kind="id" value={profile.id_status} /></div>
+<div class="max-w-4xl mx-auto space-y-6">
+	<Card class="student-identity-header"><div class="identity-avatar" aria-hidden="true">{initials}</div><div class="identity-copy"><h2>{fullName}</h2><p>{profile.program} · {profile.student_id}</p></div></Card>
+	<section id="school-id-photo-card" class="scroll-mt-24 space-y-4 rounded-xl border border-gray-200 bg-white p-6" aria-label="School ID photo">
+		<div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-xl font-semibold text-gray-800">School ID photo</h2><StatusChip kind="id" value={profile.id_status} /></div>
 		<p class="text-sm text-gray-600">School ID front · JPG, PNG or WebP · up to 5 MB</p>
-		<div class="grid items-start gap-4 sm:grid-cols-[minmax(0,240px)_1fr]">
-			<div class="flex min-h-40 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 p-3">{#if selectedPhotoUrl || photoUrl}<img src={selectedPhotoUrl || photoUrl} alt={selectedPhotoUrl ? 'New school ID photo preview' : 'Your uploaded school ID front'} class="max-h-64 max-w-full rounded-lg object-contain" onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview could not load. Refresh the preview.'; }} />{:else}<p class="text-center text-sm text-gray-500">{photoPreviewLoading ? 'Loading photo…' : profile.has_id_photo ? 'Refresh to view your uploaded photo' : 'No ID photo uploaded'}</p>{/if}</div>
+		<div class="school-id-content">
+			<div class="school-id-preview">{#if selectedPhotoUrl || photoUrl}<img src={selectedPhotoUrl || photoUrl} alt={selectedPhotoUrl ? 'New school ID photo preview' : 'Your uploaded school ID front'} onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview could not load. Refresh the preview.'; }} />{:else}<p class="text-center text-xs text-gray-500">{photoPreviewLoading ? 'Loading photo…' : profile.has_id_photo ? 'Refresh to view your uploaded photo' : 'No ID photo uploaded'}</p>{/if}</div>
 			<div class="space-y-3">
 				<Button variant="secondary" icon="fa-solid fa-camera" disabled={profile.id_status === 'verified' || photoUploading} disabledReason={profile.id_status === 'verified' ? 'Contact the Graduate School office to replace a verified ID photo' : undefined} onclick={() => photoInput?.click()}>Replace photo</Button>
+				{#if academicLocked}<p class="locked-note"><i class="fa-solid fa-lock" aria-hidden="true"></i>Verified ID photos are locked. Contact the Graduate School office to replace yours.</p>{/if}
 				{#if profile.id_status !== 'verified'}<form onsubmit={uploadIdPhoto} class="space-y-3"><label for="school-id-photo" class="sr-only">Choose a new school ID photo (front)</label><input id="school-id-photo" bind:this={photoInput} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" disabled={photoUploading} class="hidden" onchange={(event) => { const selected = event.currentTarget.files?.[0]; if (!selected) return; photoError = validateStudentIdPhoto(selected) ?? ''; photoMessage = ''; if (photoError) { event.currentTarget.value = ''; showToast(photoError, 'error'); } else photoFile = selected; }} />{#if photoFile}<p class="break-words text-sm font-medium text-gray-800">{photoFile.name} <span class="text-xs font-normal text-gray-500">· {formatFileSize(photoFile.size)}</span></p><div class="flex flex-wrap gap-2"><Button type="submit" loading={photoUploading} loadingLabel="Uploading…" disabled={!!photoError}>Upload photo</Button><Button variant="ghost" disabled={photoUploading} onclick={() => { photoFile = null; photoError = ''; if (photoInput) photoInput.value = ''; }}>Remove selection</Button></div><p class="text-xs text-gray-600">Uploading the new photo automatically resubmits your ID for office review.</p>{/if}</form>{/if}
-				{#if profile.has_id_photo}<p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p><Button variant="ghost" size="sm" loading={photoPreviewLoading} disabled={photoUploading} onclick={previewIdPhoto}>Refresh photo preview</Button>{/if}
+				{#if profile.has_id_photo}<div class="photo-preview-tools"><p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p><Button variant="ghost" icon="fa-solid fa-arrows-rotate" ariaLabel="Refresh photo preview" title="Refresh photo preview" loading={photoPreviewLoading} disabled={photoUploading} onclick={previewIdPhoto} /></div>{/if}
 			</div>
 		</div>
 		{#if photoError}<p class="text-sm text-red-700" role="alert">{photoError}</p>{/if}{#if photoMessage}<p class="text-sm text-essu-green" role="status">{photoMessage}</p>{/if}{#if photoPreviewError}<LoadError message="We couldn’t load your ID photo preview. Please try again." onretry={previewIdPhoto} />{/if}
 	</section>
-	<!-- Profile header -->
-	<div class="profile-header bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-		<div class="flex items-center gap-5">
-			<div class="w-20 h-20 rounded-2xl bg-essu-green/10 border border-essu-green/20 flex items-center justify-center text-2xl font-bold text-essu-green shrink-0">
-				{initials}
-			</div>
-			<div>
-				<h2 class="text-xl font-bold text-gray-800">{fullName}</h2>
-				<p class="text-sm text-gray-500 mt-0.5">{profile.program} · {profile.student_id}</p>
-			</div>
-		</div>
-	</div>
 
-	<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 		<div class="xl:col-span-2 space-y-4">
 			<!-- Personal Info -->
-			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-				<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-					<h3 class="font-semibold text-gray-700">Personal Information</h3>
-					<button onclick={openEdit} class="text-sm text-essu-green hover:underline flex items-center gap-1">
-						<i class="fa-solid fa-pen text-xs"></i> Edit
-					</button>
+			<div class="bg-white rounded-xl border border-gray-100 ">
+				<div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+					<h3 class="text-xl font-semibold text-gray-700">Personal Information</h3>
+					<Button variant="ghost" icon="fa-solid fa-pen" onclick={openEdit}>Edit</Button>
 				</div>
-				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
+				<div class="profile-data-grid grid grid-cols-2 gap-4 p-6 text-sm">
 					<div><p class="text-xs text-gray-400">First Name</p><p class="font-medium">{profile.first_name}</p></div>
 					<div><p class="text-xs text-gray-400">Middle Name</p><p class="font-medium">{profile.middle_name || '—'}</p></div>
 					<div><p class="text-xs text-gray-400">Last Name</p>
 						<p class="font-medium">{profile.last_name}{profile.suffix ? ', ' + profile.suffix : ''}</p>
 					</div>
 					<div><p class="text-xs text-gray-400">Date of Birth</p><p class="font-medium">{formatDate(profile.date_of_birth)}</p></div>
-					<div class="col-span-2"><p class="text-xs text-gray-400">Email</p><p class="font-medium">{profile.email}</p></div>
+					<div class="col-span-2"><p class="text-xs text-gray-400"><i class="fa-solid fa-lock" aria-hidden="true"></i> Email</p><p class="font-medium">{profile.email}</p><span class="locked-note">Use Change email in Account Settings to update this.</span></div>
 				</div>
 			</div>
 
 			<!-- Academic Info -->
-			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-				<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-					<h3 class="font-semibold text-gray-700">Academic Information</h3>
+			<div class="bg-white rounded-xl border border-gray-100 ">
+				<div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+					<h3 class="text-xl font-semibold text-gray-700">Academic Information</h3>
 					{#if !academicLocked}
-						<button onclick={openAcademic} class="text-sm text-essu-green hover:underline flex items-center gap-1">
-							<i class="fa-solid fa-pen text-xs"></i> Edit
-						</button>
+						<Button variant="ghost" icon="fa-solid fa-pen" onclick={openAcademic}>Edit</Button>
 					{/if}
 				</div>
-				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
-					<div><p class="text-xs text-gray-400">Student ID</p><p class="font-medium">{profile.student_id}</p></div>
-					<div><p class="text-xs text-gray-400">Program</p><p class="font-medium">{profile.program}</p></div>
-					<div class="col-span-2"><p class="text-xs text-gray-400">Campus</p><p class="font-medium">{profile.campus ?? 'Not collected'}</p></div>
-					<div class="col-span-2"><p class="text-xs text-gray-400">Student Type</p><p class="font-medium">
+				<div class="profile-data-grid grid grid-cols-2 gap-4 p-6 text-sm">
+					<div><p class="text-xs text-gray-400">{#if academicLocked}<i class="fa-solid fa-lock" aria-hidden="true"></i> {/if}Student ID</p><p class="font-medium">{profile.student_id}</p></div>
+					<div><p class="text-xs text-gray-400">{#if academicLocked}<i class="fa-solid fa-lock" aria-hidden="true"></i> {/if}Program</p><p class="font-medium">{profile.program}</p></div>
+					<div class="col-span-2"><p class="text-xs text-gray-400">{#if academicLocked}<i class="fa-solid fa-lock" aria-hidden="true"></i> {/if}Campus</p><p class="font-medium">{profile.campus ?? 'Not collected'}</p></div>
+					<div class="col-span-2"><p class="text-xs text-gray-400">{#if academicLocked}<i class="fa-solid fa-lock" aria-hidden="true"></i> {/if}Student Type</p><p class="font-medium">
 						{#if profile.student_type === 'Enrolled'}Currently Enrolled
 						{:else if profile.student_type === 'Former'}Former Student
 						{:else if profile.student_type === 'Alumni'}Alumni
 						{:else}—{/if}
 					</p></div>
-					<div><p class="text-xs text-gray-400">Last School Year</p><p class="font-medium">{profile.last_school_year ?? '—'}</p></div>
+					<div><p class="text-xs text-gray-400">{#if academicLocked}<i class="fa-solid fa-lock" aria-hidden="true"></i> {/if}Last School Year</p><p class="font-medium">{profile.last_school_year ?? '—'}</p></div>
 					<div><p class="text-xs text-gray-400">Date Registered</p><p class="font-medium">{formatDate(profile.date_registered)}</p></div>
-					{#if academicLocked}<p class="col-span-2 text-xs text-gray-500">Contact the Graduate School office to change these.</p>{/if}
+					{#if academicLocked}<p class="col-span-2 locked-note"><i class="fa-solid fa-lock" aria-hidden="true"></i>Verified academic details are locked. Contact the Graduate School office to change these.</p>{/if}
 				</div>
 			</div>
 		</div>
 
 		<!-- Account Settings -->
 		<div class="space-y-4">
-			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-				<div class="px-5 py-4 border-b border-gray-100">
-					<h3 class="font-semibold text-gray-700">Account Settings</h3>
+			<div class="bg-white rounded-xl border border-gray-100 ">
+				<div class="px-6 py-4 border-b border-gray-100">
+					<h3 class="text-xl font-semibold text-gray-700">Account Settings</h3>
 				</div>
 				<div class="p-4 space-y-2">
-					<button
-						onclick={openPassword}
-						class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
-					>
-						<div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
-							<i class="fa-solid fa-lock text-gray-600 text-sm"></i>
-						</div>
-						<span class="text-sm font-medium text-gray-700">Change password</span>
-						<i class="fa-solid fa-chevron-right text-xs text-gray-400 ml-auto"></i>
-					</button>
-					<button
-						onclick={openEmail}
-						class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
-					>
-						<div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
-							<i class="fa-solid fa-envelope text-gray-600 text-sm"></i>
-						</div>
-						<span class="text-sm font-medium text-gray-700">Change email</span>
-						<i class="fa-solid fa-chevron-right text-xs text-gray-400 ml-auto"></i>
-					</button>
+					<Button variant="ghost" icon="fa-solid fa-lock" onclick={openPassword} class="account-action">Change password</Button>
+					<Button variant="ghost" icon="fa-solid fa-envelope" onclick={openEmail} class="account-action">Change email</Button>
 				</div>
 			</div>
 		</div>
@@ -454,12 +423,8 @@
 		</form>
 	{/snippet}
 	{#snippet footer()}
-		<button onclick={() => (editOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-		<button type="submit" form="edit-form" disabled={editLoading}
-			class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
-			{#if editLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-			Save changes
-		</button>
+		<Button variant="secondary" onclick={() => (editOpen = false)}>Cancel</Button>
+		<Button type="submit" form="edit-form" loading={editLoading}>Save changes</Button>
 	{/snippet}
 </Modal>
 
@@ -483,10 +448,7 @@
 					<div class="relative">
 						<input bind:value={currentPassword} type={showCurrent ? 'text' : 'password'} required
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" aria-label={showCurrent ? 'Hide current password' : 'Show current password'} title={showCurrent ? 'Hide current password' : 'Show current password'} onclick={() => (showCurrent = !showCurrent)}
-							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-							<i class="fa-solid {showCurrent ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
-						</button>
+						<span class="password-toggle"><Button variant="ghost" ariaLabel={showCurrent ? 'Hide current password' : 'Show current password'} title={showCurrent ? 'Hide current password' : 'Show current password'} icon={'fa-solid ' + (showCurrent ? 'fa-eye-slash' : 'fa-eye')} onclick={() => (showCurrent = !showCurrent)} /></span>
 					</div>
 				</div>
 				<div>
@@ -494,10 +456,7 @@
 					<div class="relative">
 						<input bind:value={newPassword} type={showNew ? 'text' : 'password'} required minlength="8"
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" aria-label={showNew ? 'Hide new password' : 'Show new password'} title={showNew ? 'Hide new password' : 'Show new password'} onclick={() => (showNew = !showNew)}
-							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-							<i class="fa-solid {showNew ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
-						</button>
+						<span class="password-toggle"><Button variant="ghost" ariaLabel={showNew ? 'Hide new password' : 'Show new password'} title={showNew ? 'Hide new password' : 'Show new password'} icon={'fa-solid ' + (showNew ? 'fa-eye-slash' : 'fa-eye')} onclick={() => (showNew = !showNew)} /></span>
 					</div>
 				</div>
 				<div>
@@ -505,10 +464,7 @@
 					<div class="relative">
 						<input bind:value={confirmPassword} type={showConfirm ? 'text' : 'password'} required
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" aria-label={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} title={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} onclick={() => (showConfirm = !showConfirm)}
-							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-							<i class="fa-solid {showConfirm ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
-						</button>
+						<span class="password-toggle"><Button variant="ghost" ariaLabel={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} title={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} icon={'fa-solid ' + (showConfirm ? 'fa-eye-slash' : 'fa-eye')} onclick={() => (showConfirm = !showConfirm)} /></span>
 					</div>
 				</div>
 			</form>
@@ -516,12 +472,8 @@
 	{/snippet}
 	{#snippet footer()}
 		{#if !passwordSuccess}
-			<button onclick={() => (passwordOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-			<button type="submit" form="pw-form" disabled={passwordLoading}
-				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
-				{#if passwordLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-				Update password
-			</button>
+			<Button variant="secondary" onclick={() => (passwordOpen = false)}>Cancel</Button>
+			<Button type="submit" form="pw-form" loading={passwordLoading}>Update password</Button>
 		{/if}
 	{/snippet}
 </Modal>
@@ -551,10 +503,7 @@
 					<div class="relative">
 						<input bind:value={emailPassword} type={showEmailPassword ? 'text' : 'password'} required autocomplete="current-password"
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-						<button type="button" aria-label={showEmailPassword ? 'Hide password' : 'Show password'} title={showEmailPassword ? 'Hide password' : 'Show password'} onclick={() => (showEmailPassword = !showEmailPassword)}
-							class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-							<i class="fa-solid {showEmailPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm"></i>
-						</button>
+						<span class="password-toggle"><Button variant="ghost" ariaLabel={showEmailPassword ? 'Hide password' : 'Show password'} title={showEmailPassword ? 'Hide password' : 'Show password'} icon={'fa-solid ' + (showEmailPassword ? 'fa-eye-slash' : 'fa-eye')} onclick={() => (showEmailPassword = !showEmailPassword)} /></span>
 					</div>
 				</div>
 			</form>
@@ -562,12 +511,8 @@
 	{/snippet}
 	{#snippet footer()}
 		{#if !emailSuccess}
-			<button onclick={() => (emailOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-			<button type="submit" form="email-form" disabled={emailLoading}
-				class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
-				{#if emailLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-				Update email
-			</button>
+			<Button variant="secondary" onclick={() => (emailOpen = false)}>Cancel</Button>
+			<Button type="submit" form="email-form" loading={emailLoading}>Update email</Button>
 		{/if}
 	{/snippet}
 </Modal>
@@ -606,12 +551,7 @@
 						{ value: 'Former', label: 'Former Student', description: 'You have previously attended ESSU but are no longer actively enrolled.' },
 						{ value: 'Alumni', label: 'Alumni', description: 'You have already graduated from ESSU and are requesting documents as a graduate.' }
 					] as opt}
-						<button type="button" onclick={() => (aStudentType = opt.value)}
-							class="w-full text-left px-4 py-3 rounded-lg border-2 transition-all
-								{aStudentType === opt.value ? 'border-essu-green bg-essu-green/5' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}">
-							<p class="text-sm font-medium {aStudentType === opt.value ? 'text-essu-green' : 'text-gray-700'}">{opt.label}</p>
-							<p class="text-xs text-gray-400 mt-0.5">{opt.description}</p>
-						</button>
+						<div><Button variant="secondary" ariaPressed={aStudentType === opt.value} class={aStudentType === opt.value ? 'student-type-option selected' : 'student-type-option'} onclick={() => (aStudentType = opt.value)}>{opt.label}</Button><p class="mt-2 text-xs text-gray-500">{opt.description}</p></div>
 					{/each}
 				</div>
 			</div>
@@ -623,11 +563,27 @@
 		</form>
 	{/snippet}
 	{#snippet footer()}
-		<button onclick={() => (academicOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-		<button type="submit" form="academic-form" disabled={academicLoading}
-			class="px-4 py-2 text-sm bg-essu-green text-white rounded-lg hover:bg-essu-green-mid transition-colors disabled:opacity-60 flex items-center gap-2">
-			{#if academicLoading}<i class="fa-solid fa-circle-notch fa-spin text-xs"></i>{/if}
-			Save changes
-		</button>
+		<Button variant="secondary" onclick={() => (academicOpen = false)}>Cancel</Button>
+		<Button type="submit" form="academic-form" loading={academicLoading}>Save changes</Button>
 	{/snippet}
 </Modal>
+
+<style>
+	:global(.student-identity-header.ui-card) { display: flex; align-items: center; gap: var(--space-4); }
+	.identity-avatar { display: grid; place-items: center; flex-shrink: 0; width: var(--space-12); height: var(--space-12); border-radius: var(--radius-control); background: var(--color-primary-soft); color: var(--color-primary); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); }
+	.identity-copy { min-width: 0; }
+	.identity-copy h2 { margin: 0; color: var(--color-text); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); }
+	.identity-copy p { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--font-size-body); overflow-wrap: anywhere; }
+	.school-id-content { display: grid; gap: var(--space-4); align-items: start; }
+	.school-id-preview { display: grid; place-items: center; width: 144px; min-height: 160px; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-bg); }
+	.school-id-preview img { width: 120px; max-width: 100%; max-height: 200px; border-radius: var(--radius-control); object-fit: contain; }
+	.photo-preview-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+	.locked-note { display: block; color: var(--color-text-muted); font-size: var(--font-size-helper); font-weight: var(--font-weight-normal); line-height: var(--line-height); }
+	.locked-note > i { margin-right: var(--space-1); }
+	:global(.account-action.ui-button) { width: 100%; justify-content: flex-start; }
+	.password-toggle { position: absolute; top: 50%; right: var(--space-1); transform: translateY(-50%); }
+	.password-toggle :global(.ui-button) { padding: 0; }
+	:global(.student-type-option.ui-button) { width: 100%; justify-content: flex-start; }
+	:global(.student-type-option.selected.ui-button) { border-color: var(--color-primary); background: var(--color-primary-soft); }
+	@media (min-width: 640px) { .school-id-content { grid-template-columns: 144px minmax(0, 1fr); } }
+</style>

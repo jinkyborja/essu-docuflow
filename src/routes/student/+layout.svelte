@@ -7,7 +7,7 @@
 	import PageIntro from '$lib/components/layout/PageIntro.svelte';
 	import { page, navigating } from '$app/stores';
 	import LoadingState from '$lib/components/ui/LoadingState.svelte';
-	import { sidebarCollapsed } from '$lib/stores/sidebar';
+	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
 	import { notifUnreadCount, startNotifications } from '$lib/stores/notifications';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
@@ -15,11 +15,12 @@
 
 	const { children, data }: { children: Snippet; data: LayoutData } = $props();
 
-	onMount(() => startNotifications(data.notifCount ?? 0));
+	let mounted = $state(false);
+	onMount(() => { mounted = true; return startNotifications(data.notifCount ?? 0); });
 	$effect(() => { notifUnreadCount.set(data.notifCount ?? 0); });
 	$effect(() => { if (data.layoutUser.idStatus === 'rejected') { void data.layoutUser.idRejectReason; newIdPhotoUploaded.set(false); } });
 
-	const unread = $derived($notifUnreadCount);
+	const unread = $derived(mounted ? $notifUnreadCount : data.notifCount ?? 0);
 
 	const studentNav = $derived([
 		{ label: 'Dashboard',        icon: 'fa-solid fa-gauge-high',       href: '/student/dashboard' },
@@ -45,14 +46,16 @@
 
 <div class="portal-layout flex min-h-screen bg-gray-50">
 	<a href="#main-content" class="skip-link">Skip to main content</a>
-	<Sidebar items={studentNav} role="student" />
+	<Sidebar items={studentNav} role="student" user={data.layoutUser} />
 
 	<div
-		class="portal-content min-w-0 flex-1 flex flex-col transition-all duration-300 {collapsed ? 'lg:ml-16' : 'lg:ml-60'}"
+		class="portal-content"
+		class:collapsed
+		inert={$sidebarMobileOpen}
 	>
-		<TopBar title={pageTitle} />
+		<TopBar role="student" user={data.layoutUser} {unread} />
 
-		<main id="main-content" tabindex="-1" class="portal-main flex-1 mt-16 p-6">
+		<main id="main-content" tabindex="-1" class="portal-main">
 			<PageIntro title={pageTitle} role="student" />
 			{#if data.layoutUser.idStatus === 'pending'}
 				<section class="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" aria-label="Account review"><p>Your account is being reviewed by the Graduate School office.</p><Button href="/student/forms">Browse forms</Button></section>

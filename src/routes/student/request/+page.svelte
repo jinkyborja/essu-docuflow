@@ -5,6 +5,7 @@
 	import { showToast } from '$lib/stores/toasts';
 	import StepIndicator from '$lib/components/forms/StepIndicator.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Card from '$lib/components/ui/Card.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import RequirementFilePicker from '$lib/components/ui/RequirementFilePicker.svelte';
 	import StatusChip from '$lib/components/ui/StatusChip.svelte';
@@ -79,15 +80,15 @@
 	function reset() { currentStep = 1; selectedDocs = []; purpose = ''; files = {}; submitError = ''; successOpen = false; submittedId = ''; }
 </script>
 
-<div class="request-workspace mx-auto max-w-3xl space-y-5">
+<div class="request-workspace mx-auto max-w-3xl space-y-6">
 	{#if data.idStatus !== 'verified'}
 		<Button href="/student/forms" icon="fa-solid fa-file-lines">Browse forms</Button>
 	{:else}
-		<div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"><StepIndicator {steps} {currentStep} /></div>
-		<div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+		<Card><StepIndicator {steps} {currentStep} disabled={submitting} onstepselect={(step) => { if (!submitting) currentStep = step; }} /></Card>
+		<Card class="wizard-step-card">
 			{#if currentStep === 1}
-				<h2 class="mb-1 text-lg font-semibold text-gray-800">Select Document</h2>
-				<p class="mb-5 text-sm text-gray-500">Choose up to 5 documents. Their requirements are listed below.</p>
+				<h2 class="mb-1 text-xl font-semibold text-gray-800">Select Document</h2>
+				<p class="mb-6 text-sm text-gray-500">Choose up to 5 documents. Their requirements are listed below.</p>
 				{#if documents.length === 0}<div class="py-10 text-center"><p class="mb-4 text-sm text-gray-600">No documents available yet. You can browse forms meanwhile.</p><Button variant="secondary" href="/student/forms">Browse forms</Button></div>{:else}
 					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 						{#each documents as doc}
@@ -100,36 +101,49 @@
 						{/each}
 					</div>
 				{/if}
-				<div class="sticky bottom-0 z-10 mt-5 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-					<div aria-live="polite"><p class="text-sm font-semibold text-gray-800">{selectedDocs.length} {pluralize(selectedDocs.length, 'document')} selected</p>{#if !canProceed}<p class="mt-1 text-xs text-gray-600">Select at least one document</p>{/if}</div>
-					<Button onclick={next} disabled={!canProceed} disabledReason={nextReason} icon="fa-solid fa-chevron-right" iconRight>Next</Button>
-				</div>
 			{:else if currentStep === 2}
-				<h2 class="mb-1 text-lg font-semibold text-gray-800">Submit Requirements</h2>
-				<p class="mb-5 text-sm text-gray-500">Upload a file for each requirement. Shared requirements only need one file.</p>
+				<h2 class="mb-1 text-xl font-semibold text-gray-800">Submit Requirements</h2>
+				<p class="mb-6 text-sm text-gray-500">Upload a file for each requirement. Shared requirements only need one file.</p>
 				<div class="space-y-4">
 					{#each requirements as req}
-						<section class="space-y-3 rounded-xl border border-gray-200 p-4" aria-label={req.name}>
-							<div class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><h3 class="text-sm font-semibold text-gray-800">{req.name}</h3><p class="mt-1 text-xs text-gray-500">Needed for: {req.neededFor.join(', ')}</p>{#if req.description}<p class="mt-1 text-xs text-gray-600">{req.description}</p>{/if}</div><div class="flex flex-wrap gap-2">{#each req.form_files ?? [] as file}<Button variant="secondary" size="sm" icon="fa-solid fa-download" loading={downloading === file.public_url} disabled={!!downloading} title={file.name} onclick={() => downloadForm(file)}>Download form{(req.form_files?.length ?? 0) > 1 ? ' · ' + file.name : ''}</Button>{/each}</div></div>
+						<section class="wizard-requirement" aria-label={req.name}>
+							<div class="requirement-heading"><div class="requirement-copy"><h3 class="text-sm font-semibold text-gray-800">{req.name}</h3><p class="mt-1 text-xs text-gray-500">Needed for: {req.neededFor.join(', ')}</p>{#if req.description}<p class="mt-1 text-xs text-gray-600">{req.description}</p>{/if}</div><div class="requirement-downloads">{#each req.form_files ?? [] as file}<Button variant="ghost" icon="fa-solid fa-download" loading={downloading === file.public_url} disabled={!!downloading} title={file.name} onclick={() => downloadForm(file)}>Download form{(req.form_files?.length ?? 0) > 1 ? ' · ' + file.name : ''}</Button>{/each}</div></div>
 							{#if req.needs_signature}<p class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">Get this form signed by: {req.signature_note?.trim() || 'the required signatories'}, then upload a photo or PDF of the signed form.</p>{/if}
 							{#if req.in_person}<div class="flex flex-wrap items-center justify-between gap-2"><p class="text-xs text-gray-600">Submit this requirement in person at the Graduate School. No file upload is required.</p><StatusChip kind="file" value="in_person" /></div>{:else}<RequirementFilePicker name={req.name} file={files[req.name] ?? null} onchange={(file) => files = { ...files, [req.name]: file }} />{/if}
 						</section>
 					{:else}<p class="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">No requirements needed for these documents. Click Next to continue.</p>{/each}
 				</div>
-				<div class="mt-6 flex flex-wrap items-center justify-between gap-3"><Button variant="secondary" icon="fa-solid fa-chevron-left" onclick={prev}>Back</Button><div class="text-right">{#if !canProceed}<p class="mb-2 text-xs text-gray-600" aria-live="polite">{nextReason}</p>{/if}<Button onclick={next} disabled={!canProceed} disabledReason={nextReason} icon="fa-solid fa-chevron-right" iconRight>Next</Button></div></div>
 			{:else}
-				<h2 class="mb-1 text-lg font-semibold text-gray-800">Review &amp; Submit</h2><p class="mb-5 text-sm text-gray-500">Check your documents and files before submitting.</p>
-				<label for="request-purpose" class="mb-2 block text-sm font-medium text-gray-700">Purpose (required)</label><select id="request-purpose" bind:value={purpose} disabled={submitting} class="mb-5 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="" disabled>Select a purpose...</option>{#each requestPurposes as item}<option value={item}>{item}</option>{/each}</select>
+				<h2 class="mb-1 text-xl font-semibold text-gray-800">Review &amp; Submit</h2><p class="mb-6 text-sm text-gray-500">Check your documents and files before submitting.</p>
+				<label for="request-purpose" class="mb-2 block text-sm font-medium text-gray-700">Purpose (required)</label><select id="request-purpose" bind:value={purpose} disabled={submitting} class="mb-6 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="" disabled>Select a purpose...</option>{#each requestPurposes as item}<option value={item}>{item}</option>{/each}</select>
 				<div class="space-y-4 rounded-xl border border-essu-green/20 bg-essu-green/5 p-4">
 					<div class="flex items-center justify-between gap-3"><h3 class="text-sm font-semibold text-gray-800">Documents</h3><Button variant="ghost" size="sm" disabled={submitting} onclick={() => currentStep = 1}>Edit documents</Button></div><ul class="list-disc space-y-1 pl-5 text-sm text-gray-800">{#each selectedDocs as doc}<li>{doc.name}</li>{/each}</ul>
 					<div class="flex items-center justify-between gap-3"><h3 class="text-sm font-semibold text-gray-800">Files</h3><Button variant="ghost" size="sm" disabled={submitting} onclick={() => currentStep = 2}>Edit files</Button></div>
 					{#each requirements as req}<div class="flex flex-wrap items-center justify-between gap-3 border-t border-essu-green/15 pt-3"><div class="min-w-0 text-sm"><p class="font-medium text-gray-800">{req.name}</p><p class="mt-1 break-words text-xs text-gray-600">{req.in_person ? 'Submit in person' : files[req.name]?.name ?? 'Missing file'}{#if files[req.name] && !req.in_person} · {formatFileSize(files[req.name]!.size)}{/if}</p></div><StatusChip kind="file" value={req.in_person ? 'in_person' : files[req.name] ? 'uploaded' : 'missing'} /></div>{:else}<p class="text-sm text-gray-600">No files required.</p>{/each}
 				</div>
 				{#if submitError}<p class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{submitError} Your selected files are still here.</p>{/if}
-				<div class="mt-5 flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800"><i class="fa-solid fa-circle-info mt-0.5 shrink-0" aria-hidden="true"></i><p>After you submit, you can replace requirement files while the request is pending. You cannot change the selected documents.</p></div>
-				<div class="mt-6 flex flex-wrap items-center justify-between gap-3"><Button variant="secondary" onclick={prev} disabled={submitting} icon="fa-solid fa-chevron-left">Back</Button><div class="text-right">{#if !purpose.trim()}<p class="mb-2 text-xs text-gray-600">Select a purpose to submit</p>{/if}<Button onclick={submitRequest} loading={submitting} loadingLabel="Submitting…" disabled={!canProceed} disabledReason={!purpose.trim() ? 'Select a purpose to submit' : nextReason} icon="fa-solid fa-paper-plane">Submit request</Button></div></div>{#if submitting}<p class="sr-only" role="status">Submitting…</p>{/if}
+				<div class="mt-6 flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800"><i class="fa-solid fa-circle-info mt-0.5 shrink-0" aria-hidden="true"></i><p>After you submit, you can replace requirement files while the request is pending. You cannot change the selected documents.</p></div>
 			{/if}
+		</Card>
+		<div class="wizard-action-bar">
+			<Button variant="ghost" onclick={prev} disabled={currentStep === 1 || submitting} icon="fa-solid fa-chevron-left">Back</Button>
+			<div class="wizard-action-summary" aria-live="polite"><p>{currentStep === 1 ? `${selectedDocs.length} ${pluralize(selectedDocs.length, 'document')} selected` : currentStep === 2 ? `${requirements.filter(req => !req.in_person && !!files[req.name]).length} files selected` : 'Ready to submit'}</p>{#if !canProceed}<span>{currentStep === 3 && !purpose.trim() ? 'Select a purpose to submit' : nextReason}</span>{/if}</div>
+			{#if currentStep < 3}<Button onclick={next} disabled={!canProceed || submitting} disabledReason={nextReason} icon="fa-solid fa-chevron-right" iconRight>Next</Button>{:else}<Button onclick={submitRequest} loading={submitting} loadingLabel="Submitting…" disabled={!canProceed} disabledReason={!purpose.trim() ? 'Select a purpose to submit' : nextReason} icon="fa-solid fa-paper-plane">Submit request</Button>{/if}
 		</div>
+		{#if submitting}<p class="sr-only" role="status">Submitting…</p>{/if}
 	{/if}
 </div>
-<ConfirmDialog open={successOpen} title="Request submitted" message="Your document request has been submitted. You can track its progress in My Documents." variant="primary" confirmLabel="View my request" cancelLabel="New request" onclose={reset} onconfirm={() => goto('/student/documents#' + encodeURIComponent(submittedId), { invalidateAll: true })}>{#snippet details()}<p class="text-sm text-gray-600">Request ID</p><p class="break-all font-mono text-lg font-bold text-essu-green">{submittedId}</p>{/snippet}</ConfirmDialog>
+<ConfirmDialog open={successOpen} title="Request submitted" message="Your document request has been submitted. You can track its progress in My Documents." variant="primary" confirmLabel="View my request" cancelLabel="New request" onclose={reset} onconfirm={() => goto('/student/documents#' + encodeURIComponent(submittedId), { invalidateAll: true })}>{#snippet details()}<p class="text-sm text-gray-600">Request ID</p><p class="break-all font-mono text-xl font-semibold text-essu-green">{submittedId}</p>{/snippet}</ConfirmDialog>
+
+<style>
+	.wizard-action-bar { position: sticky; bottom: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-6); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); }
+	.wizard-action-summary { flex: 1; min-width: 0; color: var(--color-text); font-size: var(--font-size-body); text-align: center; line-height: var(--line-height); }
+	.wizard-action-summary p { margin: 0; font-weight: var(--font-weight-medium); }
+	.wizard-action-summary span { display: block; margin-top: var(--space-1); color: var(--color-text-muted); font-size: var(--font-size-helper); }
+	.wizard-requirement { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+	.requirement-heading { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-4); }
+	.requirement-copy { flex: 1; min-width: 0; }
+	.requirement-downloads { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+	:global(.wizard-step-card h2) { font-size: var(--font-size-card-title); }
+	@media (max-width: 639px) { .wizard-action-bar { padding: var(--space-4); } .wizard-action-summary { order: -1; flex-basis: 100%; } }
+</style>
