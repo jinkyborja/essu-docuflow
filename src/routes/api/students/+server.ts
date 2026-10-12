@@ -6,6 +6,7 @@ import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateSchoolYear } from '$lib/school-year';
 import { isCampus } from '$lib/data/campuses';
+import { logActivity } from '$lib/server/activity-log';
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
@@ -57,6 +58,8 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 	if (yearError) return json({ error: yearError }, { status: 400 });
 	if (campus != null && !isCampus(campus)) return json({ error: 'Select an ESSU campus.' }, { status: 400 });
 
+	const [existingRows] = await pool.execute('SELECT first_name, middle_name, last_name, suffix, email, student_id, program, student_type, last_school_year, verified, campus FROM users WHERE user_id = ? AND role = \'Student\'', [user_id]);
+	const existingStudent = (existingRows as Array<Record<string, unknown>>)[0];
 	await pool.execute(
 		`UPDATE users
 		 SET first_name = ?, middle_name = ?, last_name = ?, suffix = ?,
@@ -67,6 +70,19 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		 email, student_id ?? null, program ?? null, student_type ?? null,
 		 last_school_year ?? null, verified ? 1 : 0, campus !== undefined, campus ?? null, user_id]
 	);
+	const nextStudent = { first_name, middle_name: middle_name ?? null, last_name, suffix: suffix ?? null, email, student_id: student_id ?? null, program: program ?? null, student_type: student_type ?? null, last_school_year: last_school_year ?? null, verified: verified ? 1 : 0, campus: campus ?? existingStudent?.campus };
+	const changedFields = existingStudent
+		? Object.keys(nextStudent).filter(field => (campus !== undefined || field !== 'campus') && String(existingStudent[field] ?? '') !== String(nextStudent[field as keyof typeof nextStudent] ?? ''))
+		: [];
+	if (existingStudent && changedFields.length) {
+		try {
+			const conn = await pool.getConnection();
+			try {
+				await logActivity(conn, { actor: payload, action: 'student.edited', entityType: 'student', entityId: user_id, summary: `Updated student #${user_id}`, details: { changedFields } });
+				if (changedFields.includes('email')) await logActivity(conn, { actor: payload, action: 'account.email.changed', entityType: 'student', entityId: user_id, summary: `Changed email for student #${user_id}`, details: { changedFields: ['email'] } });
+			} finally { conn.release(); }
+		} catch (error) { console.error('Could not write student edit activity:', error); }
+	}
 
 	return json({ success: true });
 };
@@ -131,6 +147,7 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 		for (const r of requests) {
 			if (r.approved_file_path) filePaths.push(r.approved_file_path as string);
 		}
+		await logActivity(conn, { actor: payload, action: 'student.deleted', entityType: 'student', entityId: user_id, summary: `Deleted student #${user_id}`, details: { changedFields: ['student account', 'requests', 'request history'] } });
 
 		if (requests.length > 0) {
 			const ids = requests.map((r) => r.request_id as string);

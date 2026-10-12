@@ -9,6 +9,7 @@ import { sendEmail } from '$lib/server/email';
 import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
 import { validateUpload } from '$lib/server/upload-validation';
+import { logActivity } from '$lib/server/activity-log';
 
 export const GET: RequestHandler = async ({ params, cookies }) => {
 	const token = cookies.get('session');
@@ -46,15 +47,47 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 	// Get status history
 	const [histRows] = await pool.execute(
 		`SELECT h.old_status, h.new_status, h.changed_at,
-		        u.first_name, u.last_name
+		        h.changed_by, u.first_name, u.middle_name, u.last_name, u.role,
+		        activity.actor_name AS logged_actor_name, activity.actor_role AS logged_actor_role
 		 FROM request_status_history h
 		 LEFT JOIN users u ON h.changed_by = u.user_id
+		 LEFT JOIN activity_log activity ON activity.id = (
+		   SELECT al.id
+		   FROM activity_log al
+		   WHERE al.entity_type = 'request'
+		     AND al.entity_id = h.request_id
+		     AND al.action IN ('request.submitted', 'request.approved', 'request.rejected', 'request.correction_requested', 'request.files_replaced', 'request.released', 'request.ready_for_pickup')
+		     AND ABS(TIMESTAMPDIFF(SECOND, al.created_at, h.changed_at)) <= 30
+		     AND (h.changed_by IS NULL OR al.actor_user_id = h.changed_by OR al.actor_user_id IS NULL)
+		   ORDER BY ABS(TIMESTAMPDIFF(SECOND, al.created_at, h.changed_at)), al.created_at DESC, al.id DESC
+		   LIMIT 1
+		 )
 		 WHERE h.request_id = ?
 		 ORDER BY h.changed_at ASC`,
 		[params.id]
 	);
 
-	return json({ ...req, items, requirements, history: histRows });
+	const history = (histRows as Record<string, unknown>[]).map((row) => {
+		const changedByName = formatName(row.first_name, row.middle_name, row.last_name)
+			|| String(row.logged_actor_name || '').trim()
+			|| (row.changed_by ? 'Former staff' : 'Not recorded');
+		if (payload.role === 'Student') {
+			return {
+				old_status: row.old_status,
+				new_status: row.new_status,
+				changed_at: row.changed_at,
+				changed_by_name: row.role === 'Student' ? 'You' : 'Graduate School Office'
+			};
+		}
+		return {
+			old_status: row.old_status,
+			new_status: row.new_status,
+			changed_at: row.changed_at,
+			changed_by_name: changedByName,
+			changed_by_role: row.role || row.logged_actor_role || null
+		};
+	});
+	return json({ ...req, items, requirements, history });
 };
 
 export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
@@ -182,8 +215,12 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 			}
 			await conn.execute(`UPDATE request_requirements rr JOIN requirements rq ON rq.requirement_id = rr.requirement_id SET rr.needs_correction = (rq.name IN (${flaggedRequirements.map(() => '?').join(',')})) WHERE rr.request_id = ?`, [...flaggedRequirements,params.id]);
 		}
-		await conn.execute('UPDATE requests SET status = ?, admin_message = ?, approved_file_path = COALESCE(?, approved_file_path), approved_file_name = COALESCE(?, approved_file_name) WHERE request_id = ?', [newStatus,adminMessage,approvedFilePath,approvedFileName,params.id]);
+		await conn.execute('UPDATE requests SET status = ?, admin_message = ?, approved_file_path = COALESCE(?, approved_file_path), approved_file_name = COALESCE(?, approved_file_name), decided_by = ?, decided_at = CURRENT_TIMESTAMP WHERE request_id = ?', [newStatus,adminMessage,approvedFilePath,approvedFileName,payload.userId,params.id]);
 		await conn.execute('INSERT INTO request_status_history (request_id, old_status, new_status, changed_by) VALUES (?, ?, ?, ?)', [params.id,oldStatus,newStatus,payload.userId]);
+		const actionName = action === 'approve' ? 'request.approved' : action === 'reject' ? 'request.rejected' : 'request.correction_requested';
+		const actionSummary = action === 'approve' ? 'Approved' : action === 'reject' ? 'Rejected' : 'Requested corrections for';
+		await logActivity(conn, { actor: payload, action: actionName, entityType: 'request', entityId: params.id, summary: `${actionSummary} request ${params.id}`, details: { changedFields: ['status', 'admin_message', 'decided_by', 'decided_at', ...(action === 'approve' ? ['approved_file'] : []), ...(action === 'correction' ? ['flagged_requirements'] : [])] } });
+		if (action === 'approve') await logActivity(conn, { actor: payload, action: 'request.ready_for_pickup', entityType: 'request', entityId: params.id, summary: `Request ${params.id} is ready for pickup`, details: { changedFields: ['pickup availability'] } });
 		await conn.commit(); decided = true;
 	} catch (e) { await conn.rollback(); console.error('Request decision failed',e); return json({error:'Could not save the decision. Please try again.'}, {status:500}); }
 	finally { conn.release(); if (!decided && approvedFilePath) await supabase.storage.from('requirements').remove([approvedFilePath]); }
@@ -212,10 +249,10 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 			<p>Your document request (<strong>${params.id}</strong>) for <strong>${documentName}</strong> has been <strong style="color:green">approved</strong>.</p>
 			${adminMessage ? `<p>Note from staff: ${adminMessage}</p>` : ''}
 			${downloadUrl
-					? `<p>Your document is ready. You can view or download it below.</p>
+					? `<p>Your document is ready for pickup at the Graduate School office. You can view or download the approved file below.</p>
 			     <p><a href="${downloadUrl}" style="background:#2d6a4f;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin-top:10px">View/Download Your Document</a></p>
 			     <p style="color:#888;font-size:12px">This download link expires in 7 days.</p>`
-					: `<p>Please log in to ESSU DocuFlow to view the details of your request.</p>`}
+					: `<p>Your document is ready for pickup at the Graduate School office. Please log in to ESSU DocuFlow to view request details.</p>`}
 			<p>ESSU DocuFlow — Graduate School</p>`;
 	} else if (action === 'reject') {
 		emailSubject = `Your request for ${documentNames} was rejected`;

@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
+import { logActivity } from '$lib/server/activity-log';
 export const POST: RequestHandler = async ({cookies,request}) => {
 	const token=cookies.get('session'); if(!token) return json({error:'Unauthorized'},{status:401});
 	let actor; try { actor=await verifySession(token,JWT_SECRET); } catch { return json({error:'Unauthorized'},{status:401}); }
@@ -22,6 +23,7 @@ export const POST: RequestHandler = async ({cookies,request}) => {
 		if(!(admins as unknown[]).length) {await conn.rollback();return json({error:'Please contact the Graduate School office directly.'},{status:503});}
 		await conn.execute('UPDATE users SET id_verification_note = ? WHERE user_id = ?', ['Student review request: ' + note, actor.userId]);
 		for(const admin of admins as Array<{user_id:number}>) await conn.execute('INSERT INTO request_status_history (request_id, new_status, changed_by, notification_user_id, is_read, student_read) VALUES (NULL, ?, ?, ?, FALSE, TRUE)', ['Student ID review requested',actor.userId,admin.user_id]);
+		await logActivity(conn, { actor, action: 'student.id.review_requested', entityType: 'student', entityId: actor.userId, summary: `Requested an ID review for student #${actor.userId}`, details: { changedFields: ['id_verification_note'] } });
 		await conn.commit();return json({success:true});
 	} catch(e) {await conn.rollback();console.error('Request ID review failed',e);return json({error:'Could not send your review request.'},{status:500});} finally {conn.release();}
 };

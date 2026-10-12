@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { replaceState } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { responsiveTable } from '$lib/responsive-table';
 	import LoadingState from '$lib/components/ui/LoadingState.svelte';
 	import LoadError from '$lib/components/ui/LoadError.svelte';
@@ -6,6 +8,7 @@
 	import { SCHOOL_YEAR_MIN, SCHOOL_YEAR_MAX, ENROLLED_SCHOOL_YEAR_MIN, validateSchoolYear } from '$lib/school-year';
 	import {onMount} from 'svelte';
 	import { campuses } from '$lib/data/campuses';
+	import { graduatePrograms } from '$lib/data/programs';
 	import MasterlistModal from '$lib/components/ui/MasterlistModal.svelte';
 	import type { MasterlistMatch } from '$lib/server/masterlist';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -18,6 +21,13 @@
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
+	const initialQuery = $page.url.searchParams;
+	const validStatusTabs = ['pending', 'verified', 'rejected', 'all'] as const;
+	const validDateTypes = ['registered', 'decision'] as const;
+	const validDateRanges = ['any', 'today', '7d', '30d', 'custom'] as const;
+	const validSortOrders = ['newest', 'oldest'] as const;
+	const oneOf = <T extends string>(value: string | null, choices: readonly T[], fallback: T): T =>
+		choices.find(choice => choice === value) ?? fallback;
 
 	type Student = {
 		has_id_photo?: boolean; id_photo_url?: string | null; id_photo_uploaded_at?: string | null;
@@ -41,9 +51,16 @@
 	};
 
 	let students = $state(data.students as Student[]);
-	let search = $state('');
-	let filterType = $state('');
-	let statusTab = $state<'pending'|'verified'|'rejected'|'all'>((new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('status') as 'pending'|'verified'|'rejected') || 'all');
+	let search = $state(initialQuery.get('q') ?? '');
+	let filterType = $state(initialQuery.get('type') ?? '');
+	let filterProgram = $state(initialQuery.get('program') ?? '');
+	let dateType = $state(oneOf(initialQuery.get('dateType'), validDateTypes, 'registered'));
+	let dateRange = $state(oneOf(initialQuery.get('range'), validDateRanges, 'any'));
+	let customFrom = $state(initialQuery.get('from') ?? '');
+	let customTo = $state(initialQuery.get('to') ?? '');
+	let sortOrder = $state(oneOf(initialQuery.get('sort'), validSortOrders, 'newest'));
+	let statusTab = $state(oneOf(initialQuery.get('status'), validStatusTabs, 'all'));
+	let showMobileFilters = $state(false);
 	let reviewStudent = $state<Student | null>(null);
 	let rejectReason = $state('');
 	let revokeTarget = $state<Student | null>(null), revokeSaving = $state(false), revokeError = $state('');
@@ -125,26 +142,6 @@
 		const student = students.find(row => row.user_id === id);
 		if (student) void openReview(student);
 	});
-	const tabCounts = $derived({pending: students.filter(s => s.id_status === 'pending').length, verified: students.filter(s => s.id_status === 'verified').length, rejected: students.filter(s => s.id_status === 'rejected').length, all: students.length});
-
-	const filtered = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		return students.filter((s) => {
-			const fullName = [s.first_name, s.middle_name, s.last_name, s.suffix]
-				.filter(Boolean)
-				.join(' ')
-				.toLowerCase();
-			const matchSearch =
-				!q ||
-				fullName.includes(q) ||
-				(s.student_id ?? '').toLowerCase().includes(q) ||
-				s.email.toLowerCase().includes(q) ||
-				(s.program ?? '').toLowerCase().includes(q);
-			const matchType = !filterType || s.student_type === filterType;
-			return matchSearch && matchType && (statusTab === 'all' || s.id_status === statusTab);
-		});
-	});
-
 	async function decideId(action: 'verify'|'reject'|'revoke') {
 		if (data.role !== 'Admin' || !reviewStudent || reviewLoading || reviewing || !reviewStudent.masterlistMatch) return;
 		if (action === 'verify' && (!reviewStudent.has_id_photo || !reviewStudent.id_photo_url || photoPreviewError || photoRefreshing)) { reviewError = 'Load the uploaded school ID photo before verification.'; return; }
@@ -251,6 +248,124 @@
 		return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark class="bg-yellow-200 text-yellow-900 rounded px-0.5">$1</mark>');
 	}
 
+	function syncQuery() {
+		if (typeof window === 'undefined') return;
+		const url = new URL($page.url);
+		const setOrDelete = (key: string, value: string, defaultValue = '') => {
+			if (value === defaultValue) url.searchParams.delete(key);
+			else url.searchParams.set(key, value);
+		};
+		setOrDelete('status', statusTab, 'all');
+		setOrDelete('q', search.trim());
+		setOrDelete('type', filterType);
+		setOrDelete('program', filterProgram);
+		setOrDelete('dateType', dateType, 'registered');
+		setOrDelete('range', dateRange, 'any');
+		setOrDelete('sort', sortOrder, 'newest');
+		if (dateRange === 'custom') {
+			setOrDelete('from', customFrom);
+			setOrDelete('to', customTo);
+		} else {
+			url.searchParams.delete('from');
+			url.searchParams.delete('to');
+		}
+		replaceState(url, $page.state);
+	}
+
+	function clearFilters() {
+		search = '';
+		filterType = '';
+		filterProgram = '';
+		dateType = 'registered';
+		dateRange = 'any';
+		customFrom = '';
+		customTo = '';
+		sortOrder = 'newest';
+		statusTab = 'all';
+		syncQuery();
+	}
+
+	function changeDateRange(event: Event) {
+		dateRange = (event.currentTarget as HTMLSelectElement).value as typeof dateRange;
+		if (dateRange !== 'custom') {
+			customFrom = '';
+			customTo = '';
+		}
+		syncQuery();
+	}
+
+	function manilaDateKey(value: string | Date | null): string | null {
+		if (!value) return null;
+		const date = value instanceof Date ? value : new Date(value);
+		if (Number.isNaN(date.getTime())) return null;
+		const parts = new Intl.DateTimeFormat('en-US', {
+			timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'
+		}).formatToParts(date);
+		const part = (type: string) => parts.find(item => item.type === type)?.value ?? '';
+		return `${part('year')}-${part('month')}-${part('day')}`;
+	}
+
+	function shiftDateKey(value: string, offset: number): string {
+		const [year, month, day] = value.split('-').map(Number);
+		const date = new Date(Date.UTC(year, month - 1, day + offset));
+		return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+	}
+
+	function matchesDateRange(student: Student): boolean {
+		if (dateRange === 'any') return true;
+		const key = manilaDateKey(dateType === 'registered' ? student.date_registered : student.id_verified_at);
+		if (!key) return false;
+		const today = manilaDateKey(new Date())!;
+		if (dateRange === 'today') return key === today;
+		if (dateRange === '7d') return key >= shiftDateKey(today, -6) && key <= today;
+		if (dateRange === '30d') return key >= shiftDateKey(today, -29) && key <= today;
+		if (customFrom && customTo && customFrom > customTo) return false;
+		return (!customFrom || key >= customFrom) && (!customTo || key <= customTo);
+	}
+
+	const filteredByProgramAndDate = $derived(students.filter(student =>
+		(!filterProgram || student.program === filterProgram) && matchesDateRange(student)
+	));
+	const tabCounts = $derived({
+		pending: filteredByProgramAndDate.filter(s => s.id_status === 'pending').length,
+		verified: filteredByProgramAndDate.filter(s => s.id_status === 'verified').length,
+		rejected: filteredByProgramAndDate.filter(s => s.id_status === 'rejected').length,
+		all: filteredByProgramAndDate.length
+	});
+	const activeFilterCount = $derived(
+		Number(!!filterProgram) + Number(!!filterType) + Number(dateRange !== 'any')
+	);
+	const filtersActive = $derived(
+		!!search.trim() || !!filterType || !!filterProgram || dateRange !== 'any' ||
+		dateType !== 'registered' || sortOrder !== 'newest' || statusTab !== 'all'
+	);
+	const filtered = $derived.by(() => {
+		const q = search.trim().toLowerCase();
+		const rows = filteredByProgramAndDate.filter((s) => {
+			const fullName = [s.first_name, s.middle_name, s.last_name, s.suffix]
+				.filter(Boolean)
+				.join(' ')
+				.toLowerCase();
+			const matchSearch =
+				!q ||
+				fullName.includes(q) ||
+				(s.student_id ?? '').toLowerCase().includes(q) ||
+				s.email.toLowerCase().includes(q) ||
+				(s.program ?? '').toLowerCase().includes(q);
+			const matchType = !filterType || s.student_type === filterType;
+			return matchSearch && matchType && (statusTab === 'all' || s.id_status === statusTab);
+		});
+		return [...rows].sort((a, b) => {
+			const aValue = dateType === 'registered' ? a.date_registered : a.id_verified_at;
+			const bValue = dateType === 'registered' ? b.date_registered : b.id_verified_at;
+			const aTime = aValue ? new Date(aValue).getTime() : Number.NaN;
+			const bTime = bValue ? new Date(bValue).getTime() : Number.NaN;
+			if (Number.isNaN(aTime)) return Number.isNaN(bTime) ? 0 : 1;
+			if (Number.isNaN(bTime)) return -1;
+			return sortOrder === 'newest' ? bTime - aTime : aTime - bTime;
+		});
+	});
+
 </script>
 
 {#if !data.allowed}
@@ -266,41 +381,67 @@
 	{#if data.role === 'Admin'}<div class="flex justify-end"><Button onclick={() => masterlistOpen = true}>Masterlist</Button></div>{/if}
 	{#if usageError}<LoadError message="We couldn’t check linked requests. Please try again." onretry={() => void loadRequestUsage()} />{:else if !usageLoaded}<p role="status" class="flex items-center gap-2 text-sm text-gray-600"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Checking linked requests…</p>{/if}
 	<!-- Search / Filter -->
-	<div class="flex flex-col sm:flex-row gap-3">
-		<div class="flex gap-1 overflow-x-auto">
-			{#each [{key:'pending',label:'Pending'},{key:'verified',label:'Verified'},{key:'rejected',label:'Rejected'},{key:'all',label:'All'}] as tab}
-				<button aria-pressed={statusTab === tab.key} onclick={() => statusTab = tab.key as typeof statusTab} class="rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap {statusTab === tab.key ? 'bg-essu-green text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">{tab.label} ({tabCounts[tab.key as keyof typeof tabCounts]})</button>
-			{/each}
+	<div class="space-y-3">
+		<div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+			<div class="flex gap-1 overflow-x-auto">
+				{#each [{key:'pending',label:'Pending'},{key:'verified',label:'Verified'},{key:'rejected',label:'Rejected'},{key:'all',label:'All'}] as tab}
+					<button aria-pressed={statusTab === tab.key} onclick={() => { statusTab = tab.key as typeof statusTab; syncQuery(); }} class="rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap {statusTab === tab.key ? 'bg-essu-green text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">{tab.label} ({tabCounts[tab.key as keyof typeof tabCounts]})</button>
+				{/each}
+			</div>
+			<div class="relative flex-1">
+				<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+				<input
+					value={search}
+					oninput={event => { search = (event.currentTarget as HTMLInputElement).value; syncQuery(); }}
+					type="text"
+					placeholder="Search by name, ID, email, or program..."
+					class="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
+				/>
+			</div>
+			<span class="inline-flex items-center self-start lg:self-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20 whitespace-nowrap shrink-0">
+				{filtered.length} of {students.length} students
+			</span>
 		</div>
-		<span class="inline-flex items-center self-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20 whitespace-nowrap shrink-0">
-			{filtered.length}{filtered.length !== students.length ? ` / ${students.length}` : ''} {pluralize(filtered.length !== students.length ? students.length : filtered.length, 'student')}
-		</span>
-		<div class="relative flex-1">
-			<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-			<input
-				bind:value={search}
-				type="text"
-				placeholder="Search by name, ID, email, or program..."
-				class="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-			/>
-		</div>
-		<select
-			bind:value={filterType}
-			class="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700"
-		>
-			<option value="">All Types</option>
-			<option value="Enrolled">Enrolled</option>
-			<option value="Former">Former</option>
-			<option value="Alumni">Alumni</option>
-		</select>
-		{#if search || filterType}
-			<button
-				onclick={() => { search = ''; filterType = ''; }}
-				class="px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50 transition-colors whitespace-nowrap"
-			>
-				<i class="fa-solid fa-xmark mr-1"></i> Clear
+		<div class="flex items-center justify-between gap-3">
+			<button type="button" aria-expanded={showMobileFilters} aria-controls="student-filters" onclick={() => showMobileFilters = !showMobileFilters} class="md:hidden inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700">
+				<i class="fa-solid fa-sliders" aria-hidden="true"></i> Filters
+				{#if activeFilterCount}<span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-essu-green px-1.5 text-xs text-white">{activeFilterCount}</span>{/if}
 			</button>
-		{/if}
+			{#if filtersActive}
+				<button type="button" onclick={clearFilters} class="ml-auto px-3 py-2 text-sm text-essu-green hover:underline">Clear filters</button>
+			{/if}
+		</div>
+		<div id="student-filters" class="{showMobileFilters ? 'grid' : 'hidden'} md:grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+			<select aria-label="Program" value={filterProgram} onchange={event => { filterProgram = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+				<option value="">All programs</option>
+				{#each graduatePrograms as program}<option value={program.value}>{program.label}</option>{/each}
+			</select>
+			<select aria-label="Date type" value={dateType} onchange={event => { dateType = (event.currentTarget as HTMLSelectElement).value as typeof dateType; syncQuery(); }} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+				<option value="registered">Registered</option>
+				<option value="decision">Verified or decided on</option>
+			</select>
+			<select aria-label="Date range" value={dateRange} onchange={changeDateRange} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+				<option value="any">Any time</option>
+				<option value="today">Today</option>
+				<option value="7d">Last 7 days</option>
+				<option value="30d">Last 30 days</option>
+				<option value="custom">Custom</option>
+			</select>
+			{#if dateRange === 'custom'}
+				<label class="block text-xs font-medium text-gray-600">From<input aria-label="From date" type="date" value={customFrom} onchange={event => { customFrom = (event.currentTarget as HTMLInputElement).value; syncQuery(); }} class="mt-1 w-full min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
+				<label class="block text-xs font-medium text-gray-600">To<input aria-label="To date" type="date" value={customTo} onchange={event => { customTo = (event.currentTarget as HTMLInputElement).value; syncQuery(); }} class="mt-1 w-full min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
+			{/if}
+			<select aria-label="Student type" value={filterType} onchange={event => { filterType = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+				<option value="">All Types</option>
+				<option value="Enrolled">Enrolled</option>
+				<option value="Former">Former</option>
+				<option value="Alumni">Alumni</option>
+			</select>
+			<select aria-label="Sort students" value={sortOrder} onchange={event => { sortOrder = (event.currentTarget as HTMLSelectElement).value as typeof sortOrder; syncQuery(); }} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+				<option value="newest">Newest first</option>
+				<option value="oldest">Oldest first</option>
+			</select>
+		</div>
 	</div>
 
 	<!-- Table -->
@@ -309,10 +450,10 @@
 			<div class="p-16 text-center">
 				<i class="fa-solid fa-users text-4xl text-gray-200 mb-4 block"></i>
 				<p class="text-gray-500 text-sm">
-					{search || filterType ? 'No students match your search.' : 'No students in this view. Choose All to see every account.'}
+					{filtersActive ? 'No students match the current filters.' : 'No students in this view. Choose All to see every account.'}
 				</p>
 			</div>
-			<div class="flex justify-center pb-6"><Button variant="secondary" onclick={() => { search = ''; filterType = ''; statusTab = 'all'; }}>View all students</Button></div>
+			<div class="flex justify-center pb-6"><Button variant="secondary" onclick={clearFilters}>Clear filters</Button></div>
 		{:else}
 			<!-- Mobile card list -->
 			<div class="xl:hidden divide-y divide-gray-100">

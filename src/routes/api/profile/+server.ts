@@ -6,6 +6,15 @@ import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateSchoolYear } from '$lib/school-year';
 import { isCampus } from '$lib/data/campuses';
+import { logActivity } from '$lib/server/activity-log';
+
+async function logSafely(actor: { userId: number; role: string }, action: string, summary: string, changedFields: string[]) {
+	try {
+		const conn = await pool.getConnection();
+		try { await logActivity(conn, { actor, action, entityType: 'account', entityId: actor.userId, summary, details: { changedFields } }); }
+		finally { conn.release(); }
+	} catch (error) { console.error(`Could not write ${action} activity:`, error); }
+}
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
@@ -44,6 +53,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 			 date_of_birth = ? WHERE user_id = ?`,
 			[firstName, middleName || null, lastName, suffix || null, dateOfBirth, payload.userId]
 		);
+		await logSafely(payload, 'account.personal.edited', `Updated personal details for account #${payload.userId}`, ['first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth']);
 
 		return json({ success: true });
 	}
@@ -74,6 +84,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		}
 
 		await pool.execute('UPDATE users SET email = ?, auth_version = auth_version + 1 WHERE user_id = ?', [newEmail, payload.userId]);
+		await logSafely(payload, 'account.email.changed', `Changed email for account #${payload.userId}`, ['email']);
 
 		return json({ success: true });
 	}
@@ -98,6 +109,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 
 		const newHash = createHash('sha256').update(newPassword).digest('hex');
 		await pool.execute('UPDATE users SET password_hash = ?, auth_version = auth_version + 1 WHERE user_id = ?', [newHash, payload.userId]);
+		await logSafely(payload, 'account.password.changed', `Changed password for account #${payload.userId}`, ['password']);
 
 		return json({ success: true });
 	}
@@ -134,6 +146,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 			if ((error as { code?: string }).code === 'ER_DUP_ENTRY') return json({ error: 'This Student ID is already in use.' }, { status: 409 });
 			throw error;
 		}
+		await logSafely(payload, 'account.academic.edited', `Updated academic details for account #${payload.userId}`, ['student_id', 'program', 'student_type', 'last_school_year', ...(campus !== undefined ? ['campus'] : [])]);
 
 		return json({ success: true });
 	}
@@ -147,6 +160,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 			'UPDATE users SET first_name = ?, middle_name = ?, last_name = ? WHERE user_id = ?',
 			[firstName, middleName || null, lastName, payload.userId]
 		);
+		await logSafely(payload, 'account.personal.edited', `Updated personal details for account #${payload.userId}`, ['first_name', 'middle_name', 'last_name']);
 		return json({ success: true });
 	}
 
@@ -158,6 +172,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 			'UPDATE users SET position = ? WHERE user_id = ?',
 			[position || null, payload.userId]
 		);
+		await logSafely(payload, 'account.professional.edited', `Updated professional details for account #${payload.userId}`, ['position']);
 		return json({ success: true });
 	}
 

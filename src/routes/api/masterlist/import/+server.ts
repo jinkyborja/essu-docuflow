@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { requireMasterlistAdmin, parseCsv, headers, validateRow } from '$lib/server/masterlist';
+import { logActivity } from '$lib/server/activity-log';
 export const POST: RequestHandler = async ({ cookies, request }) => {
 	const actor = await requireMasterlistAdmin(cookies);
 	const data = await request.formData().catch(() => null);
@@ -30,6 +31,7 @@ export const POST: RequestHandler = async ({ cookies, request }) => {
 			);
 			if ((existing as unknown[]).length) summary.updated++; else summary.added++;
 		}
+		await logActivity(conn, { actor, action: 'masterlist.imported', entityType: 'masterlist', entityId: null, summary: `Imported masterlist: ${summary.added} added, ${summary.updated} updated, ${summary.skipped} skipped`, details: { changedFields: ['masterlist entries'] } });
 		await conn.commit(); return json(summary);
 	} catch (e) { await conn.rollback(); console.error('Masterlist import failed', e); return json({ error: 'Import failed; no rows were saved.' }, { status: 500 }); }
 	finally { conn.release(); }

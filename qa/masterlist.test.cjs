@@ -166,10 +166,10 @@ test('Request guidance and date display explain every next action', () => {
 	const flow=load('src/lib/request-flow.ts');
 	assert.match(flow.nextStep('Pending'), /Waiting for office review/);
 	assert.match(flow.nextStep('Correction Requested'), /flagged files/);
-	assert.match(flow.nextStep('Approved',false,true), /Download/);
-	assert.match(flow.nextStep('Approved',false,false), /release instructions/);
+	assert.match(flow.nextStep('Approved',false,true), /ready for pickup at the Graduate School office/);
+	assert.match(flow.nextStep('Approved',false,false), /pickup instructions/);
 	assert.match(flow.nextStep('Rejected'), /reason/);
-	assert.match(flow.nextStep('Approved',true,true), /Delivery recorded/);
+	assert.match(flow.nextStep('Approved',true,true), /Released/);
 	assert.equal(flow.formatDate('2008-12-18'), 'Dec 18, 2008');
 	assert.equal(flow.formatDate(null),'Not recorded');
 });

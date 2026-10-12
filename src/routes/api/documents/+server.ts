@@ -7,6 +7,7 @@ import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateUpload } from '$lib/server/upload-validation';
 import { formatName } from '$lib/formatting';
+import { logActivity } from '$lib/server/activity-log';
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
@@ -89,6 +90,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		);
 		const documentId = (result as { insertId: number }).insertId;
 		await replaceDocumentRequirements(conn, documentId, parsedReqs);
+		await logActivity(conn, { actor: payload, action: 'document.created', entityType: 'document', entityId: documentId, summary: `Created document #${documentId}`, details: { changedFields: ['document', 'requirements', ...(templateFile ? ['template'] : [])] } });
 		await conn.commit();
 		return json({ success: true, document_id: documentId });
 	} catch (err) {
@@ -171,6 +173,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 			[name, templatePath, templateName, documentId]
 		);
 		await replaceDocumentRequirements(conn, Number(documentId), parsedReqs);
+		await logActivity(conn, { actor: payload, action: 'document.edited', entityType: 'document', entityId: documentId, summary: `Updated document #${documentId}`, details: { changedFields: ['name', 'requirements', 'template'] } });
 		await conn.commit();
 		return json({ success: true });
 	} catch (err) {
@@ -185,9 +188,10 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	const token = cookies.get('session');
 	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
+	let payload: { userId: number; role: string };
 	try {
-		const p = (await verifySession(token, JWT_SECRET));
-		if (p.role === 'Student') return json({ error: 'Forbidden' }, { status: 403 });
+		payload = (await verifySession(token, JWT_SECRET));
+		if (payload.role === 'Student') return json({ error: 'Forbidden' }, { status: 403 });
 	} catch {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -202,5 +206,10 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	}
 
 	await pool.execute('DELETE FROM documents WHERE document_id = ?', [document_id]);
+	try {
+		const conn = await pool.getConnection();
+		try { await logActivity(conn, { actor: payload, action: 'document.deleted', entityType: 'document', entityId: document_id, summary: `Deleted document #${document_id}`, details: { changedFields: ['document', 'requirements'] } }); }
+		finally { conn.release(); }
+	} catch (error) { console.error('Could not write document deletion activity:', error); }
 	return json({ success: true });
 };

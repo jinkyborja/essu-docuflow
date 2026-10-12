@@ -6,6 +6,7 @@ import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validate, insertFiles, type FormInput } from '$lib/server/forms';
 import { env } from '$env/dynamic/private';
+import { logActivity } from '$lib/server/activity-log';
 
 async function session(cookies: { get: (key: string) => string | undefined }) {
 	const token = cookies.get('session'); if (!token) return null;
@@ -35,6 +36,7 @@ export const PUT: RequestHandler = async ({ request, cookies, params }) => {
 			[input.title.trim(), input.category.trim(), input.code?.trim() || null, input.description, JSON.stringify(input.fields), input.download_name?.trim() || `ESSU-${input.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`, id]);
 		await conn.execute('DELETE FROM form_files WHERE form_id = ?', [id]);
 		await insertFiles(conn, id, input.files);
+		await logActivity(conn, { actor: user, action: 'form.edited', entityType: 'form', entityId: id, summary: `Updated form #${id}`, details: { changedFields: ['form fields', 'files'] } });
 		await conn.commit();
 		if (remove.length) { const { error } = await supabase.storage.from(bucket).remove(remove); if (error) console.error('Could not remove replaced form files:', error.message); }
 		return json({ ok: true });
@@ -52,5 +54,10 @@ export const DELETE: RequestHandler = async ({ cookies, params }) => {
 	const paths = (rows as { storage_path: string | null }[]).map((f) => f.storage_path).filter((p): p is string => !!p);
 	if (paths.length) { const { error } = await supabase.storage.from(bucket).remove(paths); if (error) { console.error('Could not remove deleted form files:', error.message); return json({ error: 'Could not remove the form files.' }, { status: 500 }); } }
 	await pool.execute('DELETE FROM forms WHERE form_id = ?', [id]);
+	try {
+		const conn = await pool.getConnection();
+		try { await logActivity(conn, { actor: user, action: 'form.deleted', entityType: 'form', entityId: id, summary: `Deleted form #${id}`, details: { changedFields: ['form', 'files'] } }); }
+		finally { conn.release(); }
+	} catch (error) { console.error('Could not write form deletion activity:', error); }
 	return json({ ok: true });
 };

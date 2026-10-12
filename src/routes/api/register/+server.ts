@@ -12,6 +12,7 @@ import { STUDENT_ID_PHOTO_MAX_SIZE, validateStudentIdPhotoMetadata } from '$lib/
 import { readSignupIdPhotoUploadToken, validateSignupPhotoIdentity } from '$lib/server/signup-id-photo';
 import { supabase } from '$lib/server/supabase';
 import { validateUpload } from '$lib/server/upload-validation';
+import { logActivity } from '$lib/server/activity-log';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json().catch(() => null);
@@ -75,11 +76,12 @@ export const POST: RequestHandler = async ({ request }) => {
 		const uploadedAt = new Date();
 		conn = await pool.getConnection();
 		await conn.beginTransaction(); transactionOpen = true;
-		await conn.execute(
+		const [insertResult] = await conn.execute(
 			`INSERT INTO users (first_name, middle_name, last_name, suffix, date_of_birth, email, password_hash, role, student_id, program, student_type, last_school_year, campus, id_photo_path, id_photo_uploaded_at, verified, id_status)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, 'Student', ?, ?, ?, ?, ?, ?, ?, FALSE, 'pending')`,
 			[firstName, middleName || null, lastName, suffix || null, dateOfBirth, email, passwordHash, studentId, program, studentType, lastSchoolYear, campus, upload.path, uploadedAt]
 		);
+		const userId = (insertResult as { insertId: number }).insertId;
 		const [admins] = await conn.execute("SELECT user_id FROM users WHERE role = 'Admin'");
 		for (const admin of admins as Array<{ user_id: number }>) {
 			await conn.execute(
@@ -88,6 +90,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				['New student awaiting ID verification', admin.user_id]
 			);
 		}
+		await logActivity(conn, { actor: { userId, role: 'Student' }, action: 'student.registered', entityType: 'student', entityId: userId, summary: `Created student account #${userId}`, details: { changedFields: ['student account', 'role', 'email', 'password', 'student_id', 'program', 'student_type', 'id_photo'] } });
 		await conn.commit(); transactionOpen = false;
 	} catch (error) {
 		if (conn && transactionOpen) await conn.rollback();

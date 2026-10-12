@@ -22,18 +22,18 @@ export function requestTimeline(status: string, dateRequested: string, history: 
 	const ordered = [...history].sort((a, b) => Date.parse(a.changed_at) - Date.parse(b.changed_at));
 	const events = ordered.filter((event, index) => !(index === 0 && event.new_status === 'Pending' && Math.abs(Date.parse(event.changed_at) - Date.parse(dateRequested)) < 2000));
 	const delivered = completed || events.some(event => event.new_status === 'Completed');
-	const label = (value: string) => value === 'Completed' ? 'Delivery recorded' : value === 'Pending' ? 'Office review' : value === 'Correction Requested' ? 'Needs correction' : value;
+	const label = (value: string) => value === 'Completed' ? 'Released' : value === 'Pending' ? 'Office review' : value === 'Correction Requested' ? 'Needs correction' : value;
 	const steps: TimelineStep[] = [{ label: 'Submitted', state: 'done', date: dateRequested }];
 	const last = events.at(-1);
 	const past = !delivered && last?.new_status === status ? events.slice(0, -1) : events;
 	for (const event of past) steps.push({ label: label(event.new_status), state: 'done', date: event.changed_at, actor: event.changed_by_name });
 	if (delivered) {
-		if (!events.some(event => event.new_status === 'Completed')) steps.push({ label: 'Delivery recorded', state: 'done' });
+		if (!events.some(event => event.new_status === 'Completed')) steps.push({ label: 'Released', state: 'done' });
 		return steps;
 	}
-	steps.push({ label: status === 'Approved' && hasFile ? 'Document ready' : label(status), state: 'current', date: last?.new_status === status ? last.changed_at : undefined, actor: last?.new_status === status ? last.changed_by_name : undefined });
+	steps.push({ label: status === 'Approved' && hasFile ? 'Ready for pickup' : label(status), state: 'current', date: last?.new_status === status ? last.changed_at : undefined, actor: last?.new_status === status ? last.changed_by_name : undefined });
 	if (status === 'Correction Requested') steps.push({ label: 'Office review', state: 'upcoming' });
-	if (status === 'Pending' || status === 'Correction Requested') steps.push({ label: 'Document ready', state: 'upcoming' });
-	if (status !== 'Rejected') steps.push({ label: 'Delivery recorded', state: 'upcoming' });
+	if (status === 'Pending' || status === 'Correction Requested') steps.push({ label: 'Ready for pickup', state: 'upcoming' });
+	if (status !== 'Rejected') steps.push({ label: 'Released', state: 'upcoming' });
 	return steps;
 }

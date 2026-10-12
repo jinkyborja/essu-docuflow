@@ -4,6 +4,7 @@ import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { slugName, validate, insertFiles, originalFileName, originalFileSize, fileExtension, formFileMime, type FormInput } from '$lib/server/forms';
+import { logActivity } from '$lib/server/activity-log';
 
 async function session(cookies: { get: (key: string) => string | undefined }) {
 	const token = cookies.get('session');
@@ -58,6 +59,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		);
 		const id = (result as { insertId: number }).insertId;
 		await insertFiles(conn, id, files);
+		await logActivity(conn, { actor: user, action: 'form.created', entityType: 'form', entityId: id, summary: `Created form #${id}`, details: { changedFields: ['form', 'files'] } });
 		await conn.commit();
 		return json({ form_id: id }, { status: 201 });
 	} catch (error) {

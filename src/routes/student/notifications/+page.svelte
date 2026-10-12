@@ -30,11 +30,12 @@
 			: status === 'Correction Requested' ? 'task'
 			: 'system';
 		const adminMsg = h.admin_message as string | null;
+		const displayStatus = status === 'Completed' ? 'Released' : status;
 		const message =
 			status === 'Completed'
-				? `The office recorded delivery for request ${h.request_id}. You can view its timeline in My Documents.`
+				? `The Graduate School office marked request ${h.request_id} as released. You can view its timeline in My Documents.`
 			: status === 'Approved'
-				? `Your request for ${h.document_name} (${h.request_id}) has been approved. You may now download the document from My Documents.`
+				? `Your request for ${h.document_name} (${h.request_id}) has been approved. Your document is ready for pickup at the Graduate School office.`
 			: status === 'Rejected'
 				? `Your request for ${h.document_name} (${h.request_id}) has been rejected.${adminMsg ? ' Reason: ' + adminMsg : ''}`
 			: status === 'Correction Requested'
@@ -44,7 +45,7 @@
 		return {
 			id: String(h.history_id),
 			type,
-			title: `${h.document_name}: ${status}`,
+			title: `${h.document_name}: ${displayStatus}`,
 			message,
 			date: new Date(h.changed_at as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' }),
 			isRead: !!(h.student_read),

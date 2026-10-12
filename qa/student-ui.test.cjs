@@ -19,12 +19,14 @@ test('Historical and shared requirements are all retained when mapping documents
  assert.equal(result[0].requirements.length,2);assert.equal(result[1].requirements[0].name,'Clearance');assert.equal(result[2].requirements[0].name,'Old requirement');
  assert.equal(groups([],reqs,[],'Historical document')[0].name,'Historical document');assert.equal(groups(items,reqs,[],'Fallback').at(-1).requirements.length,3);
 });
-test('The timeline distinguishes current review, corrections, future release and recorded delivery',()=>{
+test('The timeline distinguishes current review, corrections, future pickup and release',()=>{
  const {requestTimeline}=load('src/lib/student-request-display.ts');
  const date='2026-10-11T08:00:00Z';
- const pending=requestTimeline('Pending',date,[{new_status:'Pending',changed_at:date}]);assert.equal(pending.filter(step=>step.state==='current').length,1);assert.equal(pending.filter(step=>step.label==='Office review').length,1);assert.equal(pending.at(-1).state,'upcoming');
+ const pending=requestTimeline('Pending',date,[{new_status:'Pending',changed_at:date}]);assert.equal(pending.filter(step=>step.state==='current').length,1);assert.equal(pending.filter(step=>step.label==='Office review').length,1);assert.equal(pending.at(-1).label,'Ready for pickup');assert.equal(pending.at(-1).state,'upcoming');
  const correction=requestTimeline('Correction Requested',date,[{new_status:'Correction Requested',changed_at:'2026-10-11T09:00:00Z'}]);assert.equal(correction.find(step=>step.state==='current').label,'Needs correction');
- const completed=requestTimeline('Approved',date,[{new_status:'Approved',changed_at:date},{new_status:'Completed',changed_at:'2026-10-11T10:00:00Z'}],true);assert.ok(completed.every(step=>step.state==='done'));assert.equal(completed.at(-1).label,'Delivery recorded');
+ const ready=requestTimeline('Approved',date,[{new_status:'Approved',changed_at:date}],true);assert.equal(ready.find(step=>step.state==='current').label,'Ready for pickup');assert.equal(ready.at(-1).label,'Released');
+ const completed=requestTimeline('Approved',date,[{new_status:'Approved',changed_at:date},{new_status:'Completed',changed_at:'2026-10-11T10:00:00Z'}],true);assert.ok(completed.every(step=>step.state==='done'));assert.equal(completed.at(-1).label,'Released');
+ assert.match(html('src/lib/components/ui/StatusChip.svelte',{value:'completed',kind:'request'}),/>Released</);
  const rejected=requestTimeline('Rejected',date);assert.equal(rejected.at(-1).label,'Rejected');assert.ok(!rejected.some(step=>step.state==='upcoming'));
 });
 test('Rejected review requires a new photo or note, and renders the reason and three clear steps',()=>{

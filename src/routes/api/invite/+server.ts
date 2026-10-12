@@ -3,12 +3,14 @@ import type { RequestHandler } from './$types';
 import { verifySession, signJwt } from '$lib/server/jwt';
 import { sendEmail } from '$lib/server/email';
 import { JWT_SECRET } from '$env/static/private';
+import pool from '$lib/server/db';
+import { logActivity } from '$lib/server/activity-log';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const token = cookies.get('session');
 	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
 
-	let caller: { role: string };
+	let caller: { userId: number; role: string };
 	try {
 		caller = (await verifySession(token, JWT_SECRET));
 	} catch {
@@ -48,6 +50,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			</div>
 		`
 	});
+	try {
+		const conn = await pool.getConnection();
+		try { await logActivity(conn, { actor: caller, action: 'staff.invited', entityType: 'staff', entityId: null, summary: `Sent a ${role} invitation`, details: { changedFields: ['invitation', 'role'] } }); }
+		finally { conn.release(); }
+	} catch (error) { console.error('Could not write staff invitation activity:', error); }
 
 	return json({ success: true });
 };

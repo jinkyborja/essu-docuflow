@@ -9,6 +9,7 @@ import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
 import { validateUpload } from '$lib/server/upload-validation';
 import { readRequirementUploads, validatePreparedRequirementFile, assertPreparedUploadsUnused, RequirementUploadError } from '$lib/server/requirement-uploads';
+import { logActivity } from '$lib/server/activity-log';
 
 export const GET: RequestHandler = async ({ cookies, url }) => {
 	const token = cookies.get('session');
@@ -210,6 +211,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		for (const documentId of documentIds) await conn.execute('INSERT INTO request_items (request_id, document_id) VALUES (?, ?)', [requestId, documentId]);
 		stage = 'replace_request_requirements';
 		await replaceRequestRequirements(conn, requestId, reqs);
+		await logActivity(conn, { actor: payload, action: 'request.submitted', entityType: 'request', entityId: requestId, summary: `Submitted request ${requestId}`, details: { changedFields: ['request', 'request items', 'requirements'] } });
 		stage = 'commit';
 		await conn.commit();
 		transactionOpen = false;
@@ -262,8 +264,6 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	}
 	if (payload.role === 'Student') return json({ error: 'Forbidden' }, { status: 403 });
 
-	const { request_id } = await request.json();
-
 	// Clean up uploaded files from Supabase
 	const [rows] = await pool.execute(
 		'SELECT approved_file_path FROM requests WHERE request_id = ?',
@@ -279,8 +279,18 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	}
 
 	// request_requirements cascades on delete; history has no FK cascade.
-	await pool.execute('DELETE FROM request_status_history WHERE request_id = ?', [request_id]);
-	await pool.execute('DELETE FROM requests WHERE request_id = ?', [request_id]);
+	try {
+		await pool.execute('DELETE FROM request_status_history WHERE request_id = ?', [request_id]);
+		await pool.execute('DELETE FROM requests WHERE request_id = ?', [request_id]);
+	} catch (error) {
+		console.error('Request deletion failed:', error);
+		return json({ error: 'Could not delete the request.' }, { status: 500 });
+	}
+	try {
+		const conn = await pool.getConnection();
+		try { await logActivity(conn, { actor: payload, action: 'request.deleted', entityType: 'request', entityId: request_id, summary: `Deleted request ${request_id}`, details: { changedFields: ['request', 'request history'] } }); }
+		finally { conn.release(); }
+	} catch (error) { console.error('Could not write request deletion activity:', error); }
 
 	return json({ success: true });
 };

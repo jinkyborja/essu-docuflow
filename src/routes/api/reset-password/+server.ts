@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifyJwt } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
+import { logActivity } from '$lib/server/activity-log';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const { token, password } = await request.json();
@@ -22,6 +23,8 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	const passwordHash = createHash('sha256').update(password).digest('hex');
+	const [userRows] = await pool.execute('SELECT user_id, role FROM users WHERE email = ? AND auth_version = ?', [payload.email, payload.authVersion]);
+	const user = (userRows as Array<{ user_id: number; role: string }>)[0];
 	const [result] = await pool.execute(
 		'UPDATE users SET password_hash = ?, auth_version = auth_version + 1 WHERE email = ? AND auth_version = ?',
 		[passwordHash, payload.email, payload.authVersion]
@@ -29,6 +32,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	if ((result as { affectedRows: number }).affectedRows === 0) {
 		return json({ error: 'Reset link is invalid or has already been used' }, { status: 400 });
+	}
+	if (user) {
+		try {
+			const conn = await pool.getConnection();
+			try { await logActivity(conn, { actor: { userId: user.user_id, role: user.role }, action: 'account.password.changed', entityType: 'account', entityId: user.user_id, summary: `Reset password for account #${user.user_id}`, details: { changedFields: ['password'] } }); }
+			finally { conn.release(); }
+		} catch (error) { console.error('Could not write password reset activity:', error); }
 	}
 
 	return json({ success: true });

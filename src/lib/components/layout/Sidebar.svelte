@@ -6,7 +6,7 @@
 	import UserMenu from './UserMenu.svelte';
 	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
 
-	type NavItem = { label: string; icon: string; href: string; adminOnly?: boolean; badge?: number; locked?: boolean; lockedReason?: string };
+	type NavItem = { label: string; icon: string; href: string; adminOnly?: boolean; hideFromStaff?: boolean; badge?: number; locked?: boolean; lockedReason?: string };
 	interface Props {
 		items: NavItem[];
 		role: 'staff' | 'student';
@@ -81,7 +81,7 @@
 				</Button>
 			</div>
 		{/if}
-		{#each items.filter(item => item !== requestAction) as item}
+		{#each items.filter(item => item !== requestAction && !(item.hideFromStaff && userRole !== 'Admin')) as item}
 			{@const active = isActive(item.href)}
 			{@const disabled = item.adminOnly && userRole !== 'Admin'}
 			{#if role === 'staff' && item.href === '/staff/requests'}

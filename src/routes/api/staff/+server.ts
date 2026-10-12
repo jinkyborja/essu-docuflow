@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
+import { logActivity } from '$lib/server/activity-log';
 
 async function getAdmin(cookies: { get: (k: string) => string | undefined }) {
 	const token = cookies.get('session');
@@ -27,6 +28,11 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		`UPDATE users SET first_name = ?, last_name = ?, position = ?, auth_version = auth_version + 1, role = ? WHERE user_id = ? AND role IN ('Staff', 'Admin')`,
 		[first_name, last_name, position ?? null, role, user_id]
 	);
+	try {
+		const conn = await pool.getConnection();
+		try { await logActivity(conn, { actor: admin, action: 'staff.edited', entityType: 'staff', entityId: user_id, summary: `Updated staff account #${user_id}`, details: { changedFields: ['first_name', 'last_name', 'position', 'role'] } }); }
+		finally { conn.release(); }
+	} catch (error) { console.error('Could not write staff edit activity:', error); }
 
 	return json({ ok: true });
 };
@@ -43,6 +49,11 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 		`DELETE FROM users WHERE user_id = ? AND role IN ('Staff', 'Admin')`,
 		[user_id]
 	);
+	try {
+		const conn = await pool.getConnection();
+		try { await logActivity(conn, { actor: admin, action: 'staff.removed', entityType: 'staff', entityId: user_id, summary: `Removed staff account #${user_id}`, details: { changedFields: ['staff account'] } }); }
+		finally { conn.release(); }
+	} catch (error) { console.error('Could not write staff removal activity:', error); }
 
 	return json({ ok: true });
 };

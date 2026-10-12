@@ -48,16 +48,17 @@
 			status === 'Correction Requested' ? 'task' :
 			status === 'Approved'             ? 'system' : 'system';
 		const adminMsg = h.admin_message as string | null;
+		const displayStatus = status === 'Completed' ? 'Released' : status;
 		const message =
 			status === 'Approved'             ? `${formatName(h.first_name, h.middle_name, h.last_name)}'s request for ${h.document_name} (${h.request_id}) was approved.` :
 			status === 'Rejected'             ? `${formatName(h.first_name, h.middle_name, h.last_name)}'s request for ${h.document_name} (${h.request_id}) was rejected.${adminMsg ? ' Note: ' + adminMsg : ''}` :
 			status === 'Correction Requested' ? `Correction requested for ${formatName(h.first_name, h.middle_name, h.last_name)}'s request (${h.request_id}).${adminMsg ? ' ' + adminMsg : ''}` :
-			                                    `${h.document_name} request (${h.request_id}) status changed to ${status}.`;
+			                                    `${h.document_name} request (${h.request_id}) status changed to ${displayStatus}.`;
 		return {
 			id: String(h.history_id),
 			source: 'history' as const,
 			type,
-			title: `${h.document_name}: ${status}`,
+			title: `${h.document_name}: ${displayStatus}`,
 			message,
 			date: fmtDate(h.changed_at),
 			isRead: !!(h.is_read),

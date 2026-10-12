@@ -11,7 +11,7 @@
 		'/student/notifications': 'Stay up to date with decisions and messages from the office.',
 		'/student/profile': 'Keep your personal and academic information up to date.',
 		'/staff/dashboard': 'See what needs attention and keep document requests moving.',
-		'/staff/requests': 'Review requirements, follow up on corrections and confirm delivery.',
+		'/staff/requests': 'Review requirements, follow up on corrections and record when documents are released.',
 		'/staff/documents': 'Manage requestable documents, templates and their requirements.',
 		'/staff/forms': 'Keep official forms available and ready for students to use.',
 		'/staff/students': 'Review student identities against the official enrollment masterlist.',

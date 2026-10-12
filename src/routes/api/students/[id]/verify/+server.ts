@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
+import { logActivity } from '$lib/server/activity-log';
 
 export const POST: RequestHandler = async ({ request, cookies, params }) => {
 	const token = cookies.get('session');
@@ -40,6 +41,8 @@ export const POST: RequestHandler = async ({ request, cookies, params }) => {
 		await conn.execute('UPDATE users SET id_status = ?, id_verified_by = ?, id_verified_at = CURRENT_TIMESTAMP, id_reject_reason = ?, id_verification_note = ? WHERE user_id = ?', [status, actor.userId, status === 'rejected' ? reason : null, storedNote, student.user_id]);
 		// Notification history uses the existing request status history stream.
 		await conn.execute('INSERT INTO request_status_history (request_id, old_status, new_status, changed_by, notification_user_id, is_read, student_read) VALUES (NULL, NULL, ?, ?, ?, TRUE, FALSE)', [body.action === 'revoke' ? 'Your student ID verification was revoked' : status === 'verified' ? 'Your student ID was verified' : 'Your student ID was rejected', actor.userId, student.user_id]);
+		const action = body.action === 'revoke' ? 'student.id.revoked' : status === 'verified' ? 'student.id.verified' : 'student.id.rejected';
+		await logActivity(conn, { actor, action, entityType: 'student', entityId: student.user_id, summary: `${action === 'student.id.verified' ? 'Verified' : action === 'student.id.rejected' ? 'Rejected' : 'Revoked verification for'} student #${student.user_id}`, details: { changedFields: ['id_status', 'id_verified_at', 'id_reject_reason', 'id_verification_note'] } });
 		await conn.commit();
 		return json({ success: true, id_status: status, id_verified_at: new Date().toISOString(), id_reject_reason: status === 'rejected' ? reason : null, id_verification_note: storedNote });
 	} catch (error) { await conn.rollback(); console.error('Student ID verification failed:', error); return json({ error: 'Could not update student verification.' }, { status: 500 }); }

@@ -23,9 +23,11 @@
 		purpose: string; status: string; requirements: Requirement[];
 		admin_message: string | null; approved_file_path: string | null;
 		approved_file_name: string | null; date_requested: string;
+		decided_at: string | null; decision_recorded: boolean; decision_actor_name: string | null;
+		decision_actor_role: string | null; decision_action: string | null;
 	});
 	const history = $derived(data.history as Array<{
-		old_status: string | null; new_status: string; changed_at: string; changed_by_name: string | null;
+		old_status: string | null; new_status: string; changed_at: string; changed_by_name: string | null; changed_by_role: string | null;
 	}>);
 
 	// Modal state
@@ -44,15 +46,30 @@
 	let currentStatus = $state(req.status);
 	let deliveryOverride = $state(false);
 	const delivered = $derived(deliveryOverride || history.some(event => event.new_status === 'Completed'));
+	const hasDecision = $derived(req.decision_recorded || !!req.decided_at || ['Approved', 'Rejected', 'Correction Requested'].includes(req.status));
+	function decisionLabel() {
+		if (req.decision_action === 'request.approved') return 'Approved';
+		if (req.decision_action === 'request.rejected') return 'Rejected';
+		if (req.decision_action === 'request.correction_requested') return 'Corrections requested';
+		if (req.status === 'Approved' || req.status === 'Rejected' || req.status === 'Correction Requested') return req.status === 'Correction Requested' ? 'Corrections requested' : req.status;
+		return 'Decision';
+	}
+	function decisionDate(value: string) {
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return 'Not recorded';
+		const day = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' });
+		const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' });
+		return `${day} at ${time}`;
+	}
 	async function recordDelivery() {
 		if (!deliveryConfirm || submitting) return;
 		submitting = true; actionError = '';
 		try {
 			const res = await fetch('/api/requests/' + req.request_id + '/complete', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})});
 			const data = await res.json();
-			if (!res.ok) { actionError = data.error ?? 'Could not record delivery.'; showToast(actionError, 'error'); return; }
-			deliveryConfirm = false; deliveryOverride = true; showToast('Delivery recorded.'); await invalidateAll();
-		} catch { actionError = 'Could not record delivery.'; showToast(actionError, 'error'); } finally { submitting = false; }
+			if (!res.ok) { actionError = data.error ?? 'Could not mark the request as released.'; showToast(actionError, 'error'); return; }
+			deliveryConfirm = false; deliveryOverride = true; showToast('Request marked as released.'); await invalidateAll();
+		} catch { actionError = 'Could not mark the request as released.'; showToast(actionError, 'error'); } finally { submitting = false; }
 	}
 
 
@@ -161,6 +178,18 @@
 				</div>
 			</div>
 
+			{#if hasDecision}
+				<div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+					<h3 class="mb-2 font-semibold text-gray-700">Decision</h3>
+					{#if req.decision_recorded}
+						<p class="text-sm text-gray-700">{decisionLabel()} by {req.decision_actor_name || 'Former staff'} ({req.decision_actor_role || 'Staff'}) on {decisionDate(req.decided_at!)}</p>
+					{:else}
+						<p class="text-sm text-gray-500">Not recorded</p>
+					{/if}
+					{#if req.admin_message}<div class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3"><p class="mb-1 text-xs font-semibold text-gray-500">Reason or note</p><p class="text-sm text-gray-700">{req.admin_message}</p></div>{/if}
+				</div>
+			{/if}
+
 			<!-- Requirements -->
 			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
 				<div class="px-5 py-4 border-b border-gray-100">
@@ -225,7 +254,7 @@
 		<!-- Sidebar: actions + history -->
 		<div class="space-y-4">
 			<!-- Actions -->
-			{#if currentStatus === 'Approved'}<div class="rounded-xl bg-white border border-essu-green/20 p-4 space-y-2"><p class="font-semibold text-sm text-essu-green">{delivered ? 'Delivery recorded' : 'Approved - ready for release'}</p><p class="text-xs text-gray-600">{delivered ? 'The office confirmed receipt of the documents.' : 'The student can download the approved file. Record delivery after confirming receipt; approval alone does not confirm delivery.'}</p>{#if !delivered}<button onclick={() => { actionError = ''; deliveryConfirm = true; }} disabled={submitting} class="px-3 py-2 rounded-lg bg-essu-green text-white text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">Record delivery</button>{/if}</div>{/if}
+			{#if currentStatus === 'Approved'}<div class="rounded-xl bg-white border border-essu-green/20 p-4 space-y-2"><p class="font-semibold text-sm text-essu-green">{delivered ? 'Released' : 'Ready for pickup'}</p><p class="text-xs text-gray-600">{delivered ? 'The office confirmed the student collected the documents.' : 'The student can collect the approved document from the Graduate School office. Mark it as released after collection.'}</p>{#if !delivered}<button onclick={() => { actionError = ''; deliveryConfirm = true; }} disabled={submitting} class="px-3 py-2 rounded-lg bg-essu-green text-white text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">Mark as released</button>{/if}</div>{/if}
 			{#if actionError}<p role="alert" class="text-sm text-red-700">{actionError}</p>{/if}
 			{#if currentStatus === 'Pending' || currentStatus === 'Correction Requested'}
 				<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
@@ -262,16 +291,17 @@
 						<div>
 							<p class="font-medium text-gray-700">Request submitted</p>
 							<p class="text-xs text-gray-400">{new Date(req.date_requested).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
+							<p class="text-xs text-gray-400">by {req.student_name} (Student)</p>
 						</div>
 					</div>
 					{#each history as h}
 						<div class="flex items-start gap-3 text-sm">
 							<div class="w-2 h-2 rounded-full bg-gray-300 mt-1.5 shrink-0"></div>
 							<div>
-								<p class="font-medium text-gray-700">{h.old_status} → {h.new_status}</p>
+								<p class="font-medium text-gray-700">{h.old_status === 'Completed' ? 'Released' : h.old_status} → {h.new_status === 'Completed' ? 'Released' : h.new_status}</p>
 								<p class="text-xs text-gray-400">
 									{new Date(h.changed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
-									{h.changed_by_name ? `· by ${h.changed_by_name}` : ''}
+									· by {h.changed_by_name || 'Not recorded'}{h.changed_by_role ? ` (${h.changed_by_role})` : ''}
 								</p>
 							</div>
 						</div>
@@ -289,4 +319,4 @@
 	{#snippet details()}<fieldset class="space-y-2"><legend class="mb-2 text-sm font-medium text-gray-700">Requirements needing correction</legend>{#each req.requirements.filter(requirement => !requirement.in_person) as requirement}<label class="flex items-center gap-3 rounded-lg border border-gray-200 p-3"><input type="checkbox" bind:checked={flagged[requirement.name]} disabled={submitting} class="accent-essu-green" /><span class="text-sm">{requirement.name}</span></label>{/each}</fieldset>{/snippet}
 </ConfirmDialog>
 <ConfirmDialog open={rejectOpen} title="Reject request" message={'Reject ' + req.request_id + ' for ' + req.student_name + '?'} requireReason minLength={10} confirmLabel="Reject request" loading={submitting} error={actionError} onclose={() => rejectOpen = false} onconfirm={reason => { adminMessage = reason; void submitAction('reject'); }} />
-<ConfirmDialog open={deliveryConfirm} title="Confirm delivery" message={'Confirm that ' + req.student_name + ' has received every document in ' + req.request_id + '?'} variant="primary" confirmLabel="Confirm delivery" loading={submitting} error={actionError} onclose={() => deliveryConfirm = false} onconfirm={() => void recordDelivery()} />
+<ConfirmDialog open={deliveryConfirm} title="Mark as released" message={'Confirm that ' + req.student_name + ' has collected every document for ' + req.request_id + '?'} variant="primary" confirmLabel="Mark as released" loading={submitting} error={actionError} onclose={() => deliveryConfirm = false} onconfirm={() => void recordDelivery()} />

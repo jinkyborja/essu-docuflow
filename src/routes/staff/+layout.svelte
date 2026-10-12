@@ -25,6 +25,7 @@
 		{ label: 'Forms',         icon: 'fa-solid fa-file-circle-plus', href: '/staff/forms' },
 		{ label: 'Students',      icon: 'fa-solid fa-user-graduate', href: '/staff/students' },
 		{ label: 'Staff',         icon: 'fa-solid fa-user-tie',      href: '/staff/staff',     adminOnly: true },
+		{ label: 'Activity log',  icon: 'fa-solid fa-clipboard-list', href: '/staff/activity', adminOnly: true, hideFromStaff: true },
 		{ label: 'Reports',       icon: 'fa-solid fa-chart-bar',     href: '/staff/reports' },
 		{ label: 'Notifications', icon: 'fa-regular fa-bell',        href: '/staff/notifications', badge: unread },
 		{ label: 'My Profile',    icon: 'fa-solid fa-circle-user',   href: '/staff/profile' }
@@ -37,6 +38,7 @@
 		'/staff/forms':         'Forms',
 		'/staff/students':      'Student Management',
 		'/staff/staff':         'Staff Management',
+		'/staff/activity':      'Activity log',
 		'/staff/reports':       'Reports & Analytics',
 		'/staff/notifications': 'Notifications',
 		'/staff/profile':       'My Profile'
