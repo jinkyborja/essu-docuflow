@@ -49,6 +49,7 @@ export const load: LayoutServerLoad = ({ cookies }) => timedLoad('student/layout
 			,idStatus: (u.id_status as string) ?? 'pending',
 			idRejectReason: (u.id_reject_reason as string | null) ?? null,
 			hasIdPhoto: Boolean(u.id_photo_path)
-		}
-	});
-};
+		    }
+	};
+});
+
