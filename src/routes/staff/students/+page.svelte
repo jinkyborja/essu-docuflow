@@ -486,35 +486,46 @@
 				{/each}
 			</div>
 			<!-- Desktop table -->
-			<div class="hidden xl:block overflow-x-auto">
-				<table class="student-list-table w-full min-w-[1200px] text-sm">
+			<div class="admin-table-wrap student-table-wrap hidden xl:block">
+				<table class="admin-table admin-table--students">
+					<colgroup>
+						<col class="student-col-name" />
+						<col class="student-col-id" />
+						<col class="student-col-program" />
+						<col class="student-col-type" />
+						<col class="student-col-school-year" />
+						<col class="student-col-email-status" />
+						<col class="student-col-id-status" />
+						<col class="student-col-registered" />
+						<col class="student-col-actions" />
+					</colgroup>
 					<thead>
-						<tr class="bg-gray-50 border-b border-gray-100">
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Student</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Student ID</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Program</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap min-w-[72px]">Last S.Y.</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[104px]">Email</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[112px]">ID Status</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Registered</th>
-							<th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
+						<tr>
+							<th scope="col">Student</th>
+							<th scope="col">Student ID</th>
+							<th scope="col">Program</th>
+							<th scope="col">Type</th>
+							<th scope="col">Last S.Y.</th>
+							<th scope="col">Email status</th>
+							<th scope="col">ID Status</th>
+							<th scope="col">Registered</th>
+							<th scope="col" class="actions-header">Actions</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-gray-50">
+					<tbody>
 						{#each filtered as s}
-							<tr class="hover:bg-gray-50 transition-colors">
-								<td class="px-4 py-3">
+							<tr>
+								<td>
 									<p class="font-medium text-gray-800">{@html highlight(fullName(s), search.trim())}</p>
 									<p class="text-xs text-gray-400 mt-0.5">{@html highlight(s.email, search.trim())}</p>
 								</td>
-								<td class="px-4 py-3">
+								<td class="student-id">
 									<span class="font-mono text-xs text-gray-500">{@html highlight(s.student_id, search.trim())}</span>
 								</td>
-								<td class="program-column px-4 py-3">
+								<td class="program-column">
 									<span class="program-value block text-gray-700" title={s.program ?? ''}>{@html highlight(s.program, search.trim())}</span>
 								</td>
-								<td class="px-4 py-3">
+								<td class="student-type">
 									{#if s.student_type}
 										<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium {typeColors[s.student_type] ?? 'bg-gray-100 text-gray-600 border border-gray-200'}">
 											{s.student_type}
@@ -523,18 +534,18 @@
 										<span class="text-gray-400">—</span>
 									{/if}
 								</td>
-								<td class="px-4 py-3 text-gray-700">
+								<td class="school-year">
 									{s.last_school_year ?? '—'}
 								</td>
-								<td class="px-4 py-3">
+								<td>
 									<StatusChip value={s.verified} kind="email" />
 								</td>
-								<td class="px-4 py-3"><StatusChip value={s.id_status} kind="id" /></td>
-								<td class="px-4 py-3 text-gray-500 text-xs">
+								<td><StatusChip value={s.id_status} kind="id" /></td>
+								<td class="registered">
 									{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
-								<td class="px-4 py-3">
-									<div class="row-actions flex flex-nowrap items-center gap-2"><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button><RowMenu items={rowItems(s)} label={'Actions for ' + fullName(s)} /></div>
+								<td class="actions-cell">
+									<div class="action-buttons"><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button><RowMenu items={rowItems(s)} label={'Actions for ' + fullName(s)} /></div>
 								</td>
 							</tr>
 						{/each}

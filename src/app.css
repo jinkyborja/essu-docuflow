@@ -957,59 +957,6 @@ table button[title] {
 .quick-action-link > i:last-child { width: auto; height: auto; background: none; }
 .quick-action-link:hover { transform: none; box-shadow: none !important; }
 .portal-main h2, .portal-main h3 { letter-spacing: -.015em; }
-.portal-main table { font-size: var(--font-size-body); }
-.portal-main thead th { font-size: var(--font-size-helper); letter-spacing: .065em; padding-block: .9rem; }
-.portal-main tbody td { padding-block: 1rem; }
-.office-queue-table { table-layout: fixed; }
-.office-queue-table tr > :nth-child(1) { width: 18%; }
-.office-queue-table tr > :nth-child(2) { width: 28%; }
-.office-queue-table tr > :nth-child(3) { width: 32%; }
-.office-queue-table tr > :nth-child(4) { display: none; }
-.office-queue-table tr > :nth-child(5) { width: 22%; }
-.portal-main .office-queue-table th, .portal-main .office-queue-table td { padding-inline: .75rem; white-space: normal; overflow-wrap: anywhere; }
-.office-queue-table td:first-child { font-size: var(--font-size-helper); }
-.request-list-table, .student-list-table { table-layout: fixed; }
-.portal-main :is(.request-list-table, .student-list-table) :is(th, td) { padding-inline: .75rem; white-space: normal; overflow-wrap: anywhere; }
-.request-list-table tr > :nth-child(1) { width: 11%; }
-.request-list-table tr > :nth-child(2) { width: 19%; }
-.request-list-table tr > :nth-child(3) { display: none; }
-.request-list-table tr > :nth-child(4) { width: 28%; }
-.request-list-table tr > :nth-child(5) { width: 9%; }
-.request-list-table tr > :nth-child(6) { width: 16%; }
-.request-list-table tr > :nth-child(7) { width: 17%; }
-.request-list-table td:last-child > div { flex-wrap: nowrap; white-space: nowrap; }
-.student-list-table tr > :nth-child(1) { width: 24%; }
-.student-list-table tr > :nth-child(2) { width: 11%; }
-.student-list-table tr > :nth-child(3) { width: 18%; }
-.student-list-table tr > :nth-child(4) { width: 10%; }
-.student-list-table tr > :nth-child(5), .student-list-table tr > :nth-child(8) { display: none; }
-.student-list-table tr > :nth-child(6) { width: 11%; }
-.student-list-table tr > :nth-child(7) { width: 12%; }
-.student-list-table tr > :nth-child(9) { width: 14%; }
-.student-list-table .program-value { max-width: 100%; }
-.program-value { display: block; line-height: var(--line-height); max-height: 2.8em; overflow: hidden; white-space: normal; text-overflow: clip; }
-.student-list-table td:last-child > div { flex-wrap: nowrap; white-space: nowrap; }
-@media (min-width: 1536px) {
-  .office-queue-table tr > :nth-child(1) { width: 16%; }
-  .office-queue-table tr > :nth-child(2) { width: 24%; }
-  .office-queue-table tr > :nth-child(3) { width: 28%; }
-  .office-queue-table tr > :nth-child(4) { display: table-cell; width: 16%; }
-  .office-queue-table tr > :nth-child(5) { width: 16%; }
-  .request-list-table tr > :nth-child(1) { width: 10%; }
-  .request-list-table tr > :nth-child(2) { width: 16%; }
-  .request-list-table tr > :nth-child(3) { display: table-cell; width: 14%; }
-  .request-list-table tr > :nth-child(4) { width: 24%; }
-  .request-list-table tr > :nth-child(5) { width: 8%; }
-  .request-list-table tr > :nth-child(6), .request-list-table tr > :nth-child(7) { width: 14%; }
-  .student-list-table tr > :nth-child(1) { width: 21%; }
-  .student-list-table tr > :nth-child(2) { width: 10%; }
-  .student-list-table tr > :nth-child(4) { width: 8%; }
-  .student-list-table tr > :nth-child(5) { display: table-cell; width: 6%; }
-  .student-list-table tr > :nth-child(6) { width: 10%; }
-  .student-list-table tr > :nth-child(7) { width: 9%; }
-  .student-list-table tr > :nth-child(8) { display: table-cell; width: 8%; }
-  .student-list-table tr > :nth-child(9) { width: 10%; }
-}
 .portal-main table a:has(.fa-eye) { min-height: 36px; padding-inline: .85rem; }
 .portal-main button:has(> .fa-pen), .portal-main button:has(> .fa-pencil), .portal-main button:has(> .fa-trash) { min-width: 36px; min-height: 36px; border-radius: .5rem; }
 .portal-main button:has(> .fa-pen), .portal-main button:has(> .fa-pencil) { color: var(--ink-soft); }
@@ -1029,24 +976,7 @@ table button[title] {
 .auth-content .auth-submit:focus-visible, .auth-content .auth-link:focus-visible { outline-color: var(--brand-green); box-shadow: var(--focus-ring); }
 @media (max-width: 1023px) { .portal-user-link > div:last-child { max-width: 12rem; } }
 .portal-user-link p.topbar-full-name { white-space: normal; overflow: visible; text-overflow: clip; }
-.student-list-table tr > :nth-child(1) { width: 21%; }
-.student-list-table tr > :nth-child(2) { width: 10%; }
-.student-list-table tr > :nth-child(4) { width: 9%; }
-.student-list-table td:nth-child(4) > span { white-space: nowrap; }
-.student-list-table tr > :nth-child(6), .student-list-table tr > :nth-child(7) { width: 13%; }
-.student-list-table tr > :nth-child(9) { width: 16%; }
 .row-actions { flex-wrap: nowrap !important; white-space: nowrap; }
-.office-queue-table td:last-child a { white-space: nowrap; }
-@media (min-width: 1536px) {
-  .student-list-table tr > :nth-child(1) { width: 19%; }
-  .student-list-table tr > :nth-child(2) { width: 8%; }
-  .student-list-table tr > :nth-child(3) { width: 16%; }
-  .student-list-table tr > :nth-child(4) { width: 7%; }
-  .student-list-table tr > :nth-child(5) { width: 5%; }
-  .student-list-table tr > :nth-child(6), .student-list-table tr > :nth-child(7) { width: 10%; }
-  .student-list-table tr > :nth-child(8) { width: 9%; }
-  .student-list-table tr > :nth-child(9) { width: 16%; }
-}
 @media (max-width: 640px) {
   .page-intro { align-items: flex-start; flex-direction: column; gap: 1rem; margin-bottom: 1.25rem; }
   .dashboard-request-row { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: .75rem; align-items: start; }
@@ -1121,26 +1051,35 @@ table button[title] {
   border-radius: 14px;
   box-shadow: 0 1px 2px rgb(19 49 37 / 0.04), 0 8px 24px rgb(19 49 37 / 0.045);
 }
-.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) {
-  table-layout: fixed;
+.staff-portal .portal-main .admin-table-wrap { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; }
+.staff-portal .portal-main table.admin-table {
+  width: 100%;
   min-width: 960px;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13px;
 }
-.staff-portal .portal-main .request-list-table { min-width: 1180px; }
-.staff-portal .portal-main .student-list-table { min-width: 1200px; }
-.staff-portal .portal-main .report-recent-table { min-width: 960px; }
-.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) :is(th, td) {
-  padding: 12px 14px !important;
+.staff-portal .portal-main table.admin-table--requests { min-width: 1270px; }
+.staff-portal .portal-main table.admin-table--students { min-width: 1415px; }
+.staff-portal .portal-main table.admin-table--staff { min-width: 1010px; }
+.staff-portal .portal-main table.admin-table--activity { min-width: 870px; }
+.staff-portal .portal-main table.admin-table--reports { min-width: 1070px; }
+.staff-portal .portal-main table.admin-table--queue { min-width: 970px; }
+.staff-portal .portal-main table.admin-table--masterlist { min-width: 1140px; }
+.staff-portal .portal-main table.admin-table :is(th, td) {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 12px 14px;
   vertical-align: middle;
-  overflow-wrap: normal;
-  word-break: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
-.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) th {
+.staff-portal .portal-main table.admin-table th {
   position: sticky;
   top: 0;
   z-index: 1;
+  border-bottom: 1px solid #e6ece8;
   background: #f6f9f7;
   color: #607168;
   font-size: 11px;
@@ -1150,70 +1089,105 @@ table button[title] {
   text-transform: uppercase;
   white-space: nowrap;
 }
-.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) tbody td {
+.staff-portal .portal-main table.admin-table tbody td {
   min-height: 56px;
   border-bottom: 1px solid #edf1ee;
   color: #33483d;
   font-size: 13px;
   line-height: 1.45;
 }
-.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) tbody tr:hover {
-  background: #f8fbf9;
-}
-.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) :is(th, td) {
+.staff-portal .portal-main table.admin-table tbody tr:hover { background: #f8fbf9; }
+.staff-portal .portal-main table.admin-table .actions-header,
+.staff-portal .portal-main table.admin-table .actions-cell { text-align: right; white-space: nowrap; }
+.staff-portal .portal-main table.admin-table .action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
   white-space: nowrap;
 }
-.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .report-recent-table, .overflow-x-auto > table) td :is(p, a, span) {
-  max-width: 100%;
+.staff-portal .portal-main table.admin-table .action-buttons > * { flex-shrink: 0; }
+.staff-portal .portal-main table.admin-table .action-buttons :is(a, button),
+.staff-portal .portal-main table.admin-table .actions-cell > :is(a, button) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  justify-content: center;
+  white-space: nowrap;
 }
-.staff-portal .portal-main .request-list-table tr > :nth-child(3),
-.staff-portal .portal-main .student-list-table tr > :nth-child(3) {
-  display: table-cell;
-  width: 240px;
-  min-width: 220px;
-  max-width: 280px;
-  white-space: normal;
-}
-.staff-portal .portal-main .request-list-table tr > :nth-child(1) { width: 150px; }
-.staff-portal .portal-main .request-list-table tr > :nth-child(2) { width: 210px; }
-.staff-portal .portal-main .request-list-table tr > :nth-child(4) { width: 250px; white-space: normal; }
-.staff-portal .portal-main .request-list-table tr > :nth-child(5) { width: 150px; }
-.staff-portal .portal-main .request-list-table tr > :nth-child(6) { width: 190px; }
-.staff-portal .portal-main .request-list-table tr > :nth-child(7) { width: 170px; text-align: right; }
-.staff-portal .portal-main .student-list-table tr > :nth-child(1) { width: 220px; white-space: normal; }
-.staff-portal .portal-main .student-list-table tr > :nth-child(2) { width: 130px; }
-.staff-portal .portal-main .student-list-table tr > :nth-child(4) { width: 120px; }
-.staff-portal .portal-main .student-list-table tr > :nth-child(5) { display: table-cell; width: 125px; }
-.staff-portal .portal-main .student-list-table tr > :nth-child(6) { width: 120px; }
-.staff-portal .portal-main .student-list-table tr > :nth-child(7) { width: 130px; }
-.staff-portal .portal-main .student-list-table tr > :nth-child(8) { display: table-cell; width: 150px; }
-.staff-portal .portal-main .student-list-table tr > :nth-child(9) { width: 160px; text-align: right; }
-.staff-portal .portal-main .staff-list-table tr > :nth-child(1) { width: 36%; white-space: normal; }
-.staff-portal .portal-main .staff-list-table tr > :nth-child(2) { width: 26%; white-space: normal; }
-.staff-portal .portal-main .staff-list-table tr > :nth-child(3) { width: 13%; }
-.staff-portal .portal-main .staff-list-table tr > :nth-child(4) { width: 15%; }
-.staff-portal .portal-main .staff-list-table tr > :nth-child(5) { width: 140px; text-align: right; }
-.staff-portal .portal-main .activity-log-table tr > :nth-child(1) { width: 190px; }
-.staff-portal .portal-main .activity-log-table tr > :nth-child(2) { width: 190px; }
-.staff-portal .portal-main .activity-log-table tr > :nth-child(3) { width: 190px; }
-.staff-portal .portal-main .activity-log-table tr > :nth-child(4) { white-space: normal; overflow-wrap: anywhere; }
-.staff-portal .portal-main .staff-email,
-.staff-portal .portal-main .student-list-table td:first-child p.text-xs {
-  min-width: 150px;
+.staff-portal .portal-main table.admin-table .action-buttons > :first-child { min-width: 84px; }
+.staff-portal .portal-main table.admin-table .action-buttons > :last-child:not(:first-child) { min-width: 36px; }
+.staff-portal .portal-main table.admin-table .staff-email,
+.staff-portal .portal-main table.admin-table td:first-child p.text-xs {
+  min-width: 140px;
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.staff-portal .portal-main .program-value {
+.staff-portal .portal-main table.admin-table .program-value {
   display: -webkit-box;
   min-width: 0;
   max-width: 280px;
-  max-height: none;
   overflow: hidden;
   white-space: normal;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+.staff-portal .portal-main table.admin-table--requests col.request-col-id { width: 140px; }
+.staff-portal .portal-main table.admin-table--requests col.request-col-student { width: 190px; }
+.staff-portal .portal-main table.admin-table--requests col.request-col-program { width: 230px; }
+.staff-portal .portal-main table.admin-table--requests col.request-col-document { width: 230px; }
+.staff-portal .portal-main table.admin-table--requests col.request-col-date { width: 145px; }
+.staff-portal .portal-main table.admin-table--requests col.request-col-status { width: 175px; }
+.staff-portal .portal-main table.admin-table--requests col.request-col-actions { width: 160px; }
+.staff-portal .portal-main table.admin-table--students col.student-col-name { width: 220px; }
+.staff-portal .portal-main table.admin-table--students col.student-col-id { width: 135px; }
+.staff-portal .portal-main table.admin-table--students col.student-col-program { width: 230px; }
+.staff-portal .portal-main table.admin-table--students col.student-col-type { width: 100px; }
+.staff-portal .portal-main table.admin-table--students col.student-col-school-year { width: 115px; }
+.staff-portal .portal-main table.admin-table--students col.student-col-email-status { width: 135px; }
+.staff-portal .portal-main table.admin-table--students col.student-col-id-status { width: 130px; }
+.staff-portal .portal-main table.admin-table--students col.student-col-registered { width: 160px; }
+.staff-portal .portal-main table.admin-table--students col.student-col-actions { width: 190px; }
+.staff-portal .portal-main table.admin-table--staff col.staff-col-name { width: 300px; }
+.staff-portal .portal-main table.admin-table--staff col.staff-col-position { width: 230px; }
+.staff-portal .portal-main table.admin-table--staff col.staff-col-role { width: 140px; }
+.staff-portal .portal-main table.admin-table--staff col.staff-col-joined { width: 160px; }
+.staff-portal .portal-main table.admin-table--staff col.staff-col-actions { width: 180px; }
+.staff-portal .portal-main table.admin-table--activity col.activity-col-date { width: 150px; }
+.staff-portal .portal-main table.admin-table--activity col.activity-col-who { width: 240px; }
+.staff-portal .portal-main table.admin-table--activity col.activity-col-action { width: 200px; }
+.staff-portal .portal-main table.admin-table--activity col.activity-col-details { width: 280px; }
+.staff-portal .portal-main table.admin-table--reports col.report-col-student { width: 240px; }
+.staff-portal .portal-main table.admin-table--reports col.report-col-document { width: 370px; }
+.staff-portal .portal-main table.admin-table--reports col.report-col-status { width: 150px; }
+.staff-portal .portal-main table.admin-table--reports col.report-col-requested { width: 170px; }
+.staff-portal .portal-main table.admin-table--reports col.report-col-actions { width: 140px; }
+.staff-portal .portal-main table.admin-table--queue col.queue-col-id { width: 140px; }
+.staff-portal .portal-main table.admin-table--queue col.queue-col-student { width: 250px; }
+.staff-portal .portal-main table.admin-table--queue col.queue-col-document { width: 250px; }
+.staff-portal .portal-main table.admin-table--queue col.queue-col-date { width: 170px; }
+.staff-portal .portal-main table.admin-table--queue col.queue-col-actions { width: 160px; }
+.staff-portal .portal-main table.admin-table--masterlist col.masterlist-col-id { width: 120px; }
+.staff-portal .portal-main table.admin-table--masterlist col.masterlist-col-name { width: 240px; }
+.staff-portal .portal-main table.admin-table--masterlist col.masterlist-col-program { width: 230px; }
+.staff-portal .portal-main table.admin-table--masterlist col.masterlist-col-campus { width: 150px; }
+.staff-portal .portal-main table.admin-table--masterlist col.masterlist-col-status { width: 130px; }
+.staff-portal .portal-main table.admin-table--masterlist col.masterlist-col-school-year { width: 140px; }
+.staff-portal .portal-main table.admin-table--masterlist col.masterlist-col-actions { width: 130px; }
+.staff-portal .portal-main table.admin-table .request-id,
+.staff-portal .portal-main table.admin-table .student-id,
+.staff-portal .portal-main table.admin-table .student-type,
+.staff-portal .portal-main table.admin-table .school-year,
+.staff-portal .portal-main table.admin-table .registered,
+.staff-portal .portal-main table.admin-table .staff-joined,
+.staff-portal .portal-main table.admin-table .masterlist-id,
+.staff-portal .portal-main table.admin-table .masterlist-school-year,
+.staff-portal .portal-main table.admin-table .queue-id,
+.staff-portal .portal-main table.admin-table .queue-date { white-space: nowrap; }
+.staff-portal .portal-main table.admin-table .request-id,
+.staff-portal .portal-main table.admin-table .queue-id { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
 .staff-portal .portal-main .request-status-stack {
   display: flex;
   flex-direction: column;
@@ -1237,13 +1211,6 @@ table button[title] {
   justify-content: center;
 }
 .staff-portal .portal-main .row-actions > :is(button, [role='button']) { min-width: 36px; }
-.staff-portal .portal-main .report-recent-table tr > :nth-child(1) { width: 240px; white-space: normal; }
-.staff-portal .portal-main .report-recent-table tr > :nth-child(2) { width: 34%; white-space: normal; }
-.staff-portal .portal-main .report-recent-table tr > :nth-child(3) { width: 160px; }
-.staff-portal .portal-main .report-recent-table tr > :nth-child(4) { width: 170px; }
-.staff-portal .portal-main .report-recent-table tr > :nth-child(5) { width: 140px; text-align: right; }
-.staff-portal .portal-main .report-recent-table .report-open-link { justify-content: flex-end; white-space: nowrap; }
-
 @media (max-width: 767px) {
   .staff-portal .portal-main { padding: 16px; }
   .staff-portal .portal-main .student-filter-controls { grid-template-columns: 1fr; }

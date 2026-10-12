@@ -172,21 +172,28 @@
 				{/each}
 			</div>
 			<!-- Desktop table -->
-			<div class="hidden md:block overflow-x-auto">
-				<table class="staff-list-table w-full min-w-[960px] text-sm">
+			<div class="admin-table-wrap staff-table-wrap hidden md:block">
+				<table class="admin-table admin-table--staff">
+					<colgroup>
+						<col class="staff-col-name" />
+						<col class="staff-col-position" />
+						<col class="staff-col-role" />
+						<col class="staff-col-joined" />
+						<col class="staff-col-actions" />
+					</colgroup>
 					<thead>
-						<tr class="bg-gray-50 border-b border-gray-100">
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Position</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Role</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Joined</th>
-							<th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</th>
+						<tr>
+							<th scope="col">Name</th>
+							<th scope="col">Position</th>
+							<th scope="col">Role</th>
+							<th scope="col">Joined</th>
+							<th scope="col" class="actions-header">Actions</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-gray-50">
+					<tbody>
 						{#each staffList as member}
-							<tr class="hover:bg-gray-50 transition-colors">
-								<td class="px-4 py-3">
+							<tr>
+								<td>
 									<div class="flex items-center gap-3">
 										<div class="w-8 h-8 rounded-lg bg-essu-green/10 text-essu-green flex items-center justify-center text-xs font-bold shrink-0">
 											{member.first_name[0]}{member.last_name[0]}
@@ -197,23 +204,23 @@
 										</div>
 									</div>
 								</td>
-								<td class="px-4 py-3 text-gray-600">
+								<td class="staff-position">
 									{#if member.position}
 										{member.position}
 									{:else}
 										<span class="text-gray-400">—</span>
 									{/if}
 								</td>
-								<td class="px-4 py-3">
+								<td>
 									<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">
 										{member.role}
 									</span>
 								</td>
-								<td class="px-4 py-3 text-gray-500 text-xs">
+								<td class="staff-joined">
 									{new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
-								<td class="px-4 py-3">
-									<div class="flex items-center gap-1">
+								<td class="actions-cell">
+									<div class="action-buttons">
 										<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button><RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, disabled: member.user_id === currentUserId, reason: 'You cannot delete your own account', onselect: () => openDelete(member)}]} />
 									</div>
 								</td>

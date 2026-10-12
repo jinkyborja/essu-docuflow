@@ -69,28 +69,37 @@
 						</article>
 					{/each}
 				</div>
-				<div class="hidden md:block overflow-x-auto">
-					<table class="office-queue-table w-full text-sm">
+				<div class="admin-table-wrap hidden md:block">
+					<table class="admin-table admin-table--queue">
+						<colgroup>
+							<col class="queue-col-id" />
+							<col class="queue-col-student" />
+							<col class="queue-col-document" />
+							<col class="queue-col-date" />
+							<col class="queue-col-actions" />
+						</colgroup>
 						<thead class="bg-gray-50 border-b border-gray-100">
 							<tr>
-								{#each ['Request ID', 'Student', 'Document', 'Date', 'Action'] as col}
-									<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{col}</th>
-								{/each}
+								<th scope="col">Request ID</th>
+								<th scope="col">Student</th>
+								<th scope="col">Document</th>
+								<th scope="col">Date</th>
+								<th scope="col" class="actions-header">Action</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-50">
 							{#each data.pendingQueue as req}
-								<tr class="hover:bg-gray-50 transition-colors">
-									<td class="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{req.request_id}</td>
-									<td class="px-4 py-3 whitespace-nowrap">
+								<tr>
+									<td class="queue-id">{req.request_id}</td>
+									<td class="queue-student">
 										<p class="font-medium text-gray-800">{formatName(req.first_name, req.middle_name, req.last_name)}</p>
 										<p class="text-xs text-gray-400">{req.student_id ?? '—'}{req.program ? ' · ' + req.program : ''}</p>
 									</td>
-									<td class="px-4 py-3 text-gray-600 whitespace-nowrap">{req.document_name}</td>
-									<td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+									<td class="queue-document">{req.document_name}</td>
+									<td class="queue-date">
 										{new Date(req.date_requested as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 									</td>
-									<td class="px-4 py-3">
+									<td class="actions-cell">
 										<Button href={'/staff/requests/' + req.request_id} size="sm" icon="fa-solid fa-eye">Review</Button>
 									</td>
 								</tr>

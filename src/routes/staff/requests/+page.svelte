@@ -50,9 +50,43 @@
 			<div class="divide-y divide-gray-100 xl:hidden">
 				{#each filtered as req}<article class="space-y-3 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="text-sm font-medium text-gray-800">{person(req)}</p><p class="text-xs text-gray-500">{req.student_code ?? '—'} · {req.program ?? '—'}</p></div><div class="text-right"><StatusChip value={req.status} />{#if decisionAttribution(req)}<p class="mt-1 text-xs text-gray-400">{decisionAttribution(req)}</p>{/if}</div></div><div class="text-sm">{req.items?.[0]?.name ?? req.document_name}<DocumentPopover items={req.items ?? []} /></div><div class="flex justify-between text-xs text-gray-500"><span class="font-mono">{req.request_id}</span><span>{formatDate(req.date_requested)}</span></div><div class="flex flex-nowrap items-center gap-2"><Button size="sm" href={'/staff/requests/' + req.request_id} icon="fa-solid fa-eye">Review</Button><RowMenu items={menuItems} label={'Actions for request ' + req.request_id} /></div></article>{/each}
 			</div>
-			<div class="hidden overflow-x-auto xl:block"><table class="request-list-table w-full min-w-[1180px] text-sm"><thead class="border-b border-gray-100 bg-gray-50"><tr>{#each ['Request ID', 'Student', 'Program', 'Document', 'Date', 'Status', 'Actions'] as col}<th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{col}</th>{/each}</tr></thead><tbody class="divide-y divide-gray-50">
-				{#each filtered as req}<tr class="hover:bg-gray-50"><td class="px-4 py-3 font-mono text-xs text-gray-500">{req.request_id}</td><td class="px-4 py-3"><p class="font-medium text-gray-800">{person(req)}</p><p class="text-xs text-gray-500">{req.student_code ?? '—'}</p></td><td class="px-4 py-3 text-gray-600"><span class="program-value" title={req.program ?? ''}>{req.program ?? '—'}</span></td><td class="px-4 py-3 text-gray-700">{req.items?.[0]?.name ?? req.document_name}<DocumentPopover items={req.items ?? []} /></td><td class="px-4 py-3 text-xs text-gray-500">{new Date(req.date_requested).toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila'})}</td><td class="px-4 py-3"><div class="request-status-stack"><StatusChip value={req.status} />{#if decisionAttribution(req)}<p class="text-xs text-gray-400">{decisionAttribution(req)}</p>{/if}</div></td><td class="px-4 py-3"><div class="row-actions flex flex-nowrap items-center gap-2"><Button size="sm" href={'/staff/requests/' + req.request_id} icon="fa-solid fa-eye">Review</Button><RowMenu items={menuItems} label={'Actions for request ' + req.request_id} /></div></td></tr>{/each}
-			</tbody></table></div>
+			<div class="admin-table-wrap request-table-wrap hidden xl:block">
+				<table class="admin-table admin-table--requests">
+					<colgroup>
+						<col class="request-col-id" />
+						<col class="request-col-student" />
+						<col class="request-col-program" />
+						<col class="request-col-document" />
+						<col class="request-col-date" />
+						<col class="request-col-status" />
+						<col class="request-col-actions" />
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col">Request ID</th>
+							<th scope="col">Student</th>
+							<th scope="col">Program</th>
+							<th scope="col">Document</th>
+							<th scope="col">Date</th>
+							<th scope="col">Status</th>
+							<th scope="col" class="actions-header">Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each filtered as req}
+							<tr>
+								<td class="request-id">{req.request_id}</td>
+								<td><div><p class="request-student-name">{person(req)}</p><p class="request-student-id">{req.student_code ?? '—'}</p></div></td>
+								<td><span class="program-value" title={req.program ?? ''}>{req.program ?? '—'}</span></td>
+								<td>{req.items?.[0]?.name ?? req.document_name}<DocumentPopover items={req.items ?? []} /></td>
+								<td class="request-date">{new Date(req.date_requested).toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila'})}</td>
+								<td><div class="request-status-stack"><StatusChip value={req.status} />{#if decisionAttribution(req)}<p class="decision-attribution">{decisionAttribution(req)}</p>{/if}</div></td>
+								<td class="actions-cell"><div class="action-buttons"><Button size="sm" href={'/staff/requests/' + req.request_id} icon="fa-solid fa-eye">Review</Button><RowMenu items={menuItems} label={'Actions for request ' + req.request_id} /></div></td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		{/if}
 	</div>
 </div>

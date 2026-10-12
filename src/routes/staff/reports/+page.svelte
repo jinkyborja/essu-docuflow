@@ -405,9 +405,10 @@
 		<section class="report-card report-recent-card">
 			<header class="report-card-header"><div><h3>Recent Requests</h3><p>Latest requests in the selected period</p></div><span class="report-chart-total">{recentRequests.length} shown</span></header>
 			{#if recentRequests.length}
-				<div class="report-table-scroll">
-					<table class="report-recent-table"><thead><tr><th>Student</th><th>Document</th><th>Status</th><th>Requested</th><th><span class="sr-only">Open request</span></th></tr></thead>
-						<tbody>{#each recentRequests as row}<tr><td><span class="report-student-name">{row.student_name || '—'}</span><small>{row.request_id}</small></td><td>{row.document_name}</td><td><Badge value={row.status.toLowerCase()} size="sm" /></td><td>{formatDate(row.date_requested)}</td><td><a class="report-open-link" href={`/staff/requests/${row.request_id}`} aria-label={`Review request ${row.request_id}`}><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Review</span></a></td></tr>{/each}</tbody>
+				<div class="admin-table-wrap report-table-scroll">
+					<table class="admin-table admin-table--reports"><colgroup><col class="report-col-student" /><col class="report-col-document" /><col class="report-col-status" /><col class="report-col-requested" /><col class="report-col-actions" /></colgroup>
+						<thead><tr><th scope="col">Student</th><th scope="col">Document</th><th scope="col">Status</th><th scope="col">Requested</th><th scope="col" class="actions-header"><span class="sr-only">Open request</span></th></tr></thead>
+						<tbody>{#each recentRequests as row}<tr><td><span class="report-student-name">{row.student_name || '—'}</span><small>{row.request_id}</small></td><td>{row.document_name}</td><td><Badge value={row.status.toLowerCase()} size="sm" /></td><td>{formatDate(row.date_requested)}</td><td class="actions-cell"><a class="report-open-link" href={`/staff/requests/${row.request_id}`} aria-label={`Review request ${row.request_id}`}><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Review</span></a></td></tr>{/each}</tbody>
 					</table>
 				</div>
 			{:else}<p class="report-chart-empty">No recent requests for this period.</p>{/if}
@@ -629,12 +630,7 @@
 	.report-recent-card { padding: 0; overflow: hidden; }
 	.report-recent-card > .report-card-header { margin: 0; border-bottom: 1px solid var(--report-border); padding: 1rem 1.1rem; }
 	.report-table-scroll { overflow-x: auto; }
-	.report-recent-table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 0.74rem; }
-	.report-recent-table th { position: sticky; top: 0; color: #5e7066; background: #f6f9f7; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.03em; padding: 0.72rem 1rem; text-align: left; text-transform: uppercase; }
-	.report-recent-table td { border-top: 1px solid #edf1ee; color: #33483d; padding: 0.72rem 1rem; vertical-align: middle; }
-	.report-recent-table tbody tr:hover { background: #f8fbf9; }
-	.report-recent-table td:first-child { min-width: 145px; }
-	.report-recent-table td:first-child small { display: block; margin-top: 0.14rem; color: #728078; font-family: ui-monospace, monospace; font-size: 0.63rem; }
+	.admin-table--reports td:first-child small { display: block; margin-top: 0.14rem; color: #728078; font-family: ui-monospace, monospace; font-size: 0.63rem; }
 	.report-open-link { display: inline-flex; min-height: 40px; align-items: center; gap: 0.4rem; color: #1f6b50; font-size: 0.68rem; font-weight: 700; text-decoration: none; }
 	.report-open-link:hover { color: #174f3e; text-decoration: underline; }
 	.report-empty-page { display: flex; min-height: 330px; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--report-border); border-radius: 0.9rem; background: #fff; box-shadow: var(--report-shadow); padding: 1.5rem; }
@@ -687,8 +683,9 @@
 		.report-card { margin-bottom: 0.55rem; padding: 0.65rem; }
 		.report-trend-plot { height: 150px; }
 		.report-donut { width: 115px; height: 115px; }
-		.report-recent-table { min-width: 0; font-size: 8pt; }
-		.report-recent-table th, .report-recent-table td { padding: 0.35rem; }
+		:global(.staff-portal .portal-main table.admin-table--reports) { min-width: 0 !important; font-size: 8pt; }
+		:global(.staff-portal .portal-main table.admin-table--reports th),
+		:global(.staff-portal .portal-main table.admin-table--reports td) { padding: 0.35rem; }
 		.report-open-link { color: #111; }
 	}
 </style>
