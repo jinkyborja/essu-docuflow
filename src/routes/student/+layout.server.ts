@@ -4,8 +4,9 @@ import type { LayoutServerLoad } from './$types';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import pool from '$lib/server/db';
+import { timedLoad, timedQuery } from '$lib/server/timing';
 
-export const load: LayoutServerLoad = async ({ cookies }) => {
+export const load: LayoutServerLoad = ({ cookies }) => timedLoad('student/layout', async () => {
 	const token = cookies.get('session');
 	if (!token) redirect(302, '/login');
 
@@ -19,16 +20,16 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 	if (payload!.role !== 'Student') redirect(302, '/staff/dashboard');
 
 	const [[rows], [notifRows]] = await Promise.all([
-		pool.execute(
+		timedQuery('student/layout:user', () => pool.execute(
 			'SELECT first_name, middle_name, last_name, program, student_id, id_status, id_reject_reason, id_photo_path FROM users WHERE user_id = ?',
 			[payload!.userId]
-		),
-		pool.execute(
+		)),
+		timedQuery('student/layout:notification-count', () => pool.execute(
 			`SELECT COUNT(*) AS n FROM request_status_history h
 			 LEFT JOIN requests r ON h.request_id = r.request_id
 			 WHERE (r.student_id = ? OR h.notification_user_id = ?) AND h.student_read = FALSE`,
 			[payload!.userId, payload!.userId]
-		)
+		))
 	]);
 	const u = (rows as Record<string, unknown>[])[0];
 	if (!u) redirect(302, '/login');
@@ -49,5 +50,5 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 			idRejectReason: (u.id_reject_reason as string | null) ?? null,
 			hasIdPhoto: Boolean(u.id_photo_path)
 		}
-	};
+	});
 };

@@ -6,8 +6,9 @@ import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
+import { timedLoad, timedQuery } from '$lib/server/timing';
 
-export const load: PageServerLoad = async ({ cookies, url }) => {
+export const load: PageServerLoad = ({ cookies, url }) => timedLoad('staff/requests', async () => {
 	const token = cookies.get('session');
 	if (!token) redirect(302, '/login');
 	let role = '';
@@ -17,7 +18,7 @@ export const load: PageServerLoad = async ({ cookies, url }) => {
 		role = p.role;
 	} catch { redirect(302, '/login'); }
 
-	const [rows] = await pool.execute(
+	const [rows] = await timedQuery('staff/requests:list', () => pool.execute(
 		`SELECT r.request_id,
 		        u.first_name, u.middle_name, u.last_name,
 		        u.student_id AS student_code, u.program,
@@ -47,7 +48,7 @@ export const load: PageServerLoad = async ({ cookies, url }) => {
 		   LIMIT 1
 		 )
 		 ORDER BY r.date_requested DESC`
-	);
+	));
 
 	const requests = rows as Array<Record<string, unknown>>;
 	for (const row of requests) {
@@ -73,5 +74,5 @@ export const load: PageServerLoad = async ({ cookies, url }) => {
 		initialStatus: url.searchParams.get('status') ?? '',
 		deliveryWaiting: url.searchParams.get('delivery') === 'waiting',
 		initialDecider: role === 'Admin' && /^\d+$/.test(url.searchParams.get('decided_by') ?? '') ? url.searchParams.get('decided_by')! : ''
-	};
+	});
 };

@@ -13,7 +13,8 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 	const where = 'WHERE student_id LIKE ? OR last_name LIKE ? OR first_name LIKE ? OR program LIKE ? OR campus LIKE ?';
 	const args = Array(5).fill(pattern);
 	const [counts] = await pool.execute('SELECT COUNT(*) AS total FROM enrollment_masterlist ' + where, args);
-	const [rows] = await pool.execute('SELECT * FROM enrollment_masterlist ' + where + ' ORDER BY last_name, first_name, id LIMIT ? OFFSET ?', [...args, String(limit), String((page - 1) * limit)]);
+	const offset = (page - 1) * limit;
+	const [rows] = await pool.execute('SELECT * FROM enrollment_masterlist ' + where + ` ORDER BY last_name, first_name, id LIMIT ${limit} OFFSET ${offset}`, args);
 	return json({ rows, total: Number((counts as Array<{total: number}>)[0].total), page, limit });
 };
 

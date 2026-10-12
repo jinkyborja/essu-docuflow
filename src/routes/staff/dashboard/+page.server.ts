@@ -4,8 +4,9 @@ import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
+import { timedLoad, timedQuery } from '$lib/server/timing';
 
-export const load: PageServerLoad = async ({ cookies }) => {
+export const load: PageServerLoad = ({ cookies }) => timedLoad('staff/dashboard', async () => {
 	const token = cookies.get('session');
 	if (!token) redirect(302, '/login');
 	try {
@@ -15,12 +16,12 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
 	const [[totalStudents], [totalRequests], [pendingRows], [approvedRows], [pendingIds], [pendingQueue], [recentActivity]] =
 		await Promise.all([
-			pool.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'Student'"),
-			pool.execute("SELECT COUNT(*) AS n FROM requests"),
-			pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status = 'Pending'"),
-			pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status = 'Approved'"),
-			pool.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'Student' AND id_status = 'pending'"),
-			pool.execute(
+			timedQuery('staff/dashboard:student-count', () => pool.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'Student'")),
+			timedQuery('staff/dashboard:request-count', () => pool.execute("SELECT COUNT(*) AS n FROM requests")),
+			timedQuery('staff/dashboard:pending-count', () => pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status = 'Pending'")),
+			timedQuery('staff/dashboard:approved-count', () => pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status = 'Approved'")),
+			timedQuery('staff/dashboard:id-review-count', () => pool.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'Student' AND id_status = 'pending'")),
+			timedQuery('staff/dashboard:pending-queue', () => pool.execute(
 				`SELECT r.request_id, r.date_requested, r.purpose, r.status, p.status AS payment_status,
 				        CASE WHEN r.status = 'Pending' THEN 'Review requirements'
 				             WHEN r.status = 'processing' THEN 'Mark ready for pickup'
@@ -33,8 +34,8 @@ export const load: PageServerLoad = async ({ cookies }) => {
 				   OR (r.status = 'Approved' AND p.status = 'submitted'))
 				 ORDER BY r.date_requested ASC
 				 LIMIT 5`
-			),
-			pool.execute(
+			)),
+			timedQuery('staff/dashboard:recent-activity', () => pool.execute(
 				`SELECT h.history_id, h.request_id, h.new_status, h.changed_at,
 				        GROUP_CONCAT(DISTINCT d.name ORDER BY d.name SEPARATOR ' + ') AS document_name,
 				        u.first_name, u.middle_name, u.last_name
@@ -46,15 +47,15 @@ export const load: PageServerLoad = async ({ cookies }) => {
 				 GROUP BY h.history_id, h.request_id, h.new_status, h.changed_at, u.first_name, u.middle_name, u.last_name
 				 ORDER BY h.changed_at DESC
 				 LIMIT 5`
-			)
+			))
 		]);
 	const queueRows = pendingQueue as Array<Record<string, unknown>>;
 	const queueItems = await fetchRequestItems(queueRows.map((r) => r.request_id as string));
 	for (const row of queueRows) { row.items = queueItems.get(row.request_id as string) ?? []; row.document_name = documentNameSummary(row.items as Array<{document_id:number;name:string}>); }
 
 	const [[deliveryRows], [correctionRows]] = await Promise.all([
-		pool.execute("SELECT COUNT(*) AS n FROM requests r WHERE r.status = 'Approved' AND NOT EXISTS (SELECT 1 FROM request_status_history h WHERE h.request_id = r.request_id AND h.new_status = 'Completed')"),
-		pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status IN ('Correction Requested', 'correction_requested')")
+		timedQuery('staff/dashboard:ready-for-pickup-count', () => pool.execute("SELECT COUNT(*) AS n FROM requests r WHERE r.status = 'Approved' AND NOT EXISTS (SELECT 1 FROM request_status_history h WHERE h.request_id = r.request_id AND h.new_status = 'Completed')")),
+		timedQuery('staff/dashboard:correction-count', () => pool.execute("SELECT COUNT(*) AS n FROM requests WHERE status IN ('Correction Requested', 'correction_requested')"))
 	]);
 	const counts = {
 		awaitingDelivery: Number((deliveryRows as Array<{n:number}>)[0].n),
@@ -64,7 +65,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 		pending:  (pendingRows   as Record<string, unknown>[])[0].n as number,
 		approved: (approvedRows  as Record<string, unknown>[])[0].n as number,
 		pendingVerification: (pendingIds as Record<string, unknown>[])[0].n as number,
-	};
+	});
 
 	return {
 		role: (await verifySession(token, JWT_SECRET)).role,
