@@ -3,13 +3,38 @@ import type { PageServerLoad } from './$types';
 import pool from '$lib/server/db';
 import { activityActionLabels, activityFilters } from '$lib/server/activity-log';
 import { timedLoad, timedQuery } from '$lib/server/timing';
+import type { RowDataPacket } from 'mysql2';
+
+interface ActivityTotalRow extends RowDataPacket {
+	total: number;
+}
+
+interface ActivityPageRow extends RowDataPacket {
+	id: number;
+	created_at: Date | string;
+	actor_user_id: number;
+	actor_name: string;
+	actor_role: string;
+	action: string;
+	entity_type: string | null;
+	entity_id: string | number | null;
+	summary: string;
+	details: string | Record<string, string[]>;
+	entity_exists: boolean;
+}
+
+interface ActivityPersonRow extends RowDataPacket {
+	actor_user_id: number;
+	actor_name: string;
+	actor_role: string;
+}
 
 export const load: PageServerLoad = ({ parent, url }) => timedLoad('staff/activity', async () => {
 	const { role } = await parent();
 	if (role !== 'Admin') error(403, 'Admin access required');
 
 	const filters = activityFilters(url.searchParams);
-	const [countRows] = await timedQuery('staff/activity:count', () => pool.execute(
+	const [countRows] = await timedQuery('staff/activity:count', () => pool.execute<ActivityTotalRow[]>(
 		`SELECT COUNT(*) AS total FROM activity_log WHERE ${filters.where}`,
 		filters.args
 	));
@@ -23,7 +48,7 @@ export const load: PageServerLoad = ({ parent, url }) => timedLoad('staff/activi
 	const offset = Number.isSafeInteger(calculatedOffset) && Number.isInteger(calculatedOffset) && calculatedOffset >= 0
 		? calculatedOffset
 		: 0;
-	const [rows] = await timedQuery('staff/activity:list', () => pool.execute(
+	const [rows] = await timedQuery('staff/activity:list', () => pool.execute<ActivityPageRow[]>(
 		`SELECT a.id, a.created_at, a.actor_user_id, a.actor_name, a.actor_role, a.action,
 		        a.entity_type, a.entity_id, a.summary, a.details,
 		        CASE
@@ -37,7 +62,7 @@ export const load: PageServerLoad = ({ parent, url }) => timedLoad('staff/activi
 		 LIMIT ${pageSize} OFFSET ${offset}`,
 		filters.args
 	));
-	const [peopleRows] = await timedQuery('staff/activity:people', () => pool.execute(
+	const [peopleRows] = await timedQuery('staff/activity:people', () => pool.execute<ActivityPersonRow[]>(
 		'SELECT DISTINCT actor_user_id, actor_name, actor_role FROM activity_log ORDER BY actor_name, actor_user_id'
 	));
 
@@ -57,5 +82,5 @@ export const load: PageServerLoad = ({ parent, url }) => timedLoad('staff/activi
 		},
 		people: peopleRows,
 		actionLabels: activityActionLabels
-	});
-};
+	};
+});

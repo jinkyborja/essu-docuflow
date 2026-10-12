@@ -37,5 +37,5 @@ export const load: PageServerLoad = ({ parent }) => timedLoad('student/dashboard
 	return {
 		requests: requests as Record<string, unknown>[],
 		recentHistory: historyRows
-	});
-};
+	};
+ });

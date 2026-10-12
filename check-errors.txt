@@ -1,0 +1,175 @@
+﻿
+> src@0.0.1 check
+> svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold error
+
+Loading svelte-check in workspace: c:\Users\1\Desktop\essu-docuflow-main
+Getting Svelte diagnostics...
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\api\requests\+server.ts[39m:270:4
+[31mError[39m: Cannot find name 'request_id'. Did you mean 'request'? 
+[36m		'SELECT approved_file_path FROM requests WHERE request_id = ?',
+		[[35mrequest_id[36m]
+	);[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\api\requests\+server.ts[39m:274:60
+[31mError[39m: Cannot find name 'request_id'. Did you mean 'request'? 
+[36m	if (req) {
+		const filePaths: string[] = await fetchRequestFilePaths([[35mrequest_id[36m]);
+		if (req.approved_file_path) filePaths.push(req.approved_file_path as string);[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\api\requests\+server.ts[39m:283:82
+[31mError[39m: Cannot find name 'request_id'. Did you mean 'request'? 
+[36m	try {
+		await pool.execute('DELETE FROM request_status_history WHERE request_id = ?', [[35mrequest_id[36m]);
+		await pool.execute('DELETE FROM requests WHERE request_id = ?', [request_id]);[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\api\requests\+server.ts[39m:284:68
+[31mError[39m: Cannot find name 'request_id'. Did you mean 'request'? 
+[36m		await pool.execute('DELETE FROM request_status_history WHERE request_id = ?', [request_id]);
+		await pool.execute('DELETE FROM requests WHERE request_id = ?', [[35mrequest_id[36m]);
+	} catch (error) {[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\api\requests\+server.ts[39m:291:111
+[31mError[39m: Cannot find name 'request_id'. Did you mean 'request'? 
+[36m		const conn = await pool.getConnection();
+		try { await logActivity(conn, { actor: payload, action: 'request.deleted', entityType: 'request', entityId: [35mrequest_id[36m, summary: `Deleted request ${request_id}`, details: { changedFields: ['request', 'request history'] } }); }
+		finally { conn.release(); }[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\api\requests\+server.ts[39m:291:151
+[31mError[39m: Cannot find name 'request_id'. Did you mean 'request'? 
+[36m		const conn = await pool.getConnection();
+		try { await logActivity(conn, { actor: payload, action: 'request.deleted', entityType: 'request', entityId: request_id, summary: `Deleted request ${[35mrequest_id[36m}`, details: { changedFields: ['request', 'request history'] } }); }
+		finally { conn.release(); }[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:43:44
+[31mError[39m: Type 'QueryResult' has no matching index signature for type 'number'. (ts)
+[36m
+	function entityHref(row: PageData['rows'][[35mnumber[36m]): string | null {
+		if (!row.entity_exists) return null;[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:68:12
+[31mError[39m: Argument of type 'QueryResult' is not assignable to parameter of type 'Iterable<unknown> | ArrayLike<unknown> | null | undefined'.
+  Type 'OkPacket' is not assignable to type 'Iterable<unknown> | ArrayLike<unknown> | null | undefined'. (ts)
+[36m				<option value="">All people</option>
+				{#each [35mdata.people[36m as person}<option value={person.actor_user_id}>{person.actor_name} ┬╖ {person.actor_role}</option>{/each}
+			</select>[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:68:49
+[31mError[39m: 'person' is of type 'unknown'. (ts)
+[36m				<option value="">All people</option>
+				{#each data.people as person}<option value={[35mperson[36m.actor_user_id}>{person.actor_name} ┬╖ {person.actor_role}</option>{/each}
+			</select>[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:68:72
+[31mError[39m: 'person' is of type 'unknown'. (ts)
+[36m				<option value="">All people</option>
+				{#each data.people as person}<option value={person.actor_user_id}>{[35mperson[36m.actor_name} ┬╖ {person.actor_role}</option>{/each}
+			</select>[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:68:94
+[31mError[39m: 'person' is of type 'unknown'. (ts)
+[36m				<option value="">All people</option>
+				{#each data.people as person}<option value={person.actor_user_id}>{person.actor_name} ┬╖ {[35mperson[36m.actor_role}</option>{/each}
+			</select>[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:93:18
+[31mError[39m: Property 'length' does not exist on type 'QueryResult'.
+  Property 'length' does not exist on type 'OkPacket'. (ts)
+[36m	<div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+		{#if data.rows.[35mlength[36m}
+			<div class="overflow-x-auto">[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:105:14
+[31mError[39m: Argument of type 'QueryResult' is not assignable to parameter of type 'Iterable<unknown> | ArrayLike<unknown> | null | undefined'.
+  Type 'OkPacket' is not assignable to type 'Iterable<unknown> | ArrayLike<unknown> | null | undefined'. (ts)
+[36m					<tbody class="divide-y divide-gray-50">
+						{#each [35mdata.rows[36m as row (row.id)}
+							{@const href = entityHref(row)}[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:105:32
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m					<tbody class="divide-y divide-gray-50">
+						{#each data.rows as row ([35mrow[36m.id)}
+							{@const href = entityHref(row)}[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:108:86
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m							<tr class="align-top">
+								<td class="whitespace-nowrap px-4 py-4 text-xs text-gray-500">{localDateTime([35mrow[36m.created_at)}</td>
+								<td class="px-4 py-4">[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:110:48
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m								<td class="px-4 py-4">
+									<p class="font-medium text-gray-800">{[35mrow[36m.actor_name}</p>
+									<span class="mt-1 inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">{row.actor_role}</span>[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:111:135
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m									<p class="font-medium text-gray-800">{row.actor_name}</p>
+									<span class="mt-1 inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">{[35mrow[36m.actor_role}</span>
+								</td>[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:113:76
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m								</td>
+								<td class="px-4 py-4 font-medium text-gray-700">{data.actionLabels[[35mrow[36m.action] ?? row.action}</td>
+								<td class="px-4 py-4">[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:113:91
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m								</td>
+								<td class="px-4 py-4 font-medium text-gray-700">{data.actionLabels[row.action] ?? [35mrow[36m.action}</td>
+								<td class="px-4 py-4">[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:115:88
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m								<td class="px-4 py-4">
+									{#if href}<a href={href} class="font-medium text-essu-green hover:underline">{[35mrow[36m.summary}</a>{:else}<p class="font-medium text-gray-800">{row.summary}</p>{/if}
+									{#if detailText(row.details)}<p class="mt-1 text-xs text-gray-500">{detailText(row.details)}</p>{/if}[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:115:149
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m								<td class="px-4 py-4">
+									{#if href}<a href={href} class="font-medium text-essu-green hover:underline">{row.summary}</a>{:else}<p class="font-medium text-gray-800">{[35mrow[36m.summary}</p>{/if}
+									{#if detailText(row.details)}<p class="mt-1 text-xs text-gray-500">{detailText(row.details)}</p>{/if}[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:116:26
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m									{#if href}<a href={href} class="font-medium text-essu-green hover:underline">{row.summary}</a>{:else}<p class="font-medium text-gray-800">{row.summary}</p>{/if}
+									{#if detailText([35mrow[36m.details)}<p class="mt-1 text-xs text-gray-500">{detailText(row.details)}</p>{/if}
+									{#if row.entity_type && row.entity_id}<p class="mt-1 text-xs text-gray-400">{row.entity_type} ┬╖ {row.entity_id}</p>{/if}[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:116:89
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m									{#if href}<a href={href} class="font-medium text-essu-green hover:underline">{row.summary}</a>{:else}<p class="font-medium text-gray-800">{row.summary}</p>{/if}
+									{#if detailText(row.details)}<p class="mt-1 text-xs text-gray-500">{detailText([35mrow[36m.details)}</p>{/if}
+									{#if row.entity_type && row.entity_id}<p class="mt-1 text-xs text-gray-400">{row.entity_type} ┬╖ {row.entity_id}</p>{/if}[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:117:15
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m									{#if detailText(row.details)}<p class="mt-1 text-xs text-gray-500">{detailText(row.details)}</p>{/if}
+									{#if [35mrow[36m.entity_type && row.entity_id}<p class="mt-1 text-xs text-gray-400">{row.entity_type} ┬╖ {row.entity_id}</p>{/if}
+								</td>[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:117:34
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m									{#if detailText(row.details)}<p class="mt-1 text-xs text-gray-500">{detailText(row.details)}</p>{/if}
+									{#if row.entity_type && [35mrow[36m.entity_id}<p class="mt-1 text-xs text-gray-400">{row.entity_type} ┬╖ {row.entity_id}</p>{/if}
+								</td>[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:117:87
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m									{#if detailText(row.details)}<p class="mt-1 text-xs text-gray-500">{detailText(row.details)}</p>{/if}
+									{#if row.entity_type && row.entity_id}<p class="mt-1 text-xs text-gray-400">{[35mrow[36m.entity_type} ┬╖ {row.entity_id}</p>{/if}
+								</td>[39m
+
+c:\Users\1\Desktop\essu-docuflow-main\[32msrc\routes\staff\activity\+page.svelte[39m:117:107
+[31mError[39m: 'row' is of type 'unknown'. (ts)
+[36m									{#if detailText(row.details)}<p class="mt-1 text-xs text-gray-500">{detailText(row.details)}</p>{/if}
+									{#if row.entity_type && row.entity_id}<p class="mt-1 text-xs text-gray-400">{row.entity_type} ┬╖ {[35mrow[36m.entity_id}</p>{/if}
+								</td>[39m
+
+====================================
+[31msvelte-check found 27 errors and 55 warnings in 13 files
+[39m

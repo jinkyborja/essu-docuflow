@@ -64,8 +64,8 @@ export const load: PageServerLoad = ({ cookies }) => timedLoad('staff/dashboard'
 		requests: (totalRequests as Record<string, unknown>[])[0].n as number,
 		pending:  (pendingRows   as Record<string, unknown>[])[0].n as number,
 		approved: (approvedRows  as Record<string, unknown>[])[0].n as number,
-		pendingVerification: (pendingIds as Record<string, unknown>[])[0].n as number,
-	});
+		pendingVerification: (pendingIds as Record<string, unknown>[])[0].n as number
+	};
 
 	return {
 		role: (await verifySession(token, JWT_SECRET)).role,
@@ -73,4 +73,4 @@ export const load: PageServerLoad = ({ cookies }) => timedLoad('staff/dashboard'
 		pendingQueue:   queueRows,
 		recentActivity: recentActivity as Record<string, unknown>[]
 	};
-};
+});

@@ -74,5 +74,5 @@ export const load: PageServerLoad = ({ cookies, url }) => timedLoad('staff/reque
 		initialStatus: url.searchParams.get('status') ?? '',
 		deliveryWaiting: url.searchParams.get('delivery') === 'waiting',
 		initialDecider: role === 'Admin' && /^\d+$/.test(url.searchParams.get('decided_by') ?? '') ? url.searchParams.get('decided_by')! : ''
-	});
-};
+	};
+});

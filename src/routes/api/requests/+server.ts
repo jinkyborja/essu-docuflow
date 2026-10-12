@@ -264,6 +264,10 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	}
 	if (payload.role === 'Student') return json({ error: 'Forbidden' }, { status: 403 });
 
+	const body = await request.json().catch(() => null) as { request_id?: string } | null;
+	const request_id = typeof body?.request_id === 'string' ? body.request_id : '';
+	if (!request_id) return json({ error: 'Missing request_id.' }, { status: 400 });
+
 	// Clean up uploaded files from Supabase
 	const [rows] = await pool.execute(
 		'SELECT approved_file_path FROM requests WHERE request_id = ?',
