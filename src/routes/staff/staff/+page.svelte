@@ -128,7 +128,7 @@
 {:else}
 <div class="space-y-5">
 	<!-- Header -->
-	<div class="flex items-center justify-between">
+	<div class="staff-page-actions flex items-center justify-between">
 		<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20">
 			{staffList.length} {pluralize(staffList.length, 'member')}
 		</span>
@@ -173,14 +173,14 @@
 			</div>
 			<!-- Desktop table -->
 			<div class="hidden md:block overflow-x-auto">
-				<table class="w-full text-sm">
+				<table class="staff-list-table w-full min-w-[960px] text-sm">
 					<thead>
 						<tr class="bg-gray-50 border-b border-gray-100">
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Position</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Role</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Joined</th>
-							<th class="px-4 py-3"></th>
+							<th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-50">
@@ -193,7 +193,7 @@
 										</div>
 										<div>
 											<p class="font-medium text-gray-800">{formatName(member.first_name, member.middle_name, member.last_name)}</p>
-											<p class="text-xs text-gray-400">{member.email}</p>
+											<p class="staff-email text-xs text-gray-400">{member.email}</p>
 										</div>
 									</div>
 								</td>

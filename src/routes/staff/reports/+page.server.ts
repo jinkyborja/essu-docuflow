@@ -15,8 +15,10 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
 	const [requests] = await pool.execute(
 		`SELECT r.request_id, r.status, r.date_requested,
+		        TRIM(CONCAT_WS(' ', NULLIF(u.first_name, ''), NULLIF(u.middle_name, ''), NULLIF(u.last_name, ''), NULLIF(u.suffix, ''))) AS student_name,
 		        p.status AS payment_status, p.or_number
 		 FROM requests r
+		 LEFT JOIN users u ON u.user_id = r.student_id
 		 LEFT JOIN request_payments p ON p.request_id = r.request_id
 		 ORDER BY r.date_requested DESC`
 	);

@@ -378,10 +378,10 @@
 </div>
 {:else}
 <div class="space-y-5">
-	{#if data.role === 'Admin'}<div class="flex justify-end"><Button onclick={() => masterlistOpen = true}>Masterlist</Button></div>{/if}
+	{#if data.role === 'Admin'}<div class="staff-page-actions flex justify-end"><Button onclick={() => masterlistOpen = true}>Masterlist</Button></div>{/if}
 	{#if usageError}<LoadError message="We couldn’t check linked requests. Please try again." onretry={() => void loadRequestUsage()} />{:else if !usageLoaded}<p role="status" class="flex items-center gap-2 text-sm text-gray-600"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Checking linked requests…</p>{/if}
 	<!-- Search / Filter -->
-	<div class="space-y-3">
+	<div class="staff-filter-bar space-y-3">
 		<div class="flex flex-col gap-3 lg:flex-row lg:items-center">
 			<div class="flex gap-1 overflow-x-auto">
 				{#each [{key:'pending',label:'Pending'},{key:'verified',label:'Verified'},{key:'rejected',label:'Rejected'},{key:'all',label:'All'}] as tab}
@@ -411,7 +411,7 @@
 				<button type="button" onclick={clearFilters} class="ml-auto px-3 py-2 text-sm text-essu-green hover:underline">Clear filters</button>
 			{/if}
 		</div>
-		<div id="student-filters" class="{showMobileFilters ? 'grid' : 'hidden'} md:grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+		<div id="student-filters" class="student-filter-controls {showMobileFilters ? 'grid' : 'hidden'} md:grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
 			<select aria-label="Program" value={filterProgram} onchange={event => { filterProgram = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
 				<option value="">All programs</option>
 				{#each graduatePrograms as program}<option value={program.value}>{program.label}</option>{/each}
@@ -487,7 +487,7 @@
 			</div>
 			<!-- Desktop table -->
 			<div class="hidden xl:block overflow-x-auto">
-				<table class="student-list-table w-full min-w-[1040px] text-sm">
+				<table class="student-list-table w-full min-w-[1200px] text-sm">
 					<thead>
 						<tr class="bg-gray-50 border-b border-gray-100">
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Student</th>
@@ -511,7 +511,7 @@
 								<td class="px-4 py-3">
 									<span class="font-mono text-xs text-gray-500">{@html highlight(s.student_id, search.trim())}</span>
 								</td>
-								<td class="px-4 py-3 max-w-[140px]">
+								<td class="program-column px-4 py-3">
 									<span class="program-value block text-gray-700" title={s.program ?? ''}>{@html highlight(s.program, search.trim())}</span>
 								</td>
 								<td class="px-4 py-3">

@@ -49,13 +49,13 @@
 </script>
 
 <div class="space-y-5">
-	<div class="flex justify-end">
+	<div class="staff-page-actions flex justify-end">
 		<a href={exportUrl()} class="inline-flex items-center gap-2 rounded-lg bg-essu-green px-4 py-2.5 text-sm font-medium text-white hover:bg-essu-green-mid focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 			<i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV
 		</a>
 	</div>
 
-	<form method="GET" action="/staff/activity" class="grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:grid-cols-2 xl:grid-cols-6">
+	<form method="GET" action="/staff/activity" class="staff-filter-bar grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:grid-cols-2 xl:grid-cols-6">
 		<label class="text-xs font-medium text-gray-600">From
 			<input type="date" name="from" value={data.filters.from} class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 		</label>
@@ -92,7 +92,7 @@
 	<div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
 		{#if data.rows.length}
 			<div class="overflow-x-auto">
-				<table class="w-full min-w-[760px] text-left text-sm">
+				<table class="activity-log-table w-full min-w-[960px] text-left text-sm">
 					<thead class="border-b border-gray-100 bg-gray-50">
 						<tr>
 							<th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Date and time</th>
@@ -104,7 +104,7 @@
 					<tbody class="divide-y divide-gray-50">
 						{#each data.rows as row (row.id)}
 							{@const href = entityHref(row)}
-							<tr class="align-top">
+							<tr>
 								<td class="whitespace-nowrap px-4 py-4 text-xs text-gray-500">{localDateTime(row.created_at)}</td>
 								<td class="px-4 py-4">
 									<p class="font-medium text-gray-800">{row.actor_name}</p>

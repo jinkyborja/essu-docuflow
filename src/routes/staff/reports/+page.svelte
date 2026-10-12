@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { responsiveTable } from '$lib/responsive-table';
 	import { pluralize } from '$lib/formatting';
 	import { REQUEST_STATUSES, requestStatusKey, statusLabel, STATUS_COLORS, type RequestStatus } from '$lib/request-status';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -9,7 +8,7 @@
 
 	const { data }: { data: PageData } = $props();
 
-	type Row = { request_id: string; status: string; date_requested: string; document_name: string; items: Array<{document_id:number;name:string}>; payment_status?: string | null; or_number?: string | null };
+	type Row = { request_id: string; status: string; date_requested: string; student_name: string; document_name: string; items: Array<{document_id: number; name: string}>; payment_status?: string | null; or_number?: string | null };
 	type DocStat = { document_name: string; total: number; approved: number; rejected: number };
 	type DateWindow = { start: Date | null; end: Date };
 	type TrendBucket = { key: string; label: string; value: number };
@@ -271,7 +270,7 @@
 			<p class="report-subtitle">Counts refer to requests; one request can include several documents.</p>
 		</div>
 		<div class="report-heading-meta">
-			<div class="report-toolbar" aria-label="Report controls">
+			<div class="report-toolbar staff-filter-bar" aria-label="Report controls">
 				<label class="sr-only" for="report-period">Report period</label>
 				<select id="report-period" bind:value={timeRange}>
 					{#each periodOptions as option}
@@ -407,8 +406,8 @@
 			<header class="report-card-header"><div><h3>Recent Requests</h3><p>Latest requests in the selected period</p></div><span class="report-chart-total">{recentRequests.length} shown</span></header>
 			{#if recentRequests.length}
 				<div class="report-table-scroll">
-					<table use:responsiveTable class="responsive-table report-recent-table"><thead><tr><th>Student</th><th>Document</th><th>Status</th><th>Requested</th><th><span class="sr-only">Open request</span></th></tr></thead>
-						<tbody>{#each recentRequests as row}<tr><td><span class="report-student-unavailable" title="Student name is not included in the current report data">Not provided</span><small>{row.request_id}</small></td><td>{row.document_name}</td><td><Badge value={row.status.toLowerCase()} size="sm" /></td><td>{formatDate(row.date_requested)}</td><td><a class="report-open-link" href={`/staff/requests/${row.request_id}`} aria-label={`Review request ${row.request_id}`}><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Review</span></a></td></tr>{/each}</tbody>
+					<table class="report-recent-table"><thead><tr><th>Student</th><th>Document</th><th>Status</th><th>Requested</th><th><span class="sr-only">Open request</span></th></tr></thead>
+						<tbody>{#each recentRequests as row}<tr><td><span class="report-student-name">{row.student_name || '—'}</span><small>{row.request_id}</small></td><td>{row.document_name}</td><td><Badge value={row.status.toLowerCase()} size="sm" /></td><td>{formatDate(row.date_requested)}</td><td><a class="report-open-link" href={`/staff/requests/${row.request_id}`} aria-label={`Review request ${row.request_id}`}><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Review</span></a></td></tr>{/each}</tbody>
 					</table>
 				</div>
 			{:else}<p class="report-chart-empty">No recent requests for this period.</p>{/if}
@@ -636,7 +635,6 @@
 	.report-recent-table tbody tr:hover { background: #f8fbf9; }
 	.report-recent-table td:first-child { min-width: 145px; }
 	.report-recent-table td:first-child small { display: block; margin-top: 0.14rem; color: #728078; font-family: ui-monospace, monospace; font-size: 0.63rem; }
-	.report-student-unavailable { color: #65766d; font-size: 0.68rem; font-style: italic; }
 	.report-open-link { display: inline-flex; min-height: 40px; align-items: center; gap: 0.4rem; color: #1f6b50; font-size: 0.68rem; font-weight: 700; text-decoration: none; }
 	.report-open-link:hover { color: #174f3e; text-decoration: underline; }
 	.report-empty-page { display: flex; min-height: 330px; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--report-border); border-radius: 0.9rem; background: #fff; box-shadow: var(--report-shadow); padding: 1.5rem; }

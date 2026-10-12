@@ -1089,6 +1089,167 @@ table button[title] {
   button:has(> i):not(:has(span)) { min-width: 44px; }
   input::file-selector-button { min-height: 44px; }
 }
+
+/* Staff management pages use wide data tables and consistent controls. */
+.staff-portal .portal-main {
+  width: 100%;
+  max-width: 1448px;
+  padding: 24px;
+}
+.staff-portal .portal-main > .portal-page-header { margin-bottom: 24px; }
+.staff-portal .portal-main :is(.staff-page-actions, .report-page-header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.staff-portal .staff-page-actions { min-height: 44px; }
+.staff-portal .staff-filter-bar { gap: 12px; }
+.staff-portal .staff-filter-bar :is(input, select, button, a[role='button']) {
+  min-height: 44px;
+  border-radius: 8px;
+}
+.staff-portal .staff-filter-bar :is(input, select) { height: 44px; }
+.staff-portal .student-filter-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  align-items: end;
+  gap: 12px;
+}
+.staff-portal .student-filter-controls > label { align-self: end; }
+.staff-portal .portal-main :is(.overflow-hidden.rounded-xl, .report-card) {
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgb(19 49 37 / 0.04), 0 8px 24px rgb(19 49 37 / 0.045);
+}
+.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) {
+  table-layout: fixed;
+  min-width: 960px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.staff-portal .portal-main .request-list-table { min-width: 1180px; }
+.staff-portal .portal-main .student-list-table { min-width: 1200px; }
+.staff-portal .portal-main .report-recent-table { min-width: 960px; }
+.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) :is(th, td) {
+  padding: 12px 14px !important;
+  vertical-align: middle;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f6f9f7;
+  color: #607168;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) tbody td {
+  min-height: 56px;
+  border-bottom: 1px solid #edf1ee;
+  color: #33483d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) tbody tr:hover {
+  background: #f8fbf9;
+}
+.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .activity-log-table, .report-recent-table) :is(th, td) {
+  white-space: nowrap;
+}
+.staff-portal .portal-main :is(.request-list-table, .student-list-table, .staff-list-table, .report-recent-table, .overflow-x-auto > table) td :is(p, a, span) {
+  max-width: 100%;
+}
+.staff-portal .portal-main .request-list-table tr > :nth-child(3),
+.staff-portal .portal-main .student-list-table tr > :nth-child(3) {
+  display: table-cell;
+  width: 240px;
+  min-width: 220px;
+  max-width: 280px;
+  white-space: normal;
+}
+.staff-portal .portal-main .request-list-table tr > :nth-child(1) { width: 150px; }
+.staff-portal .portal-main .request-list-table tr > :nth-child(2) { width: 210px; }
+.staff-portal .portal-main .request-list-table tr > :nth-child(4) { width: 250px; white-space: normal; }
+.staff-portal .portal-main .request-list-table tr > :nth-child(5) { width: 150px; }
+.staff-portal .portal-main .request-list-table tr > :nth-child(6) { width: 190px; }
+.staff-portal .portal-main .request-list-table tr > :nth-child(7) { width: 170px; text-align: right; }
+.staff-portal .portal-main .student-list-table tr > :nth-child(1) { width: 220px; white-space: normal; }
+.staff-portal .portal-main .student-list-table tr > :nth-child(2) { width: 130px; }
+.staff-portal .portal-main .student-list-table tr > :nth-child(4) { width: 120px; }
+.staff-portal .portal-main .student-list-table tr > :nth-child(5) { display: table-cell; width: 125px; }
+.staff-portal .portal-main .student-list-table tr > :nth-child(6) { width: 120px; }
+.staff-portal .portal-main .student-list-table tr > :nth-child(7) { width: 130px; }
+.staff-portal .portal-main .student-list-table tr > :nth-child(8) { display: table-cell; width: 150px; }
+.staff-portal .portal-main .student-list-table tr > :nth-child(9) { width: 160px; text-align: right; }
+.staff-portal .portal-main .staff-list-table tr > :nth-child(1) { width: 36%; white-space: normal; }
+.staff-portal .portal-main .staff-list-table tr > :nth-child(2) { width: 26%; white-space: normal; }
+.staff-portal .portal-main .staff-list-table tr > :nth-child(3) { width: 13%; }
+.staff-portal .portal-main .staff-list-table tr > :nth-child(4) { width: 15%; }
+.staff-portal .portal-main .staff-list-table tr > :nth-child(5) { width: 140px; text-align: right; }
+.staff-portal .portal-main .activity-log-table tr > :nth-child(1) { width: 190px; }
+.staff-portal .portal-main .activity-log-table tr > :nth-child(2) { width: 190px; }
+.staff-portal .portal-main .activity-log-table tr > :nth-child(3) { width: 190px; }
+.staff-portal .portal-main .activity-log-table tr > :nth-child(4) { white-space: normal; overflow-wrap: anywhere; }
+.staff-portal .portal-main .staff-email,
+.staff-portal .portal-main .student-list-table td:first-child p.text-xs {
+  min-width: 150px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.staff-portal .portal-main .program-value {
+  display: -webkit-box;
+  min-width: 0;
+  max-width: 280px;
+  max-height: none;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.staff-portal .portal-main .request-status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.staff-portal .portal-main .ui-badge {
+  max-width: 100%;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+.staff-portal .portal-main .row-actions {
+  justify-content: flex-end;
+  gap: 8px;
+}
+.staff-portal .portal-main .row-actions :is(a, button) {
+  min-width: 88px;
+  min-height: 36px;
+  justify-content: center;
+}
+.staff-portal .portal-main .row-actions > :is(button, [role='button']) { min-width: 36px; }
+.staff-portal .portal-main .report-recent-table tr > :nth-child(1) { width: 240px; white-space: normal; }
+.staff-portal .portal-main .report-recent-table tr > :nth-child(2) { width: 34%; white-space: normal; }
+.staff-portal .portal-main .report-recent-table tr > :nth-child(3) { width: 160px; }
+.staff-portal .portal-main .report-recent-table tr > :nth-child(4) { width: 170px; }
+.staff-portal .portal-main .report-recent-table tr > :nth-child(5) { width: 140px; text-align: right; }
+.staff-portal .portal-main .report-recent-table .report-open-link { justify-content: flex-end; white-space: nowrap; }
+
+@media (max-width: 767px) {
+  .staff-portal .portal-main { padding: 16px; }
+  .staff-portal .portal-main .student-filter-controls { grid-template-columns: 1fr; }
+  .staff-portal .portal-main .staff-page-actions { flex-wrap: wrap; }
+  .staff-portal .portal-main .staff-filter-bar > label { min-width: min(100%, 220px); flex: 1 1 220px; }
+}
 @media (max-width: 767px) {
   .responsive-table { display: block !important; width: 100% !important; min-width: 0 !important; table-layout: auto !important; }
   .responsive-table > thead { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
