@@ -47,5 +47,5 @@ export const load: LayoutServerLoad = ({ cookies }) => timedLoad('staff/layout',
 			initials,
 			position: (u.position as string | null) ?? 'Staff'
 		}
-	});
-};
+	    };
+});
