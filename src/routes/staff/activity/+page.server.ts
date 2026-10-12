@@ -14,10 +14,14 @@ export const load: PageServerLoad = async ({ parent, url }) => {
 	);
 	const total = Number((countRows as Array<{ total: number }>)[0]?.total ?? 0);
 	const requestedPage = Number(url.searchParams.get('page') ?? 1);
-	const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+	const page = Number.isSafeInteger(requestedPage) && Number.isInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
 	const pageSize = 25;
 	const pages = Math.max(1, Math.ceil(total / pageSize));
 	const currentPage = Math.min(page, pages);
+	const calculatedOffset = (currentPage - 1) * pageSize;
+	const offset = Number.isSafeInteger(calculatedOffset) && Number.isInteger(calculatedOffset) && calculatedOffset >= 0
+		? calculatedOffset
+		: 0;
 	const [rows] = await pool.execute(
 		`SELECT a.id, a.created_at, a.actor_user_id, a.actor_name, a.actor_role, a.action,
 		        a.entity_type, a.entity_id, a.summary, a.details,
@@ -29,8 +33,8 @@ export const load: PageServerLoad = async ({ parent, url }) => {
 		 FROM activity_log a
 		 WHERE ${filters.where}
 		 ORDER BY a.created_at DESC, a.id DESC
-		 LIMIT 25 OFFSET ?`,
-		[...filters.args, (currentPage - 1) * pageSize]
+		 LIMIT ${pageSize} OFFSET ${offset}`,
+		filters.args
 	);
 	const [peopleRows] = await pool.execute(
 		'SELECT DISTINCT actor_user_id, actor_name, actor_role FROM activity_log ORDER BY actor_name, actor_user_id'

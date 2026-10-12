@@ -105,29 +105,30 @@ export function activityFilters(params: URLSearchParams) {
 	const to = /^\d{4}-\d{2}-\d{2}$/.test(params.get('to') ?? '')
 		? params.get('to')!
 		: today;
-	const person = /^\d+$/.test(params.get('person') ?? '') ? params.get('person')! : '';
+	const requestedPerson = params.get('person') ?? '';
+	const parsedPerson = /^\d+$/.test(requestedPerson) ? Number(requestedPerson) : 0;
+	const person = Number.isSafeInteger(parsedPerson) && parsedPerson > 0 ? String(parsedPerson) : '';
 	const role = ['Admin', 'Staff', 'Student'].includes(params.get('role') ?? '') ? params.get('role')! : '';
 	const action = params.get('action') && activityActionLabels[params.get('action')!] ? params.get('action')! : '';
 	const search = (params.get('search') ?? '').trim().slice(0, 200);
-	const clauses = [
-		"created_at >= CONVERT_TZ(?, '+08:00', @@session.time_zone)",
-		"created_at < CONVERT_TZ(?, '+08:00', @@session.time_zone)"
-	];
-	const args: Array<string | number> = [
-		activityDateBoundary(from),
-		activityDateBoundary(shiftDateKey(to, 1))
-	];
+	const clauses: string[] = [];
+	const args: Array<string | number> = [];
+	const addFilter = (clause: string, ...values: Array<string | number>) => {
+		clauses.push(clause);
+		args.push(...values);
+	};
 	if (from > to) {
-		clauses.splice(0, 2, '1 = 0');
-		args.splice(0, 2);
+		clauses.push('1 = 0');
+	} else {
+		addFilter("created_at >= CONVERT_TZ(?, '+08:00', @@session.time_zone)", activityDateBoundary(from));
+		addFilter("created_at < CONVERT_TZ(?, '+08:00', @@session.time_zone)", activityDateBoundary(shiftDateKey(to, 1)));
 	}
-	if (person) { clauses.push('actor_user_id = ?'); args.push(Number(person)); }
-	if (role) { clauses.push('actor_role = ?'); args.push(role); }
-	if (action) { clauses.push('action = ?'); args.push(action); }
+	if (person) addFilter('actor_user_id = ?', Number(person));
+	if (role) addFilter('actor_role = ?', role);
+	if (action) addFilter('action = ?', action);
 	if (search) {
 		const pattern = `%${search}%`;
-		clauses.push('(actor_name LIKE ? OR action LIKE ? OR entity_type LIKE ? OR entity_id LIKE ? OR summary LIKE ? OR CAST(details AS CHAR) LIKE ?)');
-		args.push(pattern, pattern, pattern, pattern, pattern, pattern);
+		addFilter('(actor_name LIKE ? OR action LIKE ? OR entity_type LIKE ? OR entity_id LIKE ? OR summary LIKE ? OR CAST(details AS CHAR) LIKE ?)', pattern, pattern, pattern, pattern, pattern, pattern);
 	}
-	return { from, to, person, role, action, search, where: clauses.join(' AND '), args };
+	return { from, to, person, role, action, search, where: clauses.length ? clauses.join(' AND ') : '1 = 1', args };
 }
