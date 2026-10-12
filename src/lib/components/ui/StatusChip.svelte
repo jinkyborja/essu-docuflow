@@ -15,7 +15,7 @@
 </span>
 
 <style>
-	.status-chip { --chip-color: var(--color-text-muted); display: inline-flex; max-width: 100%; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: 1px solid color-mix(in srgb, var(--chip-color) 30%, var(--color-surface)); border-radius: var(--radius-control); background: color-mix(in srgb, var(--chip-color) 8%, var(--color-surface)); color: var(--chip-color); font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); line-height: var(--line-height); white-space: normal; }
+	.status-chip { --chip-color: var(--color-text-muted); display: inline-flex; flex-shrink: 0; max-width: 100%; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: 1px solid color-mix(in srgb, var(--chip-color) 30%, var(--color-surface)); border-radius: var(--radius-control); background: color-mix(in srgb, var(--chip-color) 8%, var(--color-surface)); color: var(--chip-color); font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); line-height: var(--line-height); white-space: nowrap; }
 	.status-chip i { flex-shrink: 0; }
 	.size-sm { padding-inline: var(--space-2); }
 	.tone-success { --chip-color: var(--color-success); }

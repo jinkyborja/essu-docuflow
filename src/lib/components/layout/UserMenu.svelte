@@ -1,5 +1,6 @@
 <script lang="ts">
 	import RowMenu from '$lib/components/ui/RowMenu.svelte';
+	import { goto } from '$app/navigation';
 	import { logoutPending, sidebarMobileOpen } from '$lib/stores/sidebar';
 	let { user, role, userRole, compact = false, location = 'topbar' }: {
 		user: { name: string; initials: string; position?: string; program?: string };
@@ -10,13 +11,13 @@
 	} = $props();
 	const roleLabel = $derived(role === 'student' ? 'Student' : userRole ?? 'Staff');
 	const profileHref = $derived(role === 'student' ? '/student/profile' : '/staff/profile');
+	async function logout() { if ($logoutPending) return; logoutPending.set(true); try { await fetch('/api/logout', { method: 'POST' }); await goto('/login'); } finally { logoutPending.set(false); } }
 </script>
 
 <div class="user-menu" class:compact class:sidebar={location === 'sidebar'}>
 	<RowMenu label={`Open user menu for ${user.name}`} triggerClass="user-menu-trigger" placement={location === 'sidebar' ? 'top-start' : 'bottom-end'} loading={$logoutPending} items={[
 		{ label: 'My Profile', href: profileHref, icon: 'fa-solid fa-circle-user', onselect: () => sidebarMobileOpen.set(false) },
-		// Both menus activate the existing sidebar logout handler.
-		{ label: 'Log out', icon: 'fa-solid fa-right-from-bracket', disabled: $logoutPending, reason: 'Logging out…', onselect: () => document.getElementById('portal-logout')?.click() }
+		...(location === 'sidebar' ? [{ label: 'Log out', icon: 'fa-solid fa-right-from-bracket', disabled: $logoutPending, reason: 'Logging out…', onselect: logout }] : [])
 	]}>
 		{#snippet triggerContent()}
 			<span class="user-avatar" aria-hidden="true">{user.initials}</span>

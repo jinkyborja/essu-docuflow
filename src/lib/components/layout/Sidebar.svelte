@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import UserMenu from './UserMenu.svelte';
-	import { sidebarCollapsed, sidebarMobileOpen, logoutPending } from '$lib/stores/sidebar';
+	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
 
 	type NavItem = { label: string; icon: string; href: string; adminOnly?: boolean; badge?: number; locked?: boolean; lockedReason?: string };
 	interface Props {
@@ -45,17 +44,6 @@
 	function handleResize() {
 		desktop = window.matchMedia('(min-width: 1024px)').matches;
 		if (desktop && $sidebarMobileOpen) closeMobile();
-	}
-
-	async function logout() {
-		await fetch('/api/logout', { method: 'POST' });
-		goto('/login');
-	}
-	async function handleLogout() {
-		if ($logoutPending) return;
-		logoutPending.set(true);
-		try { await logout(); }
-		finally { logoutPending.set(false); }
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -121,8 +109,6 @@
 
 	<div class="sidebar-footer">
 		{#if collapsed}<UserMenu {user} {role} {userRole} compact location="sidebar" />{:else}<Card class="sidebar-user-card"><UserMenu {user} {role} {userRole} location="sidebar" /></Card>{/if}
-		<div class="logout-slot"><Button id="portal-logout" variant="ghost" icon="fa-solid fa-right-from-bracket" ariaLabel="Log out" title="Log out" loading={$logoutPending} disabled={$logoutPending} onclick={handleLogout} class="sidebar-logout">{#if !collapsed}Log out{/if}</Button></div>
-		<!-- The avatar menus activate this same control, preserving the logout action. -->
 	</div>
 </aside>
 
@@ -145,7 +131,7 @@
 	.portal-nav-link { position: relative; display: flex; align-items: center; gap: var(--space-3); width: 100%; height: var(--control-height); margin-bottom: var(--space-1); padding: 0 var(--space-3); border-radius: var(--radius-control); background: transparent; color: var(--color-primary-soft); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: var(--line-height); text-decoration: none; transition: background-color var(--motion-fast), color var(--motion-fast); }
 	.portal-nav-link > i { width: 20px; flex-shrink: 0; font-size: var(--font-size-card-title); text-align: center; }
 	.portal-nav-link:hover { background: color-mix(in srgb, var(--color-primary-hover) 80%, var(--color-primary)); color: var(--color-surface); }
-	.portal-nav-link:focus-visible, .drawer-close :global(button:focus-visible), .request-button-slot :global(a:focus-visible), .request-button-slot :global(.button-tooltip:focus-visible), .logout-slot :global(button:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 3px; box-shadow: var(--focus-ring); }
+	.portal-nav-link:focus-visible, .drawer-close :global(button:focus-visible), .request-button-slot :global(a:focus-visible), .request-button-slot :global(.button-tooltip:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 3px; box-shadow: var(--focus-ring); }
 	.portal-nav-link[aria-current='page'] { background: var(--color-primary-hover); color: var(--color-surface); }
 	.portal-nav-link[aria-current='page']::before { position: absolute; inset: 0 auto 0 0; width: 3px; border-radius: var(--radius-control) 0 0 var(--radius-control); background: var(--color-accent); content: ''; }
 	.nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -160,10 +146,6 @@
 	.request-button-slot :global(.request-button i) { font-size: var(--font-size-card-title); }
 	.request-button-slot :global(.reason-tooltip) { top: calc(100% + var(--space-2)); bottom: auto; max-width: 100%; }
 	.sidebar-footer { display: flex; flex-direction: column; gap: var(--space-2); flex-shrink: 0; padding: var(--space-4); border-top: 1px solid color-mix(in srgb, var(--color-surface) 16%, var(--color-primary)); }
-	.logout-slot :global(.button-tooltip) { width: 100%; }
-	.logout-slot :global(.sidebar-logout.ui-button) { width: 100%; justify-content: flex-start; padding-inline: var(--space-3); border-color: transparent; background: transparent; color: var(--color-primary-soft); }
-	.logout-slot :global(.sidebar-logout.ui-button:hover:not(:disabled)), .logout-slot :global(.sidebar-logout.ui-button:disabled) { background: var(--color-primary-hover); color: var(--color-surface); }
-	.logout-slot :global(.sidebar-logout i) { font-size: var(--font-size-card-title); }
-	@media (min-width: 1024px) { .portal-sidebar { transform: none; } .portal-sidebar.collapsed { width: var(--sidebar-width-collapsed); } .drawer-close { display: none; } .collapsed .sidebar-brand { justify-content: center; padding-inline: var(--space-4); } .collapsed .portal-nav-link { justify-content: center; padding-inline: 0; } .collapsed .nav-count { position: absolute; top: 0; right: -4px; min-width: 20px; height: 20px; } .collapsed .request-button-slot :global(.request-button.ui-button), .collapsed .logout-slot :global(.sidebar-logout.ui-button) { justify-content: center; padding: 0; } }
+	@media (min-width: 1024px) { .portal-sidebar { transform: none; } .portal-sidebar.collapsed { width: var(--sidebar-width-collapsed); } .drawer-close { display: none; } .collapsed .sidebar-brand { justify-content: center; padding-inline: var(--space-4); } .collapsed .portal-nav-link { justify-content: center; padding-inline: 0; } .collapsed .nav-count { position: absolute; top: 0; right: -4px; min-width: 20px; height: 20px; } .collapsed .request-button-slot :global(.request-button.ui-button) { justify-content: center; padding: 0; } }
 	@media (pointer: coarse) { .portal-nav-link { height: var(--control-height-touch); } .collapsed .sidebar-nav, .collapsed .sidebar-footer { padding-inline: var(--space-3); } }
 </style>

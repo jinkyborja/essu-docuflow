@@ -346,18 +346,18 @@
 			</div>
 			<!-- Desktop table -->
 			<div class="hidden xl:block overflow-x-auto">
-				<table class="student-list-table w-full text-sm">
+				<table class="student-list-table w-full min-w-[1040px] text-sm">
 					<thead>
 						<tr class="bg-gray-50 border-b border-gray-100">
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Student</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Student ID</th>
+							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Student ID</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Program</th>
 							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Last S.Y.</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Email</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">ID Status</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Registered</th>
-							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
+							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap min-w-[72px]">Last S.Y.</th>
+							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[104px]">Email</th>
+							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[112px]">ID Status</th>
+							<th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Registered</th>
+							<th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-50">
