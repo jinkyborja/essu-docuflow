@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifyJwt } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const { token, firstName, lastName, position, password } = await request.json();
@@ -43,7 +43,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const userId = (result as { insertId: number }).insertId;
 	try {
 		const conn = await pool.getConnection();
-		try { await logActivity(conn, { actor: { userId, role: payload.role }, action: 'staff.invite.accepted', entityType: 'staff', entityId: userId, summary: `Created staff account #${userId} from invitation`, details: { changedFields: ['staff account', 'role', 'password'] } }); }
+		try { await logActivitySafely(conn, { actor: { userId, role: payload.role }, action: 'staff.invite.accepted', entityType: 'staff', entityId: userId, summary: `Created staff account #${userId} from invitation`, details: { changedFields: ['staff account', 'role', 'password'] } }); }
 		finally { conn.release(); }
 	} catch (error) { console.error('Could not write staff invitation acceptance activity:', error); }
 

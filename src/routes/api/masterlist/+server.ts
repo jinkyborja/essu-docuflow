@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import type { ResultSetHeader } from 'mysql2';
 import pool from '$lib/server/db';
 import { requireMasterlistAdmin } from '$lib/server/masterlist';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 export const GET: RequestHandler = async ({ cookies, url }) => {
 	await requireMasterlistAdmin(cookies);
 	const page = Number(url.searchParams.get('page') ?? 1), limit = Number(url.searchParams.get('limit') ?? 20);
@@ -27,7 +27,7 @@ export const DELETE: RequestHandler = async ({ cookies, request }) => {
 		const deleted = (result as ResultSetHeader).affectedRows;
 		try {
 			const conn = await pool.getConnection();
-			try { await logActivity(conn, { actor, action: 'masterlist.cleared', entityType: 'masterlist', entityId: null, summary: `Cleared ${deleted} masterlist entries`, details: { changedFields: ['masterlist entries'] } }); }
+			try { await logActivitySafely(conn, { actor, action: 'masterlist.cleared', entityType: 'masterlist', entityId: null, summary: `Cleared ${deleted} masterlist entries`, details: { changedFields: ['masterlist entries'] } }); }
 			finally { conn.release(); }
 		} catch (error) { console.error('Could not write masterlist clear activity:', error); }
 		return json({ success: true, deleted });

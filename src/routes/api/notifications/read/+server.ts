@@ -3,7 +3,6 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
-import { logActivity } from '$lib/server/activity-log';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const token = cookies.get('session');
@@ -57,11 +56,5 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			uniqueIds
 		);
 	}
-	try {
-		const conn = await pool.getConnection();
-		try { await logActivity(conn, { actor, action: 'notifications.read', entityType: 'notification', entityId: null, summary: `Marked ${uniqueIds.length} notifications as read`, details: { ids: uniqueIds } }); }
-		finally { conn.release(); }
-	} catch (error) { console.error('Could not write notification read activity:', error); }
-
 	return json({ ok: true });
 };

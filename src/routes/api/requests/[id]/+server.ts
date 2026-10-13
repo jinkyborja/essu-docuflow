@@ -9,7 +9,7 @@ import { sendEmail } from '$lib/server/email';
 import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
 import { validateUpload } from '$lib/server/upload-validation';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 export const GET: RequestHandler = async ({ params, cookies }) => {
 	const token = cookies.get('session');
@@ -219,8 +219,8 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 		await conn.execute('INSERT INTO request_status_history (request_id, old_status, new_status, changed_by) VALUES (?, ?, ?, ?)', [params.id,oldStatus,newStatus,payload.userId]);
 		const actionName = action === 'approve' ? 'request.approved' : action === 'reject' ? 'request.rejected' : 'request.correction_requested';
 		const actionSummary = action === 'approve' ? 'Approved' : action === 'reject' ? 'Rejected' : 'Requested corrections for';
-		await logActivity(conn, { actor: payload, action: actionName, entityType: 'request', entityId: params.id, summary: `${actionSummary} request ${params.id}`, details: { changedFields: ['status', 'admin_message', 'decided_by', 'decided_at', ...(action === 'approve' ? ['approved_file'] : []), ...(action === 'correction' ? ['flagged_requirements'] : [])] } });
-		if (action === 'approve') await logActivity(conn, { actor: payload, action: 'request.ready_for_pickup', entityType: 'request', entityId: params.id, summary: `Request ${params.id} is ready for pickup`, details: { changedFields: ['pickup availability'] } });
+		await logActivitySafely(conn, { actor: payload, action: actionName, entityType: 'request', entityId: params.id, summary: `${actionSummary} request ${params.id}`, details: { changedFields: ['status', 'admin_message', 'decided_by', 'decided_at', ...(action === 'approve' ? ['approved_file'] : []), ...(action === 'correction' ? ['flagged_requirements'] : [])] } });
+		if (action === 'approve') await logActivitySafely(conn, { actor: payload, action: 'request.ready_for_pickup', entityType: 'request', entityId: params.id, summary: `Request ${params.id} is ready for pickup`, details: { changedFields: ['pickup availability'] } });
 		await conn.commit(); decided = true;
 	} catch (e) { await conn.rollback(); console.error('Request decision failed',e); return json({error:'Could not save the decision. Please try again.'}, {status:500}); }
 	finally { conn.release(); if (!decided && approvedFilePath) await supabase.storage.from('requirements').remove([approvedFilePath]); }

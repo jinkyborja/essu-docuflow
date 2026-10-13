@@ -6,12 +6,12 @@ import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateSchoolYear } from '$lib/school-year';
 import { isCampus } from '$lib/data/campuses';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 async function logSafely(actor: { userId: number; role: string }, action: string, summary: string, changedFields: string[]) {
 	try {
 		const conn = await pool.getConnection();
-		try { await logActivity(conn, { actor, action, entityType: 'account', entityId: actor.userId, summary, details: { changedFields } }); }
+		try { await logActivitySafely(conn, { actor, action, entityType: 'account', entityId: actor.userId, summary, details: { changedFields } }); }
 		finally { conn.release(); }
 	} catch (error) { console.error(`Could not write ${action} activity:`, error); }
 }
@@ -84,7 +84,7 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		}
 
 		await pool.execute('UPDATE users SET email = ?, auth_version = auth_version + 1 WHERE user_id = ?', [newEmail, payload.userId]);
-		await logSafely(payload, 'account.email.changed', `Changed email for account #${payload.userId}`, ['email']);
+		await logSafely(payload, 'account.email.changed', `Updated email for account #${payload.userId}`, ['email']);
 
 		return json({ success: true });
 	}

@@ -378,15 +378,18 @@
 </div>
 {:else}
 <div class="space-y-5">
-	{#if data.role === 'Admin'}<div class="staff-page-actions flex justify-end"><Button onclick={() => masterlistOpen = true}>Masterlist</Button></div>{/if}
+	{#if data.role === 'Admin'}<div class="staff-page-actions flex justify-end"><Button variant="secondary" icon="fa-solid fa-list-check" onclick={() => masterlistOpen = true}>Masterlist</Button></div>{/if}
 	{#if usageError}<LoadError message="We couldn’t check linked requests. Please try again." onretry={() => void loadRequestUsage()} />{:else if !usageLoaded}<p role="status" class="flex items-center gap-2 text-sm text-gray-600"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Checking linked requests…</p>{/if}
 	<!-- Search / Filter -->
 	<div class="staff-filter-bar space-y-3">
 		<div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-			<div class="flex gap-1 overflow-x-auto">
+			<div class="flex flex-wrap items-center gap-1">
 				{#each [{key:'pending',label:'Pending'},{key:'verified',label:'Verified'},{key:'rejected',label:'Rejected'},{key:'all',label:'All'}] as tab}
-					<button aria-pressed={statusTab === tab.key} onclick={() => { statusTab = tab.key as typeof statusTab; syncQuery(); }} class="rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap {statusTab === tab.key ? 'bg-essu-green text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">{tab.label} ({tabCounts[tab.key as keyof typeof tabCounts]})</button>
+					<button aria-pressed={statusTab === tab.key} onclick={() => { statusTab = tab.key as typeof statusTab; syncQuery(); }} class="rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-essu-green/50 {statusTab === tab.key ? 'bg-essu-green text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">{tab.label} ({tabCounts[tab.key as keyof typeof tabCounts]})</button>
 				{/each}
+				<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20 whitespace-nowrap shrink-0">
+					{filtered.length} of {students.length} students
+				</span>
 			</div>
 			<div class="relative flex-1">
 				<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
@@ -395,57 +398,64 @@
 					oninput={event => { search = (event.currentTarget as HTMLInputElement).value; syncQuery(); }}
 					type="text"
 					placeholder="Search by name, ID, email, or program..."
-					class="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
+					class="h-11 w-full pl-9 pr-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 				/>
 			</div>
-			<span class="inline-flex items-center self-start lg:self-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20 whitespace-nowrap shrink-0">
-				{filtered.length} of {students.length} students
-			</span>
 		</div>
 		<div class="flex items-center justify-between gap-3">
-			<button type="button" aria-expanded={showMobileFilters} aria-controls="student-filters" onclick={() => showMobileFilters = !showMobileFilters} class="md:hidden inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700">
+			<button type="button" aria-expanded={showMobileFilters} aria-controls="student-filters" onclick={() => showMobileFilters = !showMobileFilters} class="md:hidden inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-essu-green/50">
 				<i class="fa-solid fa-sliders" aria-hidden="true"></i> Filters
 				{#if activeFilterCount}<span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-essu-green px-1.5 text-xs text-white">{activeFilterCount}</span>{/if}
 			</button>
 			{#if filtersActive}
-				<button type="button" onclick={clearFilters} class="ml-auto px-3 py-2 text-sm text-essu-green hover:underline">Clear filters</button>
+				<button type="button" onclick={clearFilters} class="ml-auto px-3 py-2 text-sm text-essu-green hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-essu-green/50">Clear filters</button>
 			{/if}
 		</div>
-		<div id="student-filters" class="student-filter-controls {showMobileFilters ? 'grid' : 'hidden'} md:grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-			<select aria-label="Program" value={filterProgram} onchange={event => { filterProgram = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
-				<option value="">All programs</option>
-				{#each graduatePrograms as program}<option value={program.value}>{program.label}</option>{/each}
-			</select>
-			<select aria-label="Date type" value={dateType} onchange={event => { dateType = (event.currentTarget as HTMLSelectElement).value as typeof dateType; syncQuery(); }} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
-				<option value="registered">Registered</option>
-				<option value="decision">Verified or decided on</option>
-			</select>
-			<select aria-label="Date range" value={dateRange} onchange={changeDateRange} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
-				<option value="any">Any time</option>
-				<option value="today">Today</option>
-				<option value="7d">Last 7 days</option>
-				<option value="30d">Last 30 days</option>
-				<option value="custom">Custom</option>
-			</select>
+		<div id="student-filters" class="student-filter-controls" class:filters-expanded={showMobileFilters}>
+			<label class="filter-control-label">Program
+				<select aria-label="Program" value={filterProgram} onchange={event => { filterProgram = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+					<option value="">All programs</option>
+					{#each graduatePrograms as program}<option value={program.value}>{program.label}</option>{/each}
+				</select>
+			</label>
+			<label class="filter-control-label">Date type
+				<select aria-label="Date type" value={dateType} onchange={event => { dateType = (event.currentTarget as HTMLSelectElement).value as typeof dateType; syncQuery(); }} class="min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+					<option value="registered">Registered</option>
+					<option value="decision">Verified or decided on</option>
+				</select>
+			</label>
+			<label class="filter-control-label">Date range
+				<select aria-label="Date range" value={dateRange} onchange={changeDateRange} class="min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+					<option value="any">Any time</option>
+					<option value="today">Today</option>
+					<option value="7d">Last 7 days</option>
+					<option value="30d">Last 30 days</option>
+					<option value="custom">Custom</option>
+				</select>
+			</label>
 			{#if dateRange === 'custom'}
-				<label class="block text-xs font-medium text-gray-600">From<input aria-label="From date" type="date" value={customFrom} onchange={event => { customFrom = (event.currentTarget as HTMLInputElement).value; syncQuery(); }} class="mt-1 w-full min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
-				<label class="block text-xs font-medium text-gray-600">To<input aria-label="To date" type="date" value={customTo} onchange={event => { customTo = (event.currentTarget as HTMLInputElement).value; syncQuery(); }} class="mt-1 w-full min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
+				<label class="filter-control-label">From<input aria-label="From date" type="date" value={customFrom} onchange={event => { customFrom = (event.currentTarget as HTMLInputElement).value; syncQuery(); }} class="mt-1 h-11 w-full min-w-0 px-3 border border-gray-200 rounded-lg text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
+				<label class="filter-control-label">To<input aria-label="To date" type="date" value={customTo} onchange={event => { customTo = (event.currentTarget as HTMLInputElement).value; syncQuery(); }} class="mt-1 h-11 w-full min-w-0 px-3 border border-gray-200 rounded-lg text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
 			{/if}
-			<select aria-label="Student type" value={filterType} onchange={event => { filterType = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
-				<option value="">All Types</option>
-				<option value="Enrolled">Enrolled</option>
-				<option value="Former">Former</option>
-				<option value="Alumni">Alumni</option>
-			</select>
-			<select aria-label="Sort students" value={sortOrder} onchange={event => { sortOrder = (event.currentTarget as HTMLSelectElement).value as typeof sortOrder; syncQuery(); }} class="min-w-0 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
-				<option value="newest">Newest first</option>
-				<option value="oldest">Oldest first</option>
-			</select>
+			<label class="filter-control-label">Student type
+				<select aria-label="Student type" value={filterType} onchange={event => { filterType = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+					<option value="">All Types</option>
+					<option value="Enrolled">Enrolled</option>
+					<option value="Former">Former</option>
+					<option value="Alumni">Alumni</option>
+				</select>
+			</label>
+			<label class="filter-control-label">Sort
+				<select aria-label="Sort students" value={sortOrder} onchange={event => { sortOrder = (event.currentTarget as HTMLSelectElement).value as typeof sortOrder; syncQuery(); }} class="min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+					<option value="newest">Newest first</option>
+					<option value="oldest">Oldest first</option>
+				</select>
+			</label>
 		</div>
 	</div>
 
 	<!-- Table -->
-	<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+	<div class="student-results bg-white rounded-xl border border-gray-100 shadow-sm">
 		{#if filtered.length === 0}
 			<div class="p-16 text-center">
 				<i class="fa-solid fa-users text-4xl text-gray-200 mb-4 block"></i>
@@ -455,59 +465,48 @@
 			</div>
 			<div class="flex justify-center pb-6"><Button variant="secondary" onclick={clearFilters}>Clear filters</Button></div>
 		{:else}
-			<!-- Mobile card list -->
-			<div class="xl:hidden divide-y divide-gray-100">
+			<div class="student-cards divide-y divide-gray-100 lg:hidden">
 				{#each filtered as s}
-					<div class="p-4 space-y-2">
-						<div class="flex items-start justify-between gap-2">
-							<div class="min-w-0">
-								<p class="font-medium text-gray-800 text-sm">{@html highlight(fullName(s), search.trim())}</p>
-								<p class="text-xs text-gray-400 mt-0.5">{@html highlight(s.email, search.trim())}</p>
-							</div>
-							<div class="flex flex-wrap items-center gap-1.5 shrink-0">
-								<StatusChip value={s.id_status} kind="id" />
-								<StatusChip value={s.verified} kind="email" />
+					<article class="student-card p-4">
+						<div class="student-identity">
+							<p class="font-medium text-gray-800 text-sm">{@html highlight(fullName(s), search.trim())}</p>
+							<p class="student-card-id font-mono text-xs text-gray-500">{@html highlight(s.student_id, search.trim())}</p>
+							<p class="student-email text-xs text-gray-400" title={s.email}>{@html highlight(s.email, search.trim())}</p>
+						</div>
+						<div class="student-card-program">
+							<span class="program-value text-sm text-gray-700">{@html highlight(s.program, search.trim())}</span>
+							<div class="student-card-meta">
 								{#if s.student_type}
-									<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {typeColors[s.student_type] ?? 'bg-gray-100 text-gray-600 border border-gray-200'}">
-										{s.student_type}
-									</span>
-								{/if}
+									<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {typeColors[s.student_type] ?? 'bg-gray-100 text-gray-600 border border-gray-200'}">{s.student_type}</span>
+								{:else}<span class="text-xs text-gray-400">—</span>{/if}
+								<span class="text-xs text-gray-500">S.Y. {s.last_school_year ?? '—'}</span>
 							</div>
 						</div>
-						<div class="flex items-center gap-3 text-xs text-gray-500">
-							<span class="font-mono">{@html highlight(s.student_id, search.trim())}</span>
-							<span class="program-value" title={s.program ?? ''}>{@html highlight(s.program, search.trim())}</span>
+						<div class="student-card-statuses">
+							<div><span class="text-xs text-gray-500">Email</span><StatusChip value={s.verified} kind="email" size="sm" /></div>
+							<div><span class="text-xs text-gray-500">ID</span><StatusChip value={s.id_status} kind="id" size="sm" /></div>
 						</div>
-						<div class="flex items-center justify-between">
-							<span class="text-xs text-gray-400">{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span>
+						<div class="student-card-footer">
+							<span class="text-xs text-gray-500">{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span>
 							<div class="row-actions flex flex-nowrap items-center gap-2"><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button><RowMenu items={rowItems(s)} label={'Actions for ' + fullName(s)} /></div>
 						</div>
-					</div>
+					</article>
 				{/each}
 			</div>
-			<!-- Desktop table -->
-			<div class="admin-table-wrap student-table-wrap hidden xl:block">
+			<div class="student-table-wrap hidden lg:block">
 				<table class="admin-table admin-table--students">
 					<colgroup>
 						<col class="student-col-name" />
-						<col class="student-col-id" />
 						<col class="student-col-program" />
-						<col class="student-col-type" />
-						<col class="student-col-school-year" />
-						<col class="student-col-email-status" />
-						<col class="student-col-id-status" />
+						<col class="student-col-status" />
 						<col class="student-col-registered" />
 						<col class="student-col-actions" />
 					</colgroup>
 					<thead>
 						<tr>
 							<th scope="col">Student</th>
-							<th scope="col">Student ID</th>
 							<th scope="col">Program</th>
-							<th scope="col">Type</th>
-							<th scope="col">Last S.Y.</th>
-							<th scope="col">Email status</th>
-							<th scope="col">ID Status</th>
+							<th scope="col">Status</th>
 							<th scope="col">Registered</th>
 							<th scope="col" class="actions-header">Actions</th>
 						</tr>
@@ -517,30 +516,24 @@
 							<tr>
 								<td>
 									<p class="font-medium text-gray-800">{@html highlight(fullName(s), search.trim())}</p>
-									<p class="text-xs text-gray-400 mt-0.5">{@html highlight(s.email, search.trim())}</p>
-								</td>
-								<td class="student-id">
-									<span class="font-mono text-xs text-gray-500">{@html highlight(s.student_id, search.trim())}</span>
+									<p class="student-table-id font-mono text-xs text-gray-500">{@html highlight(s.student_id, search.trim())}</p>
+									<p class="student-email text-xs text-gray-400" title={s.email}>{@html highlight(s.email, search.trim())}</p>
 								</td>
 								<td class="program-column">
-									<span class="program-value block text-gray-700" title={s.program ?? ''}>{@html highlight(s.program, search.trim())}</span>
-								</td>
-								<td class="student-type">
-									{#if s.student_type}
-										<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium {typeColors[s.student_type] ?? 'bg-gray-100 text-gray-600 border border-gray-200'}">
-											{s.student_type}
-										</span>
-									{:else}
-										<span class="text-gray-400">—</span>
-									{/if}
-								</td>
-								<td class="school-year">
-									{s.last_school_year ?? '—'}
+									<span class="student-program program-value text-gray-700">{@html highlight(s.program, search.trim())}</span>
+									<div class="student-program-meta">
+										{#if s.student_type}
+											<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {typeColors[s.student_type] ?? 'bg-gray-100 text-gray-600 border border-gray-200'}">{s.student_type}</span>
+										{:else}<span class="text-xs text-gray-400">—</span>{/if}
+										<span class="text-xs text-gray-500">S.Y. {s.last_school_year ?? '—'}</span>
+									</div>
 								</td>
 								<td>
-									<StatusChip value={s.verified} kind="email" />
+									<div class="student-status-list">
+										<div><span>Email</span><StatusChip value={s.verified} kind="email" size="sm" /></div>
+										<div><span>ID</span><StatusChip value={s.id_status} kind="id" size="sm" /></div>
+									</div>
 								</td>
-								<td><StatusChip value={s.id_status} kind="id" /></td>
 								<td class="registered">
 									{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
@@ -804,3 +797,217 @@
 <ConfirmDialog open={!!revokeTarget} title="Revoke verification" message={'Revoke student ID verification for ' + (revokeTarget ? fullName(revokeTarget) : 'this student') + '? The student will need another office review.'} requireReason minLength={10} confirmLabel="Revoke verification" loading={revokeSaving} error={revokeError} onclose={() => revokeTarget = null} onconfirm={confirmRevoke} />
 <ConfirmDialog open={rejecting} title="Reject student ID" message={'Reject student ID verification for ' + (reviewStudent ? fullName(reviewStudent) : 'this student') + '?'} requireReason minLength={10} confirmLabel="Reject student ID" loading={reviewing} error={reviewError} onclose={() => rejecting = false} onconfirm={reason => { rejectReason = reason; void decideId('reject'); }} />
 {/if}
+
+<style>
+	.filter-control-label {
+		display: grid;
+		gap: 6px;
+		color: #4b5563;
+		font-size: 14px;
+		font-weight: 500;
+	}
+
+	.student-results {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.student-filter-controls {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+	}
+
+	.student-cards {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.student-card {
+		display: grid;
+		gap: 12px;
+		min-width: 0;
+	}
+
+	.student-identity,
+	.student-card-program {
+		min-width: 0;
+	}
+
+	.student-identity > p:first-child {
+		overflow-wrap: anywhere;
+	}
+
+	.student-card-id,
+	.student-table-id {
+		margin-top: 2px;
+		white-space: nowrap;
+		overflow-wrap: normal;
+	}
+
+	.student-email {
+		display: block;
+		min-width: 0 !important;
+		margin-top: 2px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap !important;
+		overflow-wrap: normal !important;
+	}
+
+	.student-card-meta,
+	.student-program-meta {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 8px;
+		margin-top: 6px;
+	}
+
+	.student-card-statuses,
+	.student-status-list {
+		display: grid;
+		gap: 6px;
+	}
+
+	.student-card-statuses > div,
+	.student-status-list > div {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.student-card-statuses > div > span:first-child,
+	.student-status-list > div > span:first-child {
+		flex: 0 0 32px;
+		color: #6b7280;
+		font-size: 11px;
+	}
+
+	.student-card-statuses :global(.status-chip),
+	.student-status-list :global(.status-chip) {
+		flex-shrink: 0;
+	}
+
+	.student-status-list > div {
+		gap: 4px;
+	}
+
+	.student-status-list :global(.status-chip) {
+		gap: 4px;
+		padding-inline: 4px;
+		font-size: 10px;
+	}
+
+	.student-card-footer {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		padding-top: 10px;
+		border-top: 1px solid #edf1ee;
+	}
+
+	.student-table-wrap {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		overflow: visible;
+	}
+
+	:global(.staff-portal .portal-main table.admin-table--students) {
+		width: 100%;
+		min-width: 0 !important;
+		table-layout: fixed;
+		border-collapse: collapse;
+	}
+
+	:global(.staff-portal .portal-main table.admin-table--students col.student-col-name) { width: 28% !important; }
+	:global(.staff-portal .portal-main table.admin-table--students col.student-col-program) { width: 28% !important; }
+	:global(.staff-portal .portal-main table.admin-table--students col.student-col-status) { width: 18% !important; }
+	:global(.staff-portal .portal-main table.admin-table--students col.student-col-registered) { width: 12% !important; }
+	:global(.staff-portal .portal-main table.admin-table--students col.student-col-actions) { width: 14% !important; }
+
+	:global(.student-table-wrap .admin-table--students th) {
+		position: sticky;
+		top: 0;
+		z-index: 3;
+	}
+
+	:global(.student-table-wrap .admin-table--students th),
+	:global(.student-table-wrap .admin-table--students td) {
+		padding: 10px 8px;
+		overflow-wrap: normal;
+	}
+
+	:global(.student-table-wrap .admin-table--students tbody tr) {
+		min-height: 64px;
+		border-bottom: 1px solid #edf1ee;
+	}
+
+	:global(.student-table-wrap .admin-table--students tbody tr:hover) {
+		background: #f8fbf9;
+	}
+
+	:global(.student-table-wrap .admin-table--students tbody td) {
+		min-height: 64px;
+	}
+
+	:global(.student-table-wrap .admin-table--students .student-email),
+	:global(.student-table-wrap .admin-table--students .student-table-id) {
+		min-width: 0 !important;
+		white-space: nowrap !important;
+		overflow-wrap: normal !important;
+	}
+
+	:global(.student-table-wrap .admin-table--students .program-value) {
+		display: block !important;
+		min-width: 0;
+		max-width: none !important;
+		overflow: visible !important;
+		white-space: normal;
+		overflow-wrap: anywhere;
+		-webkit-line-clamp: unset !important;
+	}
+
+	:global(.student-table-wrap .admin-table--students .registered) {
+		white-space: nowrap;
+		overflow-wrap: normal;
+		font-size: 11px;
+	}
+
+	:global(.student-table-wrap .admin-table--students .actions-header),
+	:global(.student-table-wrap .admin-table--students .actions-cell) {
+		text-align: right;
+		white-space: nowrap;
+	}
+
+	:global(.student-table-wrap .admin-table--students .action-buttons) {
+		gap: 2px;
+	}
+
+	:global(.student-table-wrap .admin-table--students .action-buttons > :first-child :is(a, button)) {
+		min-width: 0 !important;
+		padding-inline: 4px;
+	}
+
+	:global(.student-table-wrap .admin-table--students .action-buttons > :last-child .row-menu-trigger) {
+		min-width: 28px;
+	}
+
+	:global(.student-results :is(button, input, select, a):focus-visible) {
+		outline: 2px solid #18804b;
+		outline-offset: 2px;
+		box-shadow: 0 0 0 3px rgb(24 128 75 / 18%);
+	}
+
+	@media (max-width: 767px) {
+		.student-filter-controls:not(.filters-expanded) {
+			display: none !important;
+		}
+
+		.student-filter-controls.filters-expanded {
+			display: grid !important;
+		}
+	}
+</style>

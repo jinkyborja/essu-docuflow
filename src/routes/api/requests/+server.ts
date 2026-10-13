@@ -9,7 +9,7 @@ import { JWT_SECRET } from '$env/static/private';
 import { fetchRequestItems, documentNameSummary } from '$lib/server/request-items';
 import { validateUpload } from '$lib/server/upload-validation';
 import { readRequirementUploads, validatePreparedRequirementFile, assertPreparedUploadsUnused, RequirementUploadError } from '$lib/server/requirement-uploads';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 export const GET: RequestHandler = async ({ cookies, url }) => {
 	const token = cookies.get('session');
@@ -100,8 +100,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	}
 	const idMarks = documentIds.map(() => '?').join(',');
 	stage = 'validate_documents';
-	const [activeDocs] = await pool.execute(`SELECT document_id FROM documents WHERE document_id IN (${idMarks})`, documentIds);
-	if ((activeDocs as Array<{document_id:number}>).length !== documentIds.length) return json({ error: 'One or more selected documents are unavailable.', code: 'DOCUMENT_UNAVAILABLE', message: 'One or more selected documents are unavailable.' }, { status: 400 });
+	const [activeDocs] = await pool.execute(`SELECT document_id, name FROM documents WHERE document_id IN (${idMarks})`, documentIds);
+	const activeDocuments = activeDocs as Array<{ document_id: number; name: string }>;
+	if (activeDocuments.length !== documentIds.length) return json({ error: 'One or more selected documents are unavailable.', code: 'DOCUMENT_UNAVAILABLE', message: 'One or more selected documents are unavailable.' }, { status: 400 });
+	const documentNames = documentIds.map((id) => activeDocuments.find((document) => document.document_id === id)!.name);
 	stage = 'load_requirements';
 	const [requirementRows] = await pool.execute(
 		`SELECT rq.name, rq.description, MAX(dr.in_person) AS in_person, MIN(dr.sort_order) AS sort_order
@@ -211,7 +213,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		for (const documentId of documentIds) await conn.execute('INSERT INTO request_items (request_id, document_id) VALUES (?, ?)', [requestId, documentId]);
 		stage = 'replace_request_requirements';
 		await replaceRequestRequirements(conn, requestId, reqs);
-		await logActivity(conn, { actor: payload, action: 'request.submitted', entityType: 'request', entityId: requestId, summary: `Submitted request ${requestId}`, details: { changedFields: ['request', 'request items', 'requirements'] } });
+		await logActivitySafely(conn, { actor: payload, action: 'request.submitted', entityType: 'request', entityId: requestId, summary: `Submitted request ${requestId}: ${documentNames.join(', ')}`, details: { ids: documentIds, changedFields: ['request', 'request items', 'requirements'] } });
 		stage = 'commit';
 		await conn.commit();
 		transactionOpen = false;
@@ -292,7 +294,7 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	}
 	try {
 		const conn = await pool.getConnection();
-		try { await logActivity(conn, { actor: payload, action: 'request.deleted', entityType: 'request', entityId: request_id, summary: `Deleted request ${request_id}`, details: { changedFields: ['request', 'request history'] } }); }
+		try { await logActivitySafely(conn, { actor: payload, action: 'request.deleted', entityType: 'request', entityId: request_id, summary: `Deleted request ${request_id}`, details: { changedFields: ['request', 'request history'] } }); }
 		finally { conn.release(); }
 	} catch (error) { console.error('Could not write request deletion activity:', error); }
 

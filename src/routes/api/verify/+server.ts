@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifyJwt } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 export const GET: RequestHandler = async ({ url }) => {
 	const token = url.searchParams.get('token');
@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		if (user && (result as { affectedRows: number }).affectedRows > 0) {
 			try {
 				const conn = await pool.getConnection();
-				try { await logActivity(conn, { actor: { userId: user.user_id, role: user.role }, action: 'account.email.verified', entityType: 'account', entityId: user.user_id, summary: `Verified email for account #${user.user_id}`, details: { changedFields: ['verified'] } }); }
+				try { await logActivitySafely(conn, { actor: { userId: user.user_id, role: user.role }, action: 'account.email.verified', entityType: 'account', entityId: user.user_id, summary: `Verified email for account #${user.user_id}`, details: { changedFields: ['verified'] } }); }
 				finally { conn.release(); }
 			} catch (error) { console.error('Could not write email verification activity:', error); }
 		}

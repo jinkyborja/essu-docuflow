@@ -12,7 +12,7 @@ import { STUDENT_ID_PHOTO_MAX_SIZE, validateStudentIdPhotoMetadata } from '$lib/
 import { readSignupIdPhotoUploadToken, validateSignupPhotoIdentity } from '$lib/server/signup-id-photo';
 import { supabase } from '$lib/server/supabase';
 import { validateUpload } from '$lib/server/upload-validation';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json().catch(() => null);
@@ -90,7 +90,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				['New student awaiting ID verification', admin.user_id]
 			);
 		}
-		await logActivity(conn, { actor: { userId, role: 'Student' }, action: 'student.registered', entityType: 'student', entityId: userId, summary: `Created student account #${userId}`, details: { changedFields: ['student account', 'role', 'email', 'password', 'student_id', 'program', 'student_type', 'id_photo'] } });
+		await logActivitySafely(conn, { actor: { userId, role: 'Student' }, action: 'student.registered', entityType: 'student', entityId: userId, summary: `Created student account #${userId}`, details: { changedFields: ['student account', 'role', 'email', 'password', 'student_id', 'program', 'student_type', 'id_photo'] } });
 		await conn.commit(); transactionOpen = false;
 	} catch (error) {
 		if (conn && transactionOpen) await conn.rollback();

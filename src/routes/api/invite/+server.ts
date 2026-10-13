@@ -4,7 +4,7 @@ import { verifySession, signJwt } from '$lib/server/jwt';
 import { sendEmail } from '$lib/server/email';
 import { JWT_SECRET } from '$env/static/private';
 import pool from '$lib/server/db';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const token = cookies.get('session');
@@ -52,7 +52,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	});
 	try {
 		const conn = await pool.getConnection();
-		try { await logActivity(conn, { actor: caller, action: 'staff.invited', entityType: 'staff', entityId: null, summary: `Sent a ${role} invitation`, details: { changedFields: ['invitation', 'role'] } }); }
+		try { await logActivitySafely(conn, { actor: caller, action: 'staff.invited', entityType: 'staff', entityId: null, summary: `Sent a ${role} invitation`, details: { changedFields: ['invitation', 'role'] } }); }
 		finally { conn.release(); }
 	} catch (error) { console.error('Could not write staff invitation activity:', error); }
 

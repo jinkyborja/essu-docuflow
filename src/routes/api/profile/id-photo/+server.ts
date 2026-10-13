@@ -8,7 +8,7 @@ import { STUDENT_ID_PHOTO_MAX_SIZE, STUDENT_ID_PHOTO_URL_TTL, validateStudentIdP
 import { validateUpload } from '$lib/server/upload-validation';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
@@ -110,7 +110,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		}
 		previousPath = locked.id_photo_path;
 		await conn.execute("UPDATE users SET id_photo_path = ?, id_photo_uploaded_at = ?, id_status = 'pending' WHERE user_id = ? AND role = 'Student'", [path, uploadedAt, actor.userId]);
-		await logActivity(conn, { actor, action: 'student.id_photo.replaced', entityType: 'student', entityId: actor.userId, summary: `Updated ID photo for student #${actor.userId}`, details: { changedFields: ['id_photo_path', 'id_photo_uploaded_at', 'id_status'] } });
+		await logActivitySafely(conn, { actor, action: 'student.id_photo.replaced', entityType: 'student', entityId: actor.userId, summary: `Updated ID photo for student #${actor.userId}`, details: { changedFields: ['id_photo_path', 'id_photo_uploaded_at', 'id_status'] } });
 		await conn.commit();
 		transactionOpen = false;
 		saved = true;

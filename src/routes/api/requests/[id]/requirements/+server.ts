@@ -8,7 +8,7 @@ import { JWT_SECRET } from '$env/static/private';
 import { validateUpload } from '$lib/server/upload-validation';
 import { canUpdateRequirementFiles, requirementNeedsCorrection } from '$lib/requirement-files';
 import { readRequirementUploads, validatePreparedRequirementFile, assertPreparedUploadsUnused, RequirementUploadError } from '$lib/server/requirement-uploads';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	const token = cookies.get('session');
@@ -133,7 +133,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 			['Pending', params.id]
 		);
 		await conn.execute('INSERT INTO request_status_history (request_id, old_status, new_status, changed_by) VALUES (?, ?, ?, ?)', [params.id, initialStatus, 'Pending', payload.userId]);
-		await logActivity(conn, { actor: payload, action: 'request.files_replaced', entityType: 'request', entityId: params.id, summary: `Replaced files for request ${params.id}`, details: { changedFields: ['requirements', 'status'] } });
+		await logActivitySafely(conn, { actor: payload, action: 'request.files_replaced', entityType: 'request', entityId: params.id, summary: `Replaced files for request ${params.id}`, details: { changedFields: ['requirements', 'status'] } });
 		await conn.commit();
 		saved = true;
 	} catch (err) {

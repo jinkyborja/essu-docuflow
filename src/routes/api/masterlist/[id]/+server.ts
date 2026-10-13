@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { requireMasterlistAdmin } from '$lib/server/masterlist';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 export const DELETE: RequestHandler = async ({ cookies, params }) => {
 	const actor = await requireMasterlistAdmin(cookies);
 	if (!/^\d+$/.test(params.id) || !Number.isSafeInteger(Number(params.id)) || Number(params.id) < 1) return json({ error: 'Invalid row ID' }, { status: 400 });
@@ -10,7 +10,7 @@ export const DELETE: RequestHandler = async ({ cookies, params }) => {
 	if (!(result as { affectedRows: number }).affectedRows) return json({ error: 'Row not found' }, { status: 404 });
 	try {
 		const conn = await pool.getConnection();
-		try { await logActivity(conn, { actor, action: 'masterlist.entry.deleted', entityType: 'masterlist', entityId: params.id, summary: `Deleted masterlist entry #${params.id}`, details: { changedFields: ['masterlist entry'] } }); }
+		try { await logActivitySafely(conn, { actor, action: 'masterlist.entry.deleted', entityType: 'masterlist', entityId: params.id, summary: `Deleted masterlist entry #${params.id}`, details: { changedFields: ['masterlist entry'] } }); }
 		finally { conn.release(); }
 	} catch (error) { console.error('Could not write masterlist deletion activity:', error); }
 	return json({ success: true });

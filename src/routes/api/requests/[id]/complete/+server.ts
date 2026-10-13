@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 export const POST: RequestHandler = async ({ cookies, request, params }) => {
 	const token = cookies.get('session'); if (!token) return json({error:'Unauthorized'}, {status:401});
 	let actor; try { actor = await verifySession(token, JWT_SECRET); } catch { return json({error:'Unauthorized'}, {status:401}); }
@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ cookies, request, params }) => {
 		const [existing] = await conn.execute("SELECT history_id FROM request_status_history WHERE request_id = ? AND new_status = 'Completed'", [params.id]);
 		if ((existing as unknown[]).length) { await conn.rollback(); return json({error:'This request has already been marked as released.'}, {status:409}); }
 		await conn.execute('INSERT INTO request_status_history (request_id, old_status, new_status, changed_by) VALUES (?, ?, ?, ?)', [params.id,'Approved','Completed',actor.userId]);
-		await logActivity(conn, { actor, action: 'request.released', entityType: 'request', entityId: params.id, summary: `Released request ${params.id}`, details: { changedFields: ['status'] } });
+		await logActivitySafely(conn, { actor, action: 'request.released', entityType: 'request', entityId: params.id, summary: `Released request ${params.id}`, details: { changedFields: ['status'] } });
 		await conn.commit(); return json({success:true});
 	} catch (e) { await conn.rollback(); console.error('Record delivery failed',e); return json({error:'Could not mark the request as released.'}, {status:500}); }
 	finally { conn.release(); }

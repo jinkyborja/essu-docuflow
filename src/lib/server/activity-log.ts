@@ -79,6 +79,14 @@ export async function logActivity(conn: PoolConnection, input: ActivityInput): P
 	);
 }
 
+export async function logActivitySafely(conn: PoolConnection, input: ActivityInput): Promise<void> {
+	try {
+		await logActivity(conn, input);
+	} catch (error) {
+		console.error(`Could not write ${input.action} activity:`, error);
+	}
+}
+
 export function activityDateKey(date = new Date()): string {
 	const parts = new Intl.DateTimeFormat('en-US', {
 		timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit'

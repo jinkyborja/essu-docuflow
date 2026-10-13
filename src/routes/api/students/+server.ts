@@ -6,7 +6,7 @@ import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateSchoolYear } from '$lib/school-year';
 import { isCampus } from '$lib/data/campuses';
-import { logActivity } from '$lib/server/activity-log';
+import { logActivitySafely } from '$lib/server/activity-log';
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
@@ -78,8 +78,8 @@ export const PATCH: RequestHandler = async ({ request, cookies }) => {
 		try {
 			const conn = await pool.getConnection();
 			try {
-				await logActivity(conn, { actor: payload, action: 'student.edited', entityType: 'student', entityId: user_id, summary: `Updated student #${user_id}`, details: { changedFields } });
-				if (changedFields.includes('email')) await logActivity(conn, { actor: payload, action: 'account.email.changed', entityType: 'student', entityId: user_id, summary: `Changed email for student #${user_id}`, details: { changedFields: ['email'] } });
+				await logActivitySafely(conn, { actor: payload, action: 'student.edited', entityType: 'student', entityId: user_id, summary: `Updated student #${user_id}`, details: { changedFields } });
+				if (changedFields.includes('email')) await logActivitySafely(conn, { actor: payload, action: 'account.email.changed', entityType: 'student', entityId: user_id, summary: `Updated email for student #${user_id}`, details: { changedFields: ['email'] } });
 			} finally { conn.release(); }
 		} catch (error) { console.error('Could not write student edit activity:', error); }
 	}
@@ -147,7 +147,7 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 		for (const r of requests) {
 			if (r.approved_file_path) filePaths.push(r.approved_file_path as string);
 		}
-		await logActivity(conn, { actor: payload, action: 'student.deleted', entityType: 'student', entityId: user_id, summary: `Deleted student #${user_id}`, details: { changedFields: ['student account', 'requests', 'request history'] } });
+		await logActivitySafely(conn, { actor: payload, action: 'student.deleted', entityType: 'student', entityId: user_id, summary: `Deleted student #${user_id}`, details: { changedFields: ['student account', 'requests', 'request history'] } });
 
 		if (requests.length > 0) {
 			const ids = requests.map((r) => r.request_id as string);
