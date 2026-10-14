@@ -265,7 +265,7 @@
 {/if}
 
 <!-- Edit Modal -->
-<Modal open={editOpen} title="Edit Staff Member" size="sm" onclose={() => { if (!editSaving) editOpen = false; }}>
+<Modal open={editOpen} title="Edit Staff Member" size="sm" mobileCentered onclose={() => { if (!editSaving) editOpen = false; }}>
 	{#snippet body()}
 		{#if editMember}
 			<form id="edit-staff-form" onsubmit={handleEdit} class="space-y-4">
