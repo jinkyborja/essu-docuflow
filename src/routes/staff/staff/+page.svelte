@@ -184,7 +184,7 @@
 						<div class="w-full border-t border-gray-100 pt-3">
 						<p class="mb-3 text-xs text-gray-500">Joined {new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
 							{#if member.role === 'Staff' && member.user_id !== currentUserId}
-								<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, onselect: () => openDelete(member)}]}>
+							<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete staff', icon: 'fa-solid fa-trash', danger: true, onselect: () => openDelete(member)}]}>
 									<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
 								</ActionMenu>
 							{:else}
@@ -244,7 +244,7 @@
 								</td>
 								<td class="actions-cell">
 									{#if member.role === 'Staff' && member.user_id !== currentUserId}
-										<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, onselect: () => openDelete(member)}]}>
+										<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete staff', icon: 'fa-solid fa-trash', danger: true, onselect: () => openDelete(member)}]}>
 											<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
 										</ActionMenu>
 									{:else}

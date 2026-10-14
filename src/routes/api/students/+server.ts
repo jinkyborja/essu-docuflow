@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
-import { supabase } from '$lib/server/supabase';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
 import { validateSchoolYear } from '$lib/school-year';
@@ -104,87 +103,55 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	const { user_id } = await request.json();
 	if (!user_id) return json({ error: 'Missing user_id' }, { status: 400 });
 
-	// Confirm the target is actually a student before touching anything.
-	const [targetRows] = await pool.execute(
-		`SELECT user_id FROM users WHERE user_id = ? AND role = 'Student'`,
-		[user_id]
-	);
-	if ((targetRows as unknown[]).length === 0) {
-		return json({ error: 'Student not found' }, { status: 404 });
-	}
-
-	// requests.student_id and request_status_history.request_id both have foreign
-	// keys, so a bare DELETE on users fails for any student who ever made a
-	// request. Remove the dependent rows first, inside a transaction.
 	const conn = await pool.getConnection();
-	let filePaths: string[] = [];
-	let deletedRequests = 0;
 	try {
 		await conn.beginTransaction();
-		// Lock the account while collecting and deleting its requests.
 		const [lockedRows] = await conn.execute("SELECT user_id FROM users WHERE user_id = ? AND role = 'Student' FOR UPDATE", [user_id]);
 		if ((lockedRows as unknown[]).length === 0) {
 			await conn.rollback();
 			return json({ error: 'Student not found' }, { status: 404 });
 		}
-		const [reqRows] = await conn.execute(
-			'SELECT request_id, approved_file_path, archived_at FROM requests WHERE student_id = ? FOR UPDATE',
+		const [requestRows] = await conn.execute(
+			'SELECT request_id FROM requests WHERE student_id = ? FOR UPDATE',
 			[user_id]
 		);
-		const requests = reqRows as Record<string, unknown>[];
-		if (requests.some(row => row.archived_at)) {
+		if ((requestRows as unknown[]).length > 0) {
 			await conn.rollback();
-			return json({ error: 'This student has archived requests that must be retained.' }, { status: 409 });
+			return json({
+				error: 'This student has requests on record and cannot be deleted. Their history must stay intact.'
+			}, { status: 409 });
 		}
 
-		// Collect the student's uploaded files so storage doesn't keep orphans.
-		const requestIds = requests.map((r) => r.request_id as string);
-		// Use the checked-out connection: a pool query here waits forever when
-		// the pool has only one connection.
-		if (requestIds.length > 0) {
-			const marks = requestIds.map(() => '?').join(',');
-			const [fileRows] = await conn.execute(
-				`SELECT file_path FROM request_requirements WHERE request_id IN (${marks}) AND file_path IS NOT NULL`, requestIds
-			);
-			filePaths = (fileRows as Array<{ file_path: string }>).map(row => row.file_path);
+		const [historyRows] = await conn.execute(
+			'SELECT history_id FROM request_status_history WHERE changed_by = ? OR notification_user_id = ? LIMIT 1',
+			[user_id, user_id]
+		);
+		if ((historyRows as unknown[]).length > 0) {
+			await conn.rollback();
+			return json({
+				error: 'This student has activity history that must be retained and cannot be deleted.'
+			}, { status: 409 });
 		}
-		for (const r of requests) {
-			if (r.approved_file_path) filePaths.push(r.approved_file_path as string);
-		}
-		await logActivitySafely(conn, { actor: payload, action: 'student.deleted', entityType: 'student', entityId: user_id, summary: `Deleted student #${user_id}`, details: { changedFields: ['student account', 'requests', 'request history'] } });
-
-		if (requests.length > 0) {
-			const ids = requests.map((r) => r.request_id as string);
-			const marks = ids.map(() => '?').join(',');
-			await conn.execute(
-				`DELETE FROM request_status_history WHERE request_id IN (${marks})`,
-				ids
-			);
-			// Status changes made by this user on any request (not just their own).
-			await conn.execute('DELETE FROM request_status_history WHERE changed_by = ?', [user_id]);
-			await conn.execute(`DELETE FROM requests WHERE student_id = ?`, [user_id]);
-		} else {
-			await conn.execute('DELETE FROM request_status_history WHERE changed_by = ?', [user_id]);
-		}
+		await logActivitySafely(conn, {
+			actor: payload,
+			action: 'student.deleted',
+			entityType: 'student',
+			entityId: user_id,
+			summary: `Deleted student #${user_id}`,
+			details: { changedFields: ['student account'] }
+		});
 		await conn.execute(`DELETE FROM users WHERE user_id = ? AND role = 'Student'`, [user_id]);
 		await conn.commit();
-		deletedRequests = requests.length;
 	} catch (err) {
-		await conn.rollback();
+		try {
+			await conn.rollback();
+		} catch (rollbackError) {
+			console.error('Student delete rollback failed:', rollbackError);
+		}
 		console.error('Student delete failed:', err);
 		return json({ error: 'Could not delete student. Please try again.' }, { status: 500 });
 	} finally {
 		conn.release();
 	}
-	// Do not hold the only DB connection during an external storage request.
-	// Cleanup failure must not turn an already committed deletion into an error.
-	if (filePaths.length > 0) {
-		try {
-			const { error: storageError } = await supabase.storage.from('requirements').remove([...new Set(filePaths)]);
-			if (storageError) console.error('Storage cleanup failed after student delete:', storageError);
-		} catch (err) {
-			console.error('Storage cleanup failed after student delete:', err);
-		}
-	}
-	return json({ success: true, deleted_requests: deletedRequests });
+	return json({ success: true });
 };

@@ -255,44 +255,18 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ request, cookies }) => {
+export const DELETE: RequestHandler = async ({ cookies }) => {
 	const token = cookies.get('session');
 	if (!token) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	let payload: { userId: number; role: string };
 	try {
 		payload = (await verifySession(token, JWT_SECRET));
-	} catch {
+	} catch (error) {
+		console.error('Request deletion authorization failed:', error);
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 	if (payload.role === 'Student') return json({ error: 'Forbidden' }, { status: 403 });
 
-	const body = await request.json().catch(() => null) as { request_id?: string } | null;
-	const request_id = typeof body?.request_id === 'string' ? body.request_id : '';
-	if (!request_id) return json({ error: 'Missing request_id.' }, { status: 400 });
-
-	const conn = await pool.getConnection();
-	let paths: string[] = [];
-	try {
-		await conn.beginTransaction();
-		const [rows] = await conn.execute('SELECT approved_file_path, archived_at FROM requests WHERE request_id = ? FOR UPDATE', [request_id]);
-		const row = (rows as Array<{approved_file_path:string|null;archived_at:unknown}>)[0];
-		if (!row) { await conn.rollback(); return json({error:'Request not found'}, {status:404}); }
-		if (row.archived_at) { await conn.rollback(); return json({error:'Archived requests must be retained.'}, {status:409}); }
-		const [files] = await conn.execute('SELECT file_path FROM request_requirements WHERE request_id = ? AND file_path IS NOT NULL', [request_id]);
-		paths = (files as Array<{file_path:string}>).map(file => file.file_path);
-		if (row.approved_file_path) paths.push(row.approved_file_path);
-		await conn.execute('DELETE FROM request_status_history WHERE request_id = ?', [request_id]);
-		await conn.execute('DELETE FROM requests WHERE request_id = ?', [request_id]);
-		await logActivitySafely(conn, { actor: payload, action: 'request.deleted', entityType: 'request', entityId: request_id, summary: 'Deleted request ' + request_id, details: { changedFields: ['request', 'request history'] } });
-		await conn.commit();
-	} catch (error) {
-		await conn.rollback(); console.error('Request deletion failed:', error);
-		return json({error:'Could not delete the request.'}, {status:500});
-	} finally { conn.release(); }
-	if (paths.length) {
-		try { const {error} = await supabase.storage.from('requirements').remove([...new Set(paths)]); if(error) console.error('Request storage cleanup failed:',error.message); }
-		catch(error) { console.error('Request storage cleanup failed:',error); }
-	}
-	return json({ success: true });
+	return json({ error: 'Requests cannot be deleted. Cancel or archive instead.' }, { status: 405 });
 };
