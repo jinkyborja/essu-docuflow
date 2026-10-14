@@ -183,7 +183,6 @@
 </script>
 
 <div class="staff-profile-page max-w-4xl mx-auto space-y-5">
-	<!-- Profile header -->
 	<div class="profile-header bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
 		<div class="flex items-center gap-5">
 			<div class="w-20 h-20 rounded-2xl bg-essu-green/10 border border-essu-green/20 flex items-center justify-center text-2xl font-bold text-essu-green shrink-0">

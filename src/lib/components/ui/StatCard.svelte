@@ -7,9 +7,10 @@
 		color?: 'green' | 'blue' | 'orange' | 'red' | 'purple' | 'teal' | 'gold';
 		trend?: { value: number; label?: string };
 		subtitle?: string;
+		actionIndicator?: boolean;
 	}
 
-	const { label, value, icon, color = 'green', trend, subtitle }: Props = $props();
+	const { label, value, icon, color = 'green', trend, subtitle, actionIndicator = false }: Props = $props();
 
 	const colorMap: Record<string, { bg: string; icon: string; trend: string }> = {
 		green: { bg: 'bg-green-50', icon: 'bg-green-100 text-essu-green-mid', trend: 'text-green-600' },
@@ -25,8 +26,8 @@
 </script>
 
 <Card class="ui-stat-card flex items-center gap-4" hover>
-	<div class="shrink-0 w-12 h-12 rounded-xl {colors.icon} flex items-center justify-center">
-		<i class="{icon} text-xl"></i>
+	<div class="stat-icon shrink-0 w-12 h-12 rounded-xl {colors.icon} flex items-center justify-center">
+		<i class="{icon} text-xl" aria-hidden="true"></i>
 	</div>
 	<div class="flex-1 min-w-0">
 		<p class="text-sm text-gray-500">{label}</p>
@@ -41,4 +42,9 @@
 			</p>
 		{/if}
 	</div>
+	{#if actionIndicator}<i class="fa-solid fa-chevron-right stat-action-indicator" aria-hidden="true"></i>{/if}
 </Card>
+
+<style>
+	.stat-action-indicator { flex: 0 0 auto; color: var(--color-text-muted); font-size: 0.75rem; }
+</style>

@@ -44,7 +44,7 @@
 	const collapsed = $derived($sidebarCollapsed);
 </script>
 
-<div class="portal-layout flex min-h-screen bg-gray-50">
+<div class="portal-layout student-portal flex min-h-screen bg-gray-50">
 	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Sidebar items={studentNav} role="student" user={data.layoutUser} />
 

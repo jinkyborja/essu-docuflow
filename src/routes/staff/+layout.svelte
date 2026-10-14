@@ -62,7 +62,7 @@
 	>
 		<TopBar role="staff" userRole={data.role} user={data.layoutUser} {unread} />
 
-		<main id="main-content" tabindex="-1" class="portal-main">
+		<main id="main-content" tabindex="-1" class="portal-main" class:dashboard={$page.url.pathname === '/staff/dashboard'}>
 			<PageIntro title={pageTitle} role="staff" />
 			{#if $navigating}<LoadingState label="Loading your workspace…" />{:else}{@render children()}{/if}
 		</main>

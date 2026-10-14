@@ -149,7 +149,7 @@ task:    { icon: 'fa-solid fa-clipboard-list',       color: 'text-purple-600', b
 </script>
 
 <div class="staff-notifications space-y-5">
-	<div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+	<div class="notification-toolbar flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
 		<div class="flex items-center gap-2 flex-wrap">
 			{#each filterOptions as opt}
 				<button

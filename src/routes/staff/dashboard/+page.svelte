@@ -24,43 +24,106 @@
 </script>
 
 <style>
+	.staff-dashboard-page { display: grid; gap: 0.75rem; }
+	.dashboard-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
+	.dashboard-stat-link { display: block; min-width: 0; color: inherit; text-decoration: none; }
+	.dashboard-stat-link:focus-visible { border-radius: var(--radius-card); }
+	.staff-dashboard-page :global(.ui-stat-card) {
+		min-width: 0;
+		min-height: 5rem;
+		align-items: center;
+		flex-direction: row !important;
+		gap: 0.625rem !important;
+		padding: 0.625rem !important;
+	}
+	.staff-dashboard-page :global(.ui-stat-card .stat-icon) { width: 2.5rem; height: 2.5rem; border-radius: 0.625rem; }
+	.staff-dashboard-page :global(.ui-stat-card .stat-icon i) { font-size: 1rem; }
+	.staff-dashboard-page :global(.ui-stat-card > div:nth-child(2) > p:first-child) { font-size: 0.7rem; line-height: 1.25; }
+	.staff-dashboard-page :global(.ui-stat-card > div:nth-child(2) > p:nth-child(2)) { font-size: 1.25rem; line-height: 1.2; }
+	.staff-dashboard-page :global(.ui-stat-card > div:nth-child(2) > p:nth-child(3)) { font-size: 0.65rem; }
+	.staff-dashboard-page :global(.ui-stat-card .stat-action-indicator) { font-size: 0.65rem; }
+	.dashboard-verification-card {
+		display: flex;
+		min-width: 0;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border: 1px solid color-mix(in srgb, var(--color-primary) 12%, var(--color-border));
+		border-radius: var(--radius-card);
+		background: linear-gradient(105deg, color-mix(in srgb, var(--color-primary-soft) 76%, var(--color-surface)), var(--color-surface));
+		color: var(--color-text);
+	}
+	.dashboard-verification-icon {
+		display: grid;
+		width: 2.25rem;
+		height: 2.25rem;
+		flex: 0 0 auto;
+		place-items: center;
+		border-radius: 0.625rem;
+		background: var(--color-primary-soft);
+		color: var(--color-primary);
+		font-size: 0.9rem;
+	}
+	.dashboard-verification-copy { min-width: 0; flex: 1; }
+	.dashboard-verification-copy strong { display: block; font-size: 0.65rem; line-height: 1.3; }
+	.dashboard-verification-copy span { display: block; margin-top: 0.15rem; color: var(--color-text-muted); font-size: 0.625rem; line-height: 1.3; }
+	.dashboard-verification-action { flex: 0 0 auto; }
+	.dashboard-verification-action :global(.ui-button) { padding-inline: 0.5rem; font-size: 0.65rem; }
+	.dashboard-action-grid { display: grid; grid-template-columns: 1fr; gap: 0.625rem; }
+	.dashboard-action-card {
+		display: flex;
+		min-width: 0;
+		min-height: 4.25rem;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-card);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-card);
+		color: var(--color-text);
+		text-decoration: none;
+		transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+	}
+	.dashboard-action-card:hover { border-color: color-mix(in srgb, var(--color-primary) 32%, var(--color-border)); box-shadow: var(--shadow-raised); }
+	.dashboard-action-icon {
+		display: grid;
+		width: 2.5rem;
+		height: 2.5rem;
+		flex: 0 0 auto;
+		place-items: center;
+		border-radius: 0.625rem;
+		font-size: 1rem;
+	}
+	.dashboard-action-icon.ready { background: color-mix(in srgb, var(--color-success) 9%, var(--color-surface)); color: var(--color-success); }
+	.dashboard-action-icon.correction { background: color-mix(in srgb, var(--color-warning) 11%, var(--color-surface)); color: var(--color-warning); }
+	.dashboard-action-copy {
+		display: grid;
+		min-width: 0;
+		flex: 1;
+		grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.dashboard-action-copy strong { display: block; font-size: 0.7rem; line-height: 1.3; }
+	.dashboard-action-copy span { display: block; margin-top: 0.2rem; color: var(--color-text-muted); font-size: 0.625rem; line-height: 1.35; }
+	.dashboard-action-card.ready strong { color: var(--color-success); }
+	.dashboard-action-card.correction strong { color: var(--color-warning); }
+	.dashboard-action-chevron { flex: 0 0 auto; color: var(--color-text-muted); font-size: 0.7rem; }
+
+	@media (min-width: 640px) {
+		.dashboard-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	}
+	@media (max-width: 1023px) {
+		.dashboard-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	}
+	@media (max-width: 359px) {
+		.dashboard-stat-grid { grid-template-columns: 1fr; }
+		.staff-dashboard-page :global(.ui-stat-card) { min-height: 4.5rem; }
+		.dashboard-verification-card { flex-wrap: wrap; }
+		.dashboard-verification-action { margin-left: auto; }
+	}
 	@media (max-width: 640px) {
-		.staff-dashboard-page :global(.ui-stat-grid) {
-			display: grid !important;
-			grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-			gap: 1rem;
-		}
-
-		.staff-dashboard-page :global(.ui-stat-grid > *) {
-			display: block;
-			width: 100%;
-			min-width: 0;
-		}
-
-		.staff-dashboard-page :global(.ui-stat-card) {
-			width: 100%;
-			min-width: 0;
-			min-height: 106px;
-			padding: 1rem !important;
-			flex-direction: row;
-			align-items: center;
-			gap: 0.75rem !important;
-		}
-
-		.staff-dashboard-page :global(.ui-stat-card > div:first-child) {
-			width: 2.5rem;
-			height: 2.5rem;
-			margin-top: 0;
-		}
-
-		.staff-dashboard-page :global(.ui-stat-card > div:last-child > p:first-child) {
-			font-size: 0.8rem;
-		}
-
-		.staff-dashboard-page :global(.ui-stat-card > div:last-child > p:nth-child(2)) {
-			font-size: 1.25rem;
-		}
-
 		.dashboard-activity-title {
 			display: -webkit-box;
 			overflow: hidden;
@@ -68,12 +131,6 @@
 			line-clamp: 2;
 			-webkit-box-orient: vertical;
 			-webkit-line-clamp: 2;
-		}
-
-		.dashboard-quick-links {
-			display: grid;
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			gap: 0.5rem;
 		}
 
 		.dashboard-quick-links > a {
@@ -89,23 +146,42 @@
 	}
 </style>
 
-<div class="staff-dashboard-page space-y-6">
+<div class="staff-dashboard-page">
 	<!-- Stats -->
-	<div class="ui-stat-grid grid grid-cols-1 min-[360px]:grid-cols-2 xl:grid-cols-4 gap-4">
-		<a href="/staff/students" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Total Students"   value={data.counts.students} icon="fa-solid fa-users"         color="blue"   /></a>
-		<a href="/staff/requests" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Total Requests"   value={data.counts.requests} icon="fa-solid fa-file-lines"    color="teal"   /></a>
-		<a href="/staff/requests?status=Pending" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Pending Requests" value={data.counts.pending}  icon="fa-solid fa-clock"         color="orange" /></a>
-		<a href="/staff/requests?status=Approved" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Approved"         value={data.counts.approved} icon="fa-solid fa-circle-check"  color="green"  /></a>
+	<div class="dashboard-stat-grid ui-stat-grid">
+		<a href="/staff/students" class="dashboard-stat-link"><StatCard label="Total Students" value={data.counts.students} icon="fa-solid fa-users" color="blue" /></a>
+		<a href="/staff/requests" class="dashboard-stat-link"><StatCard label="Total Requests" value={data.counts.requests} icon="fa-solid fa-file-lines" color="teal" /></a>
+		<a href="/staff/requests?status=Pending" class="dashboard-stat-link"><StatCard label="Pending Requests" value={data.counts.pending} icon="fa-solid fa-clock" color="orange" actionIndicator /></a>
+		<a href="/staff/requests?status=Approved" class="dashboard-stat-link"><StatCard label="Approved" value={data.counts.approved} icon="fa-solid fa-circle-check" color="green" actionIndicator /></a>
 	</div>
 	{#if data.role === 'Admin'}
-		<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-5 py-4 {data.counts.pendingVerification > 0 ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-gray-200 bg-gray-50 text-gray-600'}">
-			<span class="font-semibold">Student IDs awaiting office verification</span><div class="flex items-center gap-3"><span class="rounded-full px-3 py-1 text-sm font-bold {data.counts.pendingVerification > 0 ? 'bg-amber-200' : 'bg-gray-200'}">{data.counts.pendingVerification}</span><Button href="/staff/students?status=pending" variant={data.counts.pendingVerification > 0 ? 'primary' : 'secondary'} size="sm">Review now</Button></div>
+		<div class="dashboard-verification-card">
+			<div class="dashboard-verification-icon" aria-hidden="true"><i class="fa-solid fa-graduation-cap"></i></div>
+			<div class="dashboard-verification-copy">
+				<strong>Student IDs awaiting office verification</strong>
+				<span>{data.counts.pendingVerification} {pluralize(data.counts.pendingVerification, 'student')} pending verification.</span>
+			</div>
+			<Button href="/staff/students?status=pending" variant="secondary" size="sm" class="dashboard-verification-action">Review now</Button>
 		</div>
 	{/if}
 
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-		<a href="/staff/requests?status=Approved&amp;delivery=waiting" class="rounded-xl border border-essu-green/20 bg-white p-4 text-sm text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingDelivery} {pluralize(data.counts.awaitingDelivery, 'request')} ready for release</strong><span class="block mt-1 text-xs text-gray-500">Open a request and mark it released after the student collects the document.</span></a>
-		<a href="/staff/requests?status=Correction%20Requested" class="rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-800 focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingCorrections} {pluralize(data.counts.awaitingCorrections, 'request')} awaiting student corrections</strong><span class="block mt-1 text-xs text-gray-500">Review outstanding corrections and office messages.</span></a>
+	<div class="dashboard-action-grid">
+		<a href="/staff/requests?status=Approved&amp;delivery=waiting" class="dashboard-action-card ready">
+			<span class="dashboard-action-icon ready" aria-hidden="true"><i class="fa-solid fa-file-lines"></i></span>
+			<span class="dashboard-action-copy">
+				<strong>{data.counts.awaitingDelivery} {pluralize(data.counts.awaitingDelivery, 'request')} ready for release</strong>
+				<span>Open a request and mark it released after the student collects the document.</span>
+			</span>
+			<i class="fa-solid fa-chevron-right dashboard-action-chevron" aria-hidden="true"></i>
+		</a>
+		<a href="/staff/requests?status=Correction%20Requested" class="dashboard-action-card correction">
+			<span class="dashboard-action-icon correction" aria-hidden="true"><i class="fa-solid fa-rotate-left"></i></span>
+			<span class="dashboard-action-copy">
+				<strong>{data.counts.awaitingCorrections} {pluralize(data.counts.awaitingCorrections, 'request')} awaiting student corrections</strong>
+				<span>Review outstanding corrections and office messages.</span>
+			</span>
+			<i class="fa-solid fa-chevron-right dashboard-action-chevron" aria-hidden="true"></i>
+		</a>
 	</div>
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
 		<!-- Requests needing office action -->

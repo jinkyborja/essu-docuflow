@@ -13,10 +13,9 @@
 		headerActions?: Snippet;
 		closeDisabled?: boolean;
 		descriptionId?: string;
-		mobileCentered?: boolean;
 	}
 
-	const { open, title, size = 'md', onclose, body, footer, headerActions, closeDisabled = false, descriptionId, mobileCentered = false }: Props = $props();
+	const { open, title, size = 'md', onclose, body, footer, headerActions, closeDisabled = false, descriptionId }: Props = $props();
 	const titleId = $props.id();
 	let panel = $state<HTMLDivElement>();
 
@@ -62,7 +61,7 @@
 {#if open}
 	<!-- Backdrop -->
 	<div
-		class="ui-modal-backdrop {mobileCentered ? 'ui-modal-backdrop-centered' : ''}"
+		class="ui-modal-backdrop"
 		role="presentation"
 		onclick={handleBackdrop}
 	>
@@ -110,5 +109,5 @@
 	.modal-body { flex: 1; overflow-y: auto; padding: var(--space-6); }
 	.modal-footer { display: flex; flex-shrink: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-3); padding: var(--space-4) var(--space-6); border-top: 1px solid var(--color-border); }
 	@starting-style { .ui-modal-backdrop { opacity: 0; } .ui-modal-panel { opacity: 0; transform: translateY(var(--space-2)); } }
-	@media (max-width: 639px) { .ui-modal-backdrop { align-items: flex-end; padding: 0; } .ui-modal-backdrop-centered { align-items: center; padding: var(--space-4); } .ui-modal-panel { max-height: 90dvh; border-radius: var(--radius-panel) var(--radius-panel) 0 0; } .ui-modal-backdrop-centered .ui-modal-panel { border-radius: var(--radius-panel); } .modal-header, .modal-footer, .modal-body { padding-left: var(--space-4); padding-right: var(--space-4); } }
+	@media (max-width: 639px) { .ui-modal-backdrop { padding: var(--space-4); } .ui-modal-panel { max-height: 90dvh; border-radius: var(--radius-panel); } .modal-header, .modal-footer, .modal-body { padding-left: var(--space-4); padding-right: var(--space-4); } }
 </style>

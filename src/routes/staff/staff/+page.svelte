@@ -159,7 +159,6 @@
 </div>
 {:else}
 <div class="staff-management-page space-y-5">
-	<!-- Header -->
 	<div class="staff-page-actions flex flex-wrap items-center justify-between gap-3">
 		<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20">
 			{staffList.length} {pluralize(staffList.length, 'member')}
@@ -265,7 +264,7 @@
 {/if}
 
 <!-- Edit Modal -->
-<Modal open={editOpen} title="Edit Staff Member" size="sm" mobileCentered onclose={() => { if (!editSaving) editOpen = false; }}>
+<Modal open={editOpen} title="Edit Staff Member" size="sm" onclose={() => { if (!editSaving) editOpen = false; }}>
 	{#snippet body()}
 		{#if editMember}
 			<form id="edit-staff-form" onsubmit={handleEdit} class="space-y-4">

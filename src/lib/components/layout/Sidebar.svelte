@@ -18,7 +18,6 @@
 	const mobileOpen = $derived(!desktop && $sidebarMobileOpen);
 	const currentPath = $derived($page.url.pathname);
 	const requestAction = $derived(role === 'student' ? items.find(item => item.href === '/student/request') : undefined);
-	const logoLabel = $derived(role === 'staff' ? userRole?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Staff Portal' : 'Student Portal');
 	let navigation: HTMLElement;
 
 	onMount(handleResize);
@@ -73,8 +72,8 @@
 
 <aside bind:this={navigation} id="portal-navigation" class="portal-sidebar" class:collapsed class:mobile-open={mobileOpen} inert={!desktop && !mobileOpen} role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen ? true : undefined} aria-label="Sidebar navigation" tabindex="-1">
 	<div class="sidebar-brand">
-		<div class="portal-brand-mark" aria-hidden="true"><i class="fa-solid fa-graduation-cap"></i></div>
-		{#if !collapsed}<div class="brand-copy"><p>ESSU</p><span>{logoLabel}</span></div>{/if}
+		<div class="portal-brand-mark" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></div>
+		{#if !collapsed}<div class="brand-copy"><p>ESSU DocuFlow</p><span>Graduate School Office</span></div>{/if}
 		<div class="drawer-close"><Button variant="ghost" icon="fa-solid fa-xmark" ariaLabel="Close navigation" onclick={closeMobile} class="sidebar-close" /></div>
 	</div>
 
@@ -121,8 +120,8 @@
 	.portal-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 40; display: flex; flex-direction: column; width: var(--sidebar-width); height: 100dvh; border-right: 1px solid color-mix(in srgb, var(--color-surface) 16%, var(--color-primary)); background: var(--color-primary); color: var(--color-surface); transform: translateX(-100%); transition: width var(--motion-fast), transform var(--motion-fast); }
 	.portal-sidebar.mobile-open { transform: translateX(0); }
 	.sidebar-overlay { position: fixed; inset: 0; z-index: 30; background: color-mix(in srgb, var(--color-text) 56%, transparent); }
-	.sidebar-brand { display: flex; flex-shrink: 0; align-items: center; gap: var(--space-3); height: 64px; padding: 0 var(--space-4); border-bottom: 1px solid color-mix(in srgb, var(--color-surface) 16%, var(--color-primary)); }
-	.portal-brand-mark { display: grid; place-items: center; flex-shrink: 0; width: var(--control-height); height: var(--control-height); border: 1px solid color-mix(in srgb, var(--color-accent) 50%, var(--color-primary)); border-radius: var(--radius-control); background: color-mix(in srgb, var(--color-accent) 12%, var(--color-primary)); color: var(--color-accent); font-size: var(--font-size-card-title); }
+	.sidebar-brand { display: flex; flex-shrink: 0; align-items: center; gap: var(--space-3); height: 72px; padding: 0 var(--space-4); border-bottom: 1px solid color-mix(in srgb, var(--color-surface) 16%, var(--color-primary)); }
+	.portal-brand-mark { display: grid; place-items: center; flex-shrink: 0; width: var(--control-height); height: var(--control-height); border: 1px solid color-mix(in srgb, var(--color-surface) 18%, var(--color-primary)); border-radius: var(--radius-control); background: color-mix(in srgb, var(--color-surface) 10%, var(--color-primary)); color: var(--color-surface); font-size: var(--font-size-card-title); }
 	.brand-copy { min-width: 0; }
 	.brand-copy p { margin: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
 	.brand-copy span { color: var(--color-primary-soft); font-size: var(--font-size-helper); }
