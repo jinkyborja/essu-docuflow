@@ -29,31 +29,26 @@
 		: $page.url.pathname === '/staff/staff' ? 'fa-solid fa-user-tie'
 		: $page.url.pathname.includes('students') ? 'fa-solid fa-user-graduate'
 		: $page.url.pathname.includes('forms') ? 'fa-solid fa-file-circle-plus'
+		: $page.url.pathname === '/student/documents' ? 'fa-solid fa-folder-open'
 		: $page.url.pathname.includes('request') || $page.url.pathname.includes('documents') ? 'fa-solid fa-file-lines'
 		: $page.url.pathname.includes('dashboard') ? 'fa-solid fa-gauge-high'
 		: 'fa-solid fa-chart-line'
 	);
+	const headerVariant = $derived($page.url.pathname.endsWith('/dashboard') ? 'dashboard' : 'default');
 </script>
 
-<div class="portal-page-header" class:dashboard={$page.url.pathname === '/staff/dashboard'}>
-	<div class="page-intro-art" aria-hidden="true"><i class={headerIcon}></i></div>
+<div class="portal-page-header" class:dashboard={$page.url.pathname.endsWith('/dashboard')}>
 	{#if role === 'student' && $page.url.pathname === '/student/documents'}
-		<PageHeader {title} {description}>
+		<PageHeader {title} {description} icon={headerIcon} variant={headerVariant}>
 			{#snippet actions()}<Button href={$page.data.layoutUser?.idStatus === 'verified' ? '/student/request' : '/student/forms'} icon="fa-solid {$page.data.layoutUser?.idStatus === 'verified' ? 'fa-plus' : 'fa-file-lines'}">{$page.data.layoutUser?.idStatus === 'verified' ? 'New request' : 'Browse forms'}</Button>{/snippet}
 		</PageHeader>
-	{:else}<PageHeader {title} {description} />{/if}
+	{:else}<PageHeader {title} {description} icon={headerIcon} variant={headerVariant} />{/if}
 </div>
 
 <style>
-	.portal-page-header { position: relative; isolation: isolate; min-height: 112px; margin-bottom: var(--space-6); padding: var(--space-4) 0; }
-	.page-intro-art { position: absolute; top: 50%; right: var(--space-6); display: grid; place-items: center; width: 112px; height: 96px; transform: translateY(-50%); color: color-mix(in srgb, var(--color-primary) 18%, transparent); font-size: 4rem; pointer-events: none; }
-	.portal-page-header.dashboard { min-height: 0; margin-bottom: 0.5rem; padding: 0.25rem 0; }
+	.portal-page-header { min-width: 0; margin-bottom: var(--space-6); }
+	.portal-page-header.dashboard { margin-bottom: 0.5rem; }
 	:global(.staff-portal .portal-main.dashboard) { padding: 1.5rem; }
 	:global(.staff-portal .portal-main > .portal-page-header.dashboard) { margin-bottom: 0.5rem; }
-	.portal-page-header.dashboard .page-intro-art { display: none; }
-	.portal-page-header.dashboard :global(.ui-page-header h1) { font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.035em; }
-	.portal-page-header.dashboard :global(.ui-page-header p) { max-width: 38ch; margin-top: 0.25rem; font-size: 0.8rem; line-height: 1.4; }
-	@media (max-width: 639px) { .portal-page-header { min-height: 0; padding: var(--space-2) 0; } .page-intro-art { right: var(--space-2); width: 56px; height: 56px; font-size: 2rem; opacity: .7; } }
-	@media (max-width: 639px) { .portal-page-header.dashboard { margin-bottom: 0.5rem; padding: 0.25rem 0; } :global(.staff-portal .portal-main.dashboard) { padding: 1.5rem; } :global(.staff-portal .portal-main > .portal-page-header.dashboard) { margin-bottom: 0.5rem; } }
 	@media print { .portal-page-header { display: none; } }
 </style>
