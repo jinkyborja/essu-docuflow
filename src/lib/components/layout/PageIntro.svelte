@@ -22,6 +22,7 @@
 		'/staff/profile': 'Manage your office profile and account settings.'
 	};
 	const description = $derived(descriptions[$page.url.pathname] ?? 'Review the details, requirements and request history.');
+	const isStudentDocuments = $derived(role === 'student' && $page.url.pathname === '/student/documents');
 	const headerIcon = $derived(
 		$page.url.pathname.includes('reports') ? 'fa-solid fa-chart-simple'
 		: $page.url.pathname.includes('notifications') ? 'fa-regular fa-bell'
@@ -34,19 +35,23 @@
 		: $page.url.pathname.includes('dashboard') ? 'fa-solid fa-gauge-high'
 		: 'fa-solid fa-chart-line'
 	);
-	const headerVariant = $derived($page.url.pathname.endsWith('/dashboard') ? 'dashboard' : 'default');
+	const headerVariant = $derived(
+		$page.url.pathname.endsWith('/dashboard') || isStudentDocuments ? 'dashboard' : 'default'
+	);
 </script>
 
 <div class="portal-page-header" class:dashboard={$page.url.pathname.endsWith('/dashboard')}>
-	{#if role === 'student' && $page.url.pathname === '/student/documents'}
-		<PageHeader {title} {description} icon={headerIcon} variant={headerVariant}>
-			{#snippet actions()}<Button href={$page.data.layoutUser?.idStatus === 'verified' ? '/student/request' : '/student/forms'} icon="fa-solid {$page.data.layoutUser?.idStatus === 'verified' ? 'fa-plus' : 'fa-file-lines'}">{$page.data.layoutUser?.idStatus === 'verified' ? 'New request' : 'Browse forms'}</Button>{/snippet}
-		</PageHeader>
-	{:else}<PageHeader {title} {description} icon={headerIcon} variant={headerVariant} />{/if}
+	<PageHeader {title} {description} icon={headerIcon} variant={headerVariant} />
+	{#if isStudentDocuments}
+		<div class="page-actions">
+			<Button href={$page.data.layoutUser?.idStatus === 'verified' ? '/student/request' : '/student/forms'} icon="fa-solid {$page.data.layoutUser?.idStatus === 'verified' ? 'fa-plus' : 'fa-file-lines'}">{$page.data.layoutUser?.idStatus === 'verified' ? 'New request' : 'Browse forms'}</Button>
+		</div>
+	{/if}
 </div>
 
 <style>
 	.portal-page-header { min-width: 0; margin-bottom: var(--space-6); }
+	.page-actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
 	.portal-page-header.dashboard { margin-bottom: 0.5rem; }
 	:global(.staff-portal .portal-main.dashboard) { padding: 1.5rem; }
 	:global(.staff-portal .portal-main > .portal-page-header.dashboard) { margin-bottom: 0.5rem; }

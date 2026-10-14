@@ -13,6 +13,8 @@
 	const visibleRows = $derived(hideRoutineActivity
 		? data.rows.filter(row => row.action !== routineAction)
 		: data.rows);
+	const pageStart = $derived(data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
+	const pageEnd = $derived(Math.min(data.page * data.pageSize, data.total));
 
 	function activityUrl(pageNumber: number): string {
 		const params = new URLSearchParams($currentPage.url.searchParams);
@@ -49,15 +51,6 @@
 			? '—'
 			: new Intl.DateTimeFormat('en-US', {
 				hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila'
-			}).format(date);
-	}
-
-	function filterDateLabel(value: string): string {
-		const date = new Date(`${value}T00:00:00+08:00`);
-		return Number.isNaN(date.getTime())
-			? value
-			: new Intl.DateTimeFormat('en-US', {
-				month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila'
 			}).format(date);
 	}
 
@@ -204,7 +197,7 @@
 	}
 </script>
 
-<div class="activity-page space-y-5">
+<div class="activity-page">
 	<div class="activity-export">
 		<a href={exportUrl()} class="inline-flex items-center gap-2 rounded-lg bg-essu-green px-4 py-2.5 text-sm font-medium text-white hover:bg-essu-green-mid focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 			<i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV
@@ -249,9 +242,8 @@
 		</div>
 	</form>
 
-	{#if data.filters.from || data.filters.to || data.filters.person || data.filters.role || data.filters.action || data.filters.search}
+	{#if data.filters.person || data.filters.role || data.filters.action || data.filters.search}
 		<div class="activity-active-filters" aria-label="Active filters">
-			{#if data.filters.from || data.filters.to}<a href={clearFilterUrl('from', 'to')} class="activity-filter-chip">Dates: {data.filters.from ? filterDateLabel(data.filters.from) : '—'} to {data.filters.to ? filterDateLabel(data.filters.to) : '—'}<span aria-hidden="true">×</span><span class="sr-only">Clear date range</span></a>{/if}
 			{#if data.filters.person}<a href={clearFilterUrl('person')} class="activity-filter-chip">Person: {data.people.find(person => String(person.actor_user_id) === data.filters.person)?.actor_name ?? data.filters.person}<span aria-hidden="true">×</span><span class="sr-only">Clear person filter</span></a>{/if}
 			{#if data.filters.role}<a href={clearFilterUrl('role')} class="activity-filter-chip">Role: {data.filters.role}<span aria-hidden="true">×</span><span class="sr-only">Clear role filter</span></a>{/if}
 			{#if data.filters.action}<a href={clearFilterUrl('action')} class="activity-filter-chip">Action: {data.actionLabels[data.filters.action] ?? data.filters.action}<span aria-hidden="true">×</span><span class="sr-only">Clear action filter</span></a>{/if}
@@ -259,17 +251,18 @@
 		</div>
 	{/if}
 
-	<div class="activity-routine-toggle">
-		<label>
-			<input type="checkbox" checked={hideRoutineActivity} onchange={event => hideRoutineActivity = event.currentTarget.checked} />
-			<span>Hide routine activity</span>
-		</label>
-		<span>{routineEntryCount} routine {routineEntryCount === 1 ? 'entry' : 'entries'} {hideRoutineActivity ? 'hidden' : 'shown'}</span>
+	<div class="activity-results-summary">
+		<p class="activity-result-count">
+			Showing {visibleRows.length} of {data.rows.length} on this page · {pageStart}–{pageEnd} of {data.total} matching activities
+		</p>
+		<div class="activity-routine-toggle">
+			<label>
+				<input type="checkbox" checked={hideRoutineActivity} onchange={event => hideRoutineActivity = event.currentTarget.checked} />
+				<span>Hide routine activity</span>
+			</label>
+			<span>{routineEntryCount} routine {routineEntryCount === 1 ? 'entry' : 'entries'} on this page {hideRoutineActivity ? 'hidden' : 'shown'}</span>
+		</div>
 	</div>
-
-	<p class="activity-result-count">
-		Showing {data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1} to {Math.min(data.page * data.pageSize, data.total)} of {data.total} activities
-	</p>
 
 	<div class="activity-results rounded-xl border border-gray-100 bg-white shadow-sm">
 		{#if $navigating}
@@ -397,14 +390,15 @@
 <style>
 	.activity-page {
 		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
 		min-width: 0;
 	}
 
 	.activity-export {
-		position: absolute;
-		z-index: 2;
-		top: -5.25rem;
-		right: 0;
+		display: flex;
+		justify-content: flex-end;
 	}
 
 	.activity-filter-form {
@@ -507,6 +501,14 @@
 		margin: 0;
 		color: #4b5b51;
 		font-size: 13px;
+	}
+
+	.activity-results-summary {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px 16px;
 	}
 
 	.activity-routine-toggle {
@@ -823,13 +825,6 @@
 	}
 
 	@media (max-width: 767px) {
-		.activity-export {
-			position: static;
-			display: flex;
-			justify-content: flex-end;
-			margin-bottom: 12px;
-		}
-
 		.activity-filter-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 		.activity-table-wrap { display: none; }
 		.activity-mobile-list { display: grid; }
