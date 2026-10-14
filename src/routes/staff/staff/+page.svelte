@@ -3,7 +3,7 @@
 	import { formatName, pluralize } from '$lib/formatting';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import ActionMenu from '$lib/components/ui/ActionMenu.svelte';
+	import RowMenu, { type RowMenuItem } from '$lib/components/ui/RowMenu.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import TextField from '$lib/components/forms/TextField.svelte';
 	import { showToast } from '$lib/stores/toasts';
@@ -35,11 +35,13 @@
 	// Edit
 	let editOpen = $state(false);
 	let editMember = $state<StaffMember | null>(null);
+	let editPosition = $state('');
 	let editSaving = $state(false);
 	let editError = $state('');
 
 	function openEdit(m: StaffMember) {
 		editMember = { ...m };
+		editPosition = m.position ?? '';
 		editError = '';
 		editOpen = true;
 	}
@@ -49,6 +51,7 @@
 		if (!editMember) return;
 		editSaving = true;
 		editError = '';
+		editMember.position = editPosition || null;
 		try {
 			const res = await fetch('/api/staff', {
 				method: 'PATCH',
@@ -74,6 +77,16 @@
 		if (m.role !== 'Staff' || m.user_id === currentUserId) return;
 		deleteError = ''; deleteTarget = m;
 		deleteOpen = true;
+	}
+
+	function staffMenuItems(member: StaffMember): RowMenuItem[] {
+		const items: RowMenuItem[] = [
+			{ label: 'Edit', icon: 'fa-solid fa-pen', onselect: () => openEdit(member) }
+		];
+		if (member.role === 'Staff' && member.user_id !== currentUserId) {
+			items.push({ label: 'Delete staff', icon: 'fa-solid fa-trash', danger: true, onselect: () => openDelete(member) });
+		}
+		return items;
 	}
 
 	async function handleDelete() {
@@ -182,14 +195,10 @@
 							{/if}
 						</div>
 						<div class="w-full border-t border-gray-100 pt-3">
-						<p class="mb-3 text-xs text-gray-500">Joined {new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
-							{#if member.role === 'Staff' && member.user_id !== currentUserId}
-							<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete staff', icon: 'fa-solid fa-trash', danger: true, onselect: () => openDelete(member)}]}>
-									<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
-								</ActionMenu>
-							{:else}
-								<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
-							{/if}
+							<p class="mb-3 text-xs text-gray-500">Joined {new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
+							<div class="flex justify-end">
+								<RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={staffMenuItems(member)} />
+							</div>
 						</div>
 					</article>
 				{/each}
@@ -243,13 +252,7 @@
 									{new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
 								<td class="actions-cell">
-									{#if member.role === 'Staff' && member.user_id !== currentUserId}
-										<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete staff', icon: 'fa-solid fa-trash', danger: true, onselect: () => openDelete(member)}]}>
-											<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
-										</ActionMenu>
-									{:else}
-										<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
-									{/if}
+									<RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={staffMenuItems(member)} />
 								</td>
 							</tr>
 						{/each}
@@ -271,25 +274,29 @@
 						<i class="fa-solid fa-circle-exclamation mr-1"></i>{editError}
 					</div>
 				{/if}
-				<div class="grid grid-cols-2 gap-3">
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">First Name <span class="text-red-500">*</span></label>
-						<input bind:value={editMember.first_name} type="text" required class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-					</div>
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name <span class="text-red-500">*</span></label>
-						<input bind:value={editMember.last_name} type="text" required class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-					</div>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Position</label>
-					<input bind:value={editMember.position} type="text" placeholder="e.g. Registrar Staff" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
-				</div>
+				<TextField label="First Name" bind:value={editMember.first_name} required />
+				<TextField label="Last Name" bind:value={editMember.last_name} required />
+				<TextField label="Position" bind:value={editPosition} placeholder="e.g. Registrar Staff" />
 				<div>
 					<label class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></label>
 					<div class="grid grid-cols-2 gap-3">
 						{#each ['Staff', 'Admin'] as r}
-							<Button variant={editMember.role === r ? 'primary' : 'secondary'} disabled={editMember.user_id === currentUserId} disabledReason="You cannot change your own role" onclick={() => { if (editMember && editMember.user_id !== currentUserId) editMember.role = r as 'Staff' | 'Admin'; }}>{r}</Button>
+							<button
+								type="button"
+								disabled={editMember.user_id === currentUserId}
+								aria-pressed={editMember.role === r}
+								title={editMember.user_id === currentUserId ? 'You cannot change your own role' : undefined}
+								onclick={() => { if (editMember && editMember.user_id !== currentUserId) editMember.role = r as 'Staff' | 'Admin'; }}
+								class="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center disabled:cursor-not-allowed disabled:opacity-60
+									{editMember.role === r ? 'border-essu-green bg-essu-green/5' : 'border-gray-200 hover:border-gray-300'}"
+							>
+								<i class="fa-solid {r === 'Admin' ? 'fa-shield-halved' : 'fa-user-tie'} text-lg
+									{editMember.role === r ? 'text-essu-green' : 'text-gray-400'}"></i>
+								<span class="text-sm font-medium {editMember.role === r ? 'text-essu-green' : 'text-gray-600'}">{r}</span>
+								<span class="text-xs text-gray-400 leading-tight">
+									{r === 'Admin' ? 'Full access' : 'Limited access'}
+								</span>
+							</button>
 						{/each}
 					</div>
 				</div>
