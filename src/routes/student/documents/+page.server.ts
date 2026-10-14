@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const [rows] = await pool.execute(
 		`SELECT r.request_id, r.purpose, r.status,
 		        r.admin_message, r.approved_file_path, r.approved_file_name,
-		        r.date_requested
+		        r.date_requested, r.archived_at
 		 FROM requests r
 		 WHERE r.student_id = ?
 		 ORDER BY r.date_requested DESC`,

@@ -128,10 +128,14 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Student not found' }, { status: 404 });
 		}
 		const [reqRows] = await conn.execute(
-			'SELECT request_id, approved_file_path FROM requests WHERE student_id = ?',
+			'SELECT request_id, approved_file_path, archived_at FROM requests WHERE student_id = ? FOR UPDATE',
 			[user_id]
 		);
 		const requests = reqRows as Record<string, unknown>[];
+		if (requests.some(row => row.archived_at)) {
+			await conn.rollback();
+			return json({ error: 'This student has archived requests that must be retained.' }, { status: 409 });
+		}
 
 		// Collect the student's uploaded files so storage doesn't keep orphans.
 		const requestIds = requests.map((r) => r.request_id as string);

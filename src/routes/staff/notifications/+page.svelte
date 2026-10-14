@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { statusLabel, releaseWording } from '$lib/request-status';
 	import { formatName } from '$lib/formatting';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
@@ -42,13 +43,13 @@
 
 	// Status history → isRead from is_read column
 	const fromHistory: Notif[] = $derived((data.history as Record<string, unknown>[]).map(h => {
-		const status = h.new_status as string;
+		const status = releaseWording(h.new_status as string);
 		if (!h.request_id) return { id: String(h.history_id), source: 'history' as const, type: 'system' as const, title: status, message: status, date: fmtDate(h.changed_at), isRead: !!h.is_read, relatedStudentId: status === 'Student ID review requested' ? Number(h.changed_by) : undefined };
 		const type: Notif['type'] =
 			status === 'Correction Requested' ? 'task' :
 			status === 'Approved'             ? 'system' : 'system';
 		const adminMsg = h.admin_message as string | null;
-		const displayStatus = status === 'Completed' ? 'Released' : status;
+		const displayStatus = statusLabel(status);
 		const message =
 			status === 'Approved'             ? `${formatName(h.first_name, h.middle_name, h.last_name)}'s request for ${h.document_name} (${h.request_id}) was approved.` :
 			status === 'Rejected'             ? `${formatName(h.first_name, h.middle_name, h.last_name)}'s request for ${h.document_name} (${h.request_id}) was rejected.${adminMsg ? ' Note: ' + adminMsg : ''}` :
@@ -147,7 +148,7 @@ task:    { icon: 'fa-solid fa-clipboard-list',       color: 'text-purple-600', b
 	};
 </script>
 
-<div class="space-y-5">
+<div class="staff-notifications space-y-5">
 	<div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
 		<div class="flex items-center gap-2 flex-wrap">
 			{#each filterOptions as opt}
@@ -158,7 +159,7 @@ task:    { icon: 'fa-solid fa-clipboard-list',       color: 'text-purple-600', b
 				>{opt}</button>
 			{/each}
 		</div>
-		<div class="flex items-center gap-2 flex-wrap sm:ml-auto">
+		<div class="staff-notification-controls flex items-center gap-2 flex-wrap sm:ml-auto">
 			<span class="inline-flex items-center gap-1.5 text-sm text-gray-500 bg-white border border-gray-200 rounded-lg px-3 py-2">
 				<i class="fa-regular fa-bell text-gray-400 text-xs"></i>
 				<span class="font-semibold text-gray-700">{notifications.length}</span> total
@@ -272,3 +273,21 @@ task:    { icon: 'fa-solid fa-clipboard-list',       color: 'text-purple-600', b
 		<button onclick={() => (detailOpen = false)} class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Close</button>
 	{/snippet}
 </Modal>
+
+<style>
+	@media (max-width: 639px) {
+		.staff-notification-controls {
+			width: 100%;
+		}
+
+		.staff-notification-controls > .relative,
+		.staff-notification-controls > .relative input,
+		.staff-notification-controls > button {
+			width: 100%;
+		}
+
+		.notification-item {
+			flex-wrap: wrap;
+		}
+	}
+</style>

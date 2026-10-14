@@ -40,6 +40,8 @@
 	--radius-panel: 1rem;
 	--control-height: 40px;
 	--control-height-touch: 44px;
+	--table-actions-width: 180px;
+	--action-primary-width: 88px;
 	--sidebar-width: 248px;
 	--sidebar-width-collapsed: 72px;
 	--shadow-card: none;
@@ -1060,8 +1062,8 @@ table button[title] {
   border-spacing: 0;
   font-size: 13px;
 }
-.staff-portal .portal-main table.admin-table--requests { min-width: 1270px; }
-.staff-portal .portal-main table.admin-table--students { min-width: 1415px; }
+.staff-portal .portal-main table.admin-table--requests { min-width: 1290px; }
+.staff-portal .portal-main table.admin-table--students { min-width: 880px; }
 .staff-portal .portal-main table.admin-table--staff { min-width: 1010px; }
 .staff-portal .portal-main table.admin-table--activity { min-width: 870px; }
 .staff-portal .portal-main table.admin-table--reports { min-width: 1070px; }
@@ -1099,16 +1101,6 @@ table button[title] {
 .staff-portal .portal-main table.admin-table tbody tr:hover { background: #f8fbf9; }
 .staff-portal .portal-main table.admin-table .actions-header,
 .staff-portal .portal-main table.admin-table .actions-cell { text-align: right; white-space: nowrap; }
-.staff-portal .portal-main table.admin-table .action-buttons {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-}
-.staff-portal .portal-main table.admin-table .action-buttons > * { flex-shrink: 0; }
-.staff-portal .portal-main table.admin-table .action-buttons :is(a, button),
 .staff-portal .portal-main table.admin-table .actions-cell > :is(a, button) {
   display: inline-flex;
   align-items: center;
@@ -1116,8 +1108,6 @@ table button[title] {
   justify-content: center;
   white-space: nowrap;
 }
-.staff-portal .portal-main table.admin-table .action-buttons > :first-child { min-width: 84px; }
-.staff-portal .portal-main table.admin-table .action-buttons > :last-child:not(:first-child) { min-width: 36px; }
 .staff-portal .portal-main table.admin-table .staff-email,
 .staff-portal .portal-main table.admin-table td:first-child p.text-xs {
   min-width: 140px;
@@ -1134,27 +1124,21 @@ table button[title] {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-.staff-portal .portal-main table.admin-table--requests col.request-col-id { width: 140px; }
-.staff-portal .portal-main table.admin-table--requests col.request-col-student { width: 190px; }
-.staff-portal .portal-main table.admin-table--requests col.request-col-program { width: 230px; }
-.staff-portal .portal-main table.admin-table--requests col.request-col-document { width: 230px; }
-.staff-portal .portal-main table.admin-table--requests col.request-col-date { width: 145px; }
-.staff-portal .portal-main table.admin-table--requests col.request-col-status { width: 175px; }
-.staff-portal .portal-main table.admin-table--requests col.request-col-actions { width: 160px; }
-.staff-portal .portal-main table.admin-table--students col.student-col-name { width: 220px; }
-.staff-portal .portal-main table.admin-table--students col.student-col-id { width: 135px; }
-.staff-portal .portal-main table.admin-table--students col.student-col-program { width: 230px; }
-.staff-portal .portal-main table.admin-table--students col.student-col-type { width: 100px; }
-.staff-portal .portal-main table.admin-table--students col.student-col-school-year { width: 115px; }
-.staff-portal .portal-main table.admin-table--students col.student-col-email-status { width: 135px; }
-.staff-portal .portal-main table.admin-table--students col.student-col-id-status { width: 130px; }
-.staff-portal .portal-main table.admin-table--students col.student-col-registered { width: 160px; }
-.staff-portal .portal-main table.admin-table--students col.student-col-actions { width: 190px; }
-.staff-portal .portal-main table.admin-table--staff col.staff-col-name { width: 300px; }
-.staff-portal .portal-main table.admin-table--staff col.staff-col-position { width: 230px; }
-.staff-portal .portal-main table.admin-table--staff col.staff-col-role { width: 140px; }
-.staff-portal .portal-main table.admin-table--staff col.staff-col-joined { width: 160px; }
-.staff-portal .portal-main table.admin-table--staff col.staff-col-actions { width: 180px; }
+.staff-portal .portal-main table.admin-table--requests col.request-col-id { width: calc((100% - var(--table-actions-width)) * .126); }
+.staff-portal .portal-main table.admin-table--requests col.request-col-student { width: calc((100% - var(--table-actions-width)) * .171); }
+.staff-portal .portal-main table.admin-table--requests col.request-col-program { width: calc((100% - var(--table-actions-width)) * .207); }
+.staff-portal .portal-main table.admin-table--requests col.request-col-document { width: calc((100% - var(--table-actions-width)) * .207); }
+.staff-portal .portal-main table.admin-table--requests col.request-col-date { width: calc((100% - var(--table-actions-width)) * .131); }
+.staff-portal .portal-main table.admin-table--requests col.request-col-status { width: calc((100% - var(--table-actions-width)) * .158); }
+.staff-portal .portal-main table.admin-table--students col.student-col-name { width: calc((100% - var(--table-actions-width)) * .30); }
+.staff-portal .portal-main table.admin-table--students col.student-col-program { width: calc((100% - var(--table-actions-width)) * .30); }
+.staff-portal .portal-main table.admin-table--students col.student-col-status { width: calc((100% - var(--table-actions-width)) * .23); }
+.staff-portal .portal-main table.admin-table--students col.student-col-registered { width: calc((100% - var(--table-actions-width)) * .17); }
+.staff-portal .portal-main table.admin-table--staff col.staff-col-name { width: calc((100% - var(--table-actions-width)) * .36); }
+.staff-portal .portal-main table.admin-table--staff col.staff-col-position { width: calc((100% - var(--table-actions-width)) * .28); }
+.staff-portal .portal-main table.admin-table--staff col.staff-col-role { width: calc((100% - var(--table-actions-width)) * .17); }
+.staff-portal .portal-main table.admin-table--staff col.staff-col-joined { width: calc((100% - var(--table-actions-width)) * .19); }
+.staff-portal .portal-main table.admin-table col:is(.request-col-actions, .student-col-actions, .staff-col-actions) { width: var(--table-actions-width); }
 .staff-portal .portal-main table.admin-table--activity col.activity-col-date { width: 150px; }
 .staff-portal .portal-main table.admin-table--activity col.activity-col-who { width: 240px; }
 .staff-portal .portal-main table.admin-table--activity col.activity-col-action { width: 200px; }

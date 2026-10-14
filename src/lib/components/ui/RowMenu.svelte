@@ -20,22 +20,52 @@
 		menu?.hidePopover(); open = false;
 		if (restoreFocus) trigger?.focus();
 	}
+	function position() {
+		if (!open || !menu?.matches(':popover-open')) return;
+		const viewport = window.visualViewport;
+		const edge = 8, gap = 8;
+		const viewportLeft = viewport?.offsetLeft ?? 0, viewportTop = viewport?.offsetTop ?? 0;
+		const viewportRight = viewportLeft + (viewport?.width ?? document.documentElement.clientWidth);
+		const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
+		menu.style.setProperty('--menu-available-width', `${viewportRight - viewportLeft - edge * 2}px`);
+		const rect = trigger.getBoundingClientRect(), bounds = menu.getBoundingClientRect();
+		const aboveSpace = rect.top - viewportTop - edge - gap;
+		const belowSpace = viewportBottom - rect.bottom - edge - gap;
+		const preferAbove = placement === 'top-start';
+		const above = preferAbove
+			? bounds.height <= aboveSpace || (bounds.height > belowSpace && aboveSpace > belowSpace)
+			: bounds.height > belowSpace && aboveSpace > belowSpace;
+		const left = preferAbove ? rect.left : rect.right - bounds.width;
+		const top = above ? rect.top - bounds.height - gap : rect.bottom + gap;
+		menu.style.left = `${Math.max(viewportLeft + edge, Math.min(left, viewportRight - bounds.width - edge))}px`;
+		menu.style.top = `${Math.max(viewportTop + edge, Math.min(top, viewportBottom - bounds.height - edge))}px`;
+	}
 	async function show(index = 0) {
 		if (disabled || loading || !items.length) return;
 		open = true; active = index; await tick();
 		if (!open || !menu) return;
 		menu.showPopover();
-		const rect = trigger.getBoundingClientRect(), bounds = menu.getBoundingClientRect();
-		const left = placement === 'top-start' ? rect.left : rect.right - bounds.width;
-		const above = placement === 'top-start' || rect.bottom + bounds.height + 8 > window.innerHeight;
-		const top = above ? rect.top - bounds.height - 8 : rect.bottom + 8;
-		menu.style.left = `${Math.max(8, Math.min(left, window.innerWidth - bounds.width - 8))}px`;
-		menu.style.top = `${Math.max(8, Math.min(top, window.innerHeight - bounds.height - 8))}px`;
-		menu.querySelectorAll<HTMLElement>('[role="menuitem"]')[active]?.focus();
+		position();
+		menu.querySelectorAll<HTMLElement>('[role="menuitem"]')[active]?.focus({ preventScroll: true });
 	}
+	$effect(() => {
+		if (!open || !menu) return;
+		const observer = new ResizeObserver(position);
+		observer.observe(menu);
+		observer.observe(trigger);
+		window.addEventListener('scroll', position, true);
+		window.visualViewport?.addEventListener('resize', position);
+		window.visualViewport?.addEventListener('scroll', position);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('scroll', position, true);
+			window.visualViewport?.removeEventListener('resize', position);
+			window.visualViewport?.removeEventListener('scroll', position);
+		};
+	});
 	function move(index: number) {
 		active = (index + items.length) % items.length;
-		menu.querySelectorAll<HTMLElement>('[role="menuitem"]')[active]?.focus();
+		menu.querySelectorAll<HTMLElement>('[role="menuitem"]')[active]?.focus({ preventScroll: true });
 	}
 	function keys(event: KeyboardEvent) {
 		if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); }
@@ -44,6 +74,10 @@
 		else if (event.key === 'Home') { event.preventDefault(); move(0); }
 		else if (event.key === 'End') { event.preventDefault(); move(items.length - 1); }
 		else if (event.key === 'Tab') close(true);
+		else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+			const index = items.findIndex((_, offset) => items[(active + offset + 1) % items.length].label.toLocaleLowerCase().startsWith(event.key.toLocaleLowerCase()));
+			if (index !== -1) { event.preventDefault(); move(active + index + 1); }
+		}
 	}
 	function select(event: MouseEvent, item: RowMenuItem) {
 		if (item.disabled) { event.preventDefault(); return; }
@@ -52,22 +86,22 @@
 </script>
 
 <svelte:document onpointerdown={(event) => { if (open && !root.contains(event.target as Node)) close(); }} />
-<svelte:window onresize={() => close()} />
+<svelte:window onresize={position} />
 <span bind:this={root} class="row-menu">
 	<button bind:this={trigger} type="button" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} aria-controls={id} aria-busy={loading} disabled={disabled || loading} class="row-menu-trigger {triggerClass}" onclick={() => open ? close(true) : void show()} onkeydown={(event) => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); void show(event.key === 'ArrowUp' ? items.length - 1 : 0); } }}>
 		<span class="trigger-content" class:busy={loading}>{#if triggerContent}{@render triggerContent()}{:else}<span aria-hidden="true">⋯</span>{/if}</span>
 		{#if loading}<i class="fa-solid fa-circle-notch menu-spinner" aria-hidden="true"></i>{/if}
 	</button>
 	{#if open}
-		<div bind:this={menu} {id} popover="manual" role="menu" tabindex="-1" aria-label={label} onkeydown={keys} class="row-menu-panel">
+		<div bind:this={menu} {id} popover="auto" onbeforetoggle={(event) => { if (event.newState === 'closed') open = false; }} role="menu" tabindex="-1" aria-label={label} onkeydown={keys} class="row-menu-panel">
 			{#if header}<div class="menu-header">{@render header()}</div>{/if}
 			{#each items as item, index}
 				{#if item.href}
-					<a href={item.disabled ? undefined : item.href} role="menuitem" tabindex={active === index ? 0 : -1} aria-disabled={item.disabled ?? false} title={item.disabled ? item.reason : undefined} class="row-menu-item" class:danger={item.danger} onclick={(event) => select(event, item)}>
+					<a href={item.disabled ? undefined : item.href} role="menuitem" tabindex={active === index ? 0 : -1} aria-disabled={item.disabled ?? false} title={item.disabled ? item.reason : undefined} class="row-menu-item" class:danger={item.danger} onfocus={() => active = index} onclick={(event) => select(event, item)} onkeydown={(event) => { if (event.key === ' ') { event.preventDefault(); event.currentTarget.click(); } }}>
 						{#if item.icon}<i class={item.icon} aria-hidden="true"></i>{/if}<span>{item.label}{#if item.disabled && item.reason}<span class="item-reason">{item.reason}</span>{/if}</span>
 					</a>
 				{:else}
-					<button type="button" role="menuitem" tabindex={active === index ? 0 : -1} aria-disabled={item.disabled ?? false} title={item.disabled ? item.reason : undefined} class="row-menu-item" class:danger={item.danger} onclick={(event) => select(event, item)}>
+					<button type="button" role="menuitem" tabindex={active === index ? 0 : -1} aria-disabled={item.disabled ?? false} title={item.disabled ? item.reason : undefined} class="row-menu-item" class:danger={item.danger} onfocus={() => active = index} onclick={(event) => select(event, item)}>
 						{#if item.icon}<i class={item.icon} aria-hidden="true"></i>{/if}<span>{item.label}{#if item.disabled && item.reason}<span class="item-reason">{item.reason}</span>{/if}</span>
 					</button>
 				{/if}
@@ -86,11 +120,13 @@
 	.trigger-content { display: flex; align-items: center; justify-content: center; width: 100%; }
 	.trigger-content.busy { opacity: 0; }
 	.menu-spinner { position: absolute; animation: menu-spin 900ms linear infinite; }
-	.row-menu-panel { position: fixed; inset: auto; margin: 0; padding: var(--space-2); width: 248px; max-width: calc(100vw - var(--space-4)); max-height: min(480px, calc(100dvh - var(--space-4))); overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-raised); }
+	/* The native popover top layer escapes table overflow and stacking contexts. */
+	.row-menu-panel { position: fixed; z-index: 100; inset: auto; margin: 0; padding: var(--space-2); box-sizing: border-box; width: max-content; min-width: min(12rem, var(--menu-available-width, calc(100vw - var(--space-4)))); max-width: min(20rem, var(--menu-available-width, calc(100vw - var(--space-4)))); height: auto; max-height: none; overflow: visible; white-space: normal; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-raised); }
 	.menu-header { margin-bottom: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); }
 	.row-menu-item { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: var(--control-height); padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-control); background: transparent; text-align: left; text-decoration: none; color: var(--color-text); font-size: var(--font-size-body); font-weight: var(--font-weight-normal); line-height: var(--line-height); transition: background-color var(--motion-fast); }
 	.row-menu-item:hover, .row-menu-item:focus { background: var(--color-primary-soft); }
 	.row-menu-item > i { flex-shrink: 0; width: 20px; font-size: var(--font-size-card-title); text-align: center; }
+	.row-menu-item > span { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
 	.row-menu-item.danger { color: var(--color-danger); }
 	.row-menu-item[aria-disabled='true'] { color: var(--color-text-muted); cursor: not-allowed; }
 	.item-reason { display: block; font-size: var(--font-size-helper); }

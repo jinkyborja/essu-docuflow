@@ -34,6 +34,7 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 	if (list.length === 0) return json({ error: 'Not found' }, { status: 404 });
 
 	const req = list[0];
+	if (req.archived_at && payload.role === 'Staff') return json({ error: 'Admin access required' }, { status: 403 });
 	const isOwner = payload.role === 'Student' && req.student_id === payload.userId;
 	if (!isOwner && !['Staff', 'Admin'].includes(payload.role)) {
 		return json({ error: 'Forbidden' }, { status: 403 });
@@ -118,6 +119,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	const list = rows as Record<string, unknown>[];
 	if (list.length === 0) return json({ error: 'Not found' }, { status: 404 });
 	const currentReq = list[0];
+	if (currentReq.archived_at) return json({ error: 'Archived requests are read-only.' }, { status: 409 });
 	const requestItems = (await fetchRequestItems([params.id])).get(params.id) ?? [];
 	const documentNames = requestItems.map((item) => item.name).join(', ');
 	currentReq.document_name = documentNameSummary(requestItems);
@@ -203,8 +205,9 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	let decided = false;
 	try {
 		await conn.beginTransaction();
-		const [locked] = await conn.execute('SELECT status FROM requests WHERE request_id = ? FOR UPDATE', [params.id]);
-		if ((locked as Array<{status:string}>)[0]?.status !== oldStatus) {
+		const [locked] = await conn.execute('SELECT status, archived_at FROM requests WHERE request_id = ? FOR UPDATE', [params.id]);
+		const lockedRequest = (locked as Array<{status:string;archived_at:unknown}>)[0];
+		if (lockedRequest?.status !== oldStatus || lockedRequest?.archived_at) {
 			await conn.rollback(); return json({error:'The request changed during review. Refresh before deciding.'}, {status:409});
 		}
 		if (action === 'correction') {
@@ -220,7 +223,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 		const actionName = action === 'approve' ? 'request.approved' : action === 'reject' ? 'request.rejected' : 'request.correction_requested';
 		const actionSummary = action === 'approve' ? 'Approved' : action === 'reject' ? 'Rejected' : 'Requested corrections for';
 		await logActivitySafely(conn, { actor: payload, action: actionName, entityType: 'request', entityId: params.id, summary: `${actionSummary} request ${params.id}`, details: { changedFields: ['status', 'admin_message', 'decided_by', 'decided_at', ...(action === 'approve' ? ['approved_file'] : []), ...(action === 'correction' ? ['flagged_requirements'] : [])] } });
-		if (action === 'approve') await logActivitySafely(conn, { actor: payload, action: 'request.ready_for_pickup', entityType: 'request', entityId: params.id, summary: `Request ${params.id} is ready for pickup`, details: { changedFields: ['pickup availability'] } });
+		if (action === 'approve') await logActivitySafely(conn, { actor: payload, action: 'request.ready_for_pickup', entityType: 'request', entityId: params.id, summary: `Request ${params.id} is ready for release`, details: { changedFields: ['pickup availability'] } });
 		await conn.commit(); decided = true;
 	} catch (e) { await conn.rollback(); console.error('Request decision failed',e); return json({error:'Could not save the decision. Please try again.'}, {status:500}); }
 	finally { conn.release(); if (!decided && approvedFilePath) await supabase.storage.from('requirements').remove([approvedFilePath]); }
@@ -249,10 +252,10 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 			<p>Your document request (<strong>${params.id}</strong>) for <strong>${documentName}</strong> has been <strong style="color:green">approved</strong>.</p>
 			${adminMessage ? `<p>Note from staff: ${adminMessage}</p>` : ''}
 			${downloadUrl
-					? `<p>Your document is ready for pickup at the Graduate School office. You can view or download the approved file below.</p>
+					? `<p>Your document is ready for release at the Graduate School office. You can view or download the approved file below.</p>
 			     <p><a href="${downloadUrl}" style="background:#2d6a4f;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin-top:10px">View/Download Your Document</a></p>
 			     <p style="color:#888;font-size:12px">This download link expires in 7 days.</p>`
-					: `<p>Your document is ready for pickup at the Graduate School office. Please log in to ESSU DocuFlow to view request details.</p>`}
+					: `<p>Your document is ready for release at the Graduate School office. Please log in to ESSU DocuFlow to view request details.</p>`}
 			<p>ESSU DocuFlow — Graduate School</p>`;
 	} else if (action === 'reject') {
 		emailSubject = `Your request for ${documentNames} was rejected`;

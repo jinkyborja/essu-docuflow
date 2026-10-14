@@ -3,6 +3,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { showToast } from '$lib/stores/toasts';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import { statusLabel, requestStatusKey } from '$lib/request-status';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -20,7 +21,7 @@
 		items: Array<{ document_id: number; name: string }>;
 		student_code: string; program: string; student_type: string;
 		student_email: string; last_school_year: number | null;
-		purpose: string; status: string; requirements: Requirement[];
+		purpose: string; status: string; archived_at?: string | null; requirements: Requirement[];
 		admin_message: string | null; approved_file_path: string | null;
 		approved_file_name: string | null; date_requested: string;
 		decided_at: string | null; decision_recorded: boolean; decision_actor_name: string | null;
@@ -44,8 +45,9 @@
 	let flagged = $state<Record<string, boolean>>({});
 
 	let currentStatus = $state(req.status);
+	$effect(() => { currentStatus = req.status; });
 	let deliveryOverride = $state(false);
-	const delivered = $derived(deliveryOverride || history.some(event => event.new_status === 'Completed'));
+	const delivered = $derived(deliveryOverride || requestStatusKey(currentStatus) === 'released' || history.some(event => requestStatusKey(event.new_status) === 'released'));
 	const hasDecision = $derived(req.decision_recorded || !!req.decided_at || ['Approved', 'Rejected', 'Correction Requested'].includes(req.status));
 	function decisionLabel() {
 		if (req.decision_action === 'request.approved') return 'Approved';
@@ -254,9 +256,10 @@
 		<!-- Sidebar: actions + history -->
 		<div class="space-y-4">
 			<!-- Actions -->
-			{#if currentStatus === 'Approved'}<div class="rounded-xl bg-white border border-essu-green/20 p-4 space-y-2"><p class="font-semibold text-sm text-essu-green">{delivered ? 'Released' : 'Ready for pickup'}</p><p class="text-xs text-gray-600">{delivered ? 'The office confirmed the student collected the documents.' : 'The student can collect the approved document from the Graduate School office. Mark it as released after collection.'}</p>{#if !delivered}<button onclick={() => { actionError = ''; deliveryConfirm = true; }} disabled={submitting} class="px-3 py-2 rounded-lg bg-essu-green text-white text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">Mark as released</button>{/if}</div>{/if}
+			{#if req.archived_at}<p class="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">Archived request. Original details and status history are retained.</p>{/if}
+			{#if ['approved', 'ready_for_pickup'].includes(requestStatusKey(currentStatus) ?? '')}<div class="rounded-xl bg-white border border-essu-green/20 p-4 space-y-2"><p class="font-semibold text-sm text-essu-green">{delivered ? 'Released' : 'Ready for Release'}</p><p class="text-xs text-gray-600">{delivered ? 'The office confirmed the student collected the documents.' : 'The student can collect the approved document from the Graduate School office. Mark it as released after collection.'}</p>{#if !delivered && !req.archived_at}<button onclick={() => { actionError = ''; deliveryConfirm = true; }} disabled={submitting} class="px-3 py-2 rounded-lg bg-essu-green text-white text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">Mark as released</button>{/if}</div>{/if}
 			{#if actionError}<p role="alert" class="text-sm text-red-700">{actionError}</p>{/if}
-			{#if currentStatus === 'Pending' || currentStatus === 'Correction Requested'}
+			{#if !req.archived_at && (currentStatus === 'Pending' || currentStatus === 'Correction Requested')}
 				<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
 					<p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Actions</p>
 					<button
@@ -298,7 +301,7 @@
 						<div class="flex items-start gap-3 text-sm">
 							<div class="w-2 h-2 rounded-full bg-gray-300 mt-1.5 shrink-0"></div>
 							<div>
-								<p class="font-medium text-gray-700">{h.old_status === 'Completed' ? 'Released' : h.old_status} → {h.new_status === 'Completed' ? 'Released' : h.new_status}</p>
+								<p class="font-medium text-gray-700">{h.old_status ? statusLabel(h.old_status) : 'Submitted'} → {statusLabel(h.new_status)}</p>
 								<p class="text-xs text-gray-400">
 									{new Date(h.changed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 									· by {h.changed_by_name || 'Not recorded'}{h.changed_by_role ? ` (${h.changed_by_role})` : ''}

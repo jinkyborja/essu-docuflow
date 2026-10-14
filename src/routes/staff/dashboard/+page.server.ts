@@ -24,7 +24,7 @@ export const load: PageServerLoad = ({ cookies }) => timedLoad('staff/dashboard'
 			timedQuery('staff/dashboard:pending-queue', () => pool.execute(
 				`SELECT r.request_id, r.date_requested, r.purpose, r.status, p.status AS payment_status,
 				        CASE WHEN r.status = 'Pending' THEN 'Review requirements'
-				             WHEN r.status = 'processing' THEN 'Mark ready for pickup'
+				             WHEN r.status = 'processing' THEN 'Mark ready for release'
 				             ELSE 'Verify payment' END AS action_needed,
 				        u.first_name, u.middle_name, u.last_name, u.student_id, u.program
 				 FROM requests r

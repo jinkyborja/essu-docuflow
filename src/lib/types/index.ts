@@ -8,13 +8,13 @@
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 /** Mirrors the `requests.status` ENUM in database/db.sql. */
-export type RequestStatus = 'Pending' | 'Approved' | 'Rejected' | 'Correction Requested';
+export type RequestStatus = 'Pending' | 'Approved' | 'Rejected' | 'Correction Requested' | 'Cancelled';
 
 /**
  * Lowercased form of RequestStatus. Pages call `.toLowerCase()` before passing a
  * status to <Badge>, which keys its colour map on these.
  */
-export type RequestStatusKey = 'pending' | 'approved' | 'rejected' | 'correction requested';
+export type RequestStatusKey = 'pending' | 'approved' | 'rejected' | 'correction requested' | 'cancelled';
 
 /** Mirrors the `users.role` ENUM in database/db.sql. */
 export type UserRole = 'Student' | 'Staff' | 'Admin';

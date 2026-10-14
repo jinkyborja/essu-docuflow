@@ -11,6 +11,13 @@ restores the previous shape.
 | `2026-09-11-90-down-rollback.sql` | Full rollback. Valid while the old blob columns still exist. |
 | `2026-10-11-student-id-photos.sql` | Adds nullable `users.id_photo_path` and `users.id_photo_uploaded_at` for ID uploads and review; safe to re-run. |
 | `2026-10-11-student-campus.sql` | Adds nullable `users.campus`; signup requires a campus, and ID review compares it with the masterlist. Safe to re-run. |
+| `2026-10-14-request-lifecycle.sql` | Adds `Cancelled` to the existing request status enum, preserving existing values, nullability and default; adds nullable archive timestamp and actor metadata. Safe to re-run. |
+
+Apply `2026-10-14-request-lifecycle.sql` before deploying the Cancel/Archive changes.
+Archive is metadata, not a request status. Archived requests retain their files,
+original status and complete history. Only admins can open the Archived Requests
+view or perform Cancel/Archive actions. Requests with archived records cannot be
+permanently deleted, including through student-account deletion.
 
 Student ID uploads and `/api/students/[id]` require the student ID photo migration,
 in addition to the ID verification and enrollment masterlist migrations. Without

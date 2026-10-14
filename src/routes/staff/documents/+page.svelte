@@ -199,11 +199,11 @@
 
 					<!-- Template -->
 					{#if doc.template_path}
-						<div class="mt-3 flex items-center gap-2 text-xs bg-essu-green/5 border border-essu-green/20 rounded-lg px-3 py-2">
+						<div class="document-template mt-3 flex flex-wrap items-center gap-2 text-xs bg-essu-green/5 border border-essu-green/20 rounded-lg px-3 py-2">
 							<i class="fa-solid fa-paperclip text-essu-green shrink-0"></i>
-							<span class="flex-1 truncate text-essu-green font-medium">{doc.template_name}</span>
-							<Button variant="secondary" size="sm" onclick={() => void openTemplate(doc.template_path!)} icon="fa-solid fa-eye">View</Button>
-							<Button variant="secondary" size="sm" onclick={() => void downloadTemplate(doc.template_path!, doc.template_name!)} icon="fa-solid fa-download">Download</Button>
+							<span class="document-template-name flex-1 truncate text-essu-green font-medium">{doc.template_name}</span>
+							<div class="document-template-actions flex flex-wrap items-center gap-2"><Button variant="secondary" size="sm" onclick={() => void openTemplate(doc.template_path!)} icon="fa-solid fa-eye">View</Button>
+							<Button variant="secondary" size="sm" onclick={() => void downloadTemplate(doc.template_path!, doc.template_name!)} icon="fa-solid fa-download">Download</Button></div>
 						</div>
 					{/if}
 
@@ -231,6 +231,27 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	@media (max-width: 639px) {
+		.page-toolbar :global(.ui-button) {
+			width: 100%;
+		}
+
+		.document-template-name {
+			flex-basis: calc(100% - 28px);
+		}
+
+		.document-template-actions {
+			width: 100%;
+		}
+
+		.document-template-actions :global(.ui-button) {
+			flex: 1 1 0;
+			min-height: 44px;
+		}
+	}
+</style>
 
 <!-- Add / Edit Modal -->
 <Modal

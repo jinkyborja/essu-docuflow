@@ -1,3 +1,4 @@
+import { releaseWording } from '$lib/request-status';
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import pool from '$lib/server/db';
@@ -67,7 +68,7 @@ export const load: PageServerLoad = ({ parent, url }) => timedLoad('staff/activi
 	));
 
 	return {
-		rows,
+		rows: rows.map(row => ({ ...row, summary: releaseWording(row.summary) })),
 		total,
 		page: currentPage,
 		pages,

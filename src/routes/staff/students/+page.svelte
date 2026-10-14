@@ -13,7 +13,7 @@
 	import type { MasterlistMatch } from '$lib/server/masterlist';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import RowMenu from '$lib/components/ui/RowMenu.svelte';
+	import ActionMenu from '$lib/components/ui/ActionMenu.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import StatusChip from '$lib/components/ui/StatusChip.svelte';
 	import { showToast } from '$lib/stores/toasts';
@@ -378,7 +378,7 @@
 </div>
 {:else}
 <div class="space-y-5">
-	{#if data.role === 'Admin'}<div class="staff-page-actions flex justify-end"><Button variant="secondary" icon="fa-solid fa-list-check" onclick={() => masterlistOpen = true}>Masterlist</Button></div>{/if}
+	{#if data.role === 'Admin'}<div class="staff-page-actions flex flex-wrap justify-end gap-3"><Button variant="secondary" icon="fa-solid fa-list-check" onclick={() => masterlistOpen = true}>Masterlist</Button></div>{/if}
 	{#if usageError}<LoadError message="We couldn’t check linked requests. Please try again." onretry={() => void loadRequestUsage()} />{:else if !usageLoaded}<p role="status" class="flex items-center gap-2 text-sm text-gray-600"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Checking linked requests…</p>{/if}
 	<!-- Search / Filter -->
 	<div class="staff-filter-bar space-y-3">
@@ -391,7 +391,7 @@
 					{filtered.length} of {students.length} students
 				</span>
 			</div>
-			<div class="relative flex-1">
+			<div class="relative flex-1 min-w-0">
 				<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
 				<input
 					value={search}
@@ -465,9 +465,9 @@
 			</div>
 			<div class="flex justify-center pb-6"><Button variant="secondary" onclick={clearFilters}>Clear filters</Button></div>
 		{:else}
-			<div class="student-cards divide-y divide-gray-100 lg:hidden">
+			<div class="student-cards space-y-3 p-3 lg:hidden">
 				{#each filtered as s}
-					<article class="student-card p-4">
+					<article class="student-card rounded-xl border border-gray-100 bg-white p-4">
 						<div class="student-identity">
 							<p class="font-medium text-gray-800 text-sm">{@html highlight(fullName(s), search.trim())}</p>
 							<p class="student-card-id font-mono text-xs text-gray-500">{@html highlight(s.student_id, search.trim())}</p>
@@ -488,12 +488,12 @@
 						</div>
 						<div class="student-card-footer">
 							<span class="text-xs text-gray-500">{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span>
-							<div class="row-actions flex flex-nowrap items-center gap-2"><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button><RowMenu items={rowItems(s)} label={'Actions for ' + fullName(s)} /></div>
+							<ActionMenu items={rowItems(s)} label={'Actions for ' + fullName(s)}><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button></ActionMenu>
 						</div>
 					</article>
 				{/each}
 			</div>
-			<div class="student-table-wrap hidden lg:block">
+			<div class="admin-table-wrap student-table-wrap hidden lg:block">
 				<table class="admin-table admin-table--students">
 					<colgroup>
 						<col class="student-col-name" />
@@ -538,7 +538,7 @@
 									{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
 								<td class="actions-cell">
-									<div class="action-buttons"><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button><RowMenu items={rowItems(s)} label={'Actions for ' + fullName(s)} /></div>
+									<ActionMenu items={rowItems(s)} label={'Actions for ' + fullName(s)}><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button></ActionMenu>
 								</td>
 							</tr>
 						{/each}
@@ -912,21 +912,7 @@
 		width: 100%;
 		max-width: 100%;
 		min-width: 0;
-		overflow: visible;
 	}
-
-	:global(.staff-portal .portal-main table.admin-table--students) {
-		width: 100%;
-		min-width: 0 !important;
-		table-layout: fixed;
-		border-collapse: collapse;
-	}
-
-	:global(.staff-portal .portal-main table.admin-table--students col.student-col-name) { width: 28% !important; }
-	:global(.staff-portal .portal-main table.admin-table--students col.student-col-program) { width: 28% !important; }
-	:global(.staff-portal .portal-main table.admin-table--students col.student-col-status) { width: 18% !important; }
-	:global(.staff-portal .portal-main table.admin-table--students col.student-col-registered) { width: 12% !important; }
-	:global(.staff-portal .portal-main table.admin-table--students col.student-col-actions) { width: 14% !important; }
 
 	:global(.student-table-wrap .admin-table--students th) {
 		position: sticky;
@@ -934,8 +920,8 @@
 		z-index: 3;
 	}
 
-	:global(.student-table-wrap .admin-table--students th),
-	:global(.student-table-wrap .admin-table--students td) {
+	:global(.student-table-wrap .admin-table--students th:not(.actions-header)),
+	:global(.student-table-wrap .admin-table--students td:not(.actions-cell)) {
 		padding: 10px 8px;
 		overflow-wrap: normal;
 	}
@@ -976,25 +962,6 @@
 		font-size: 11px;
 	}
 
-	:global(.student-table-wrap .admin-table--students .actions-header),
-	:global(.student-table-wrap .admin-table--students .actions-cell) {
-		text-align: right;
-		white-space: nowrap;
-	}
-
-	:global(.student-table-wrap .admin-table--students .action-buttons) {
-		gap: 2px;
-	}
-
-	:global(.student-table-wrap .admin-table--students .action-buttons > :first-child :is(a, button)) {
-		min-width: 0 !important;
-		padding-inline: 4px;
-	}
-
-	:global(.student-table-wrap .admin-table--students .action-buttons > :last-child .row-menu-trigger) {
-		min-width: 28px;
-	}
-
 	:global(.student-results :is(button, input, select, a):focus-visible) {
 		outline: 2px solid #18804b;
 		outline-offset: 2px;
@@ -1002,6 +969,10 @@
 	}
 
 	@media (max-width: 767px) {
+		.staff-page-actions :global(.ui-button) {
+			width: 100%;
+		}
+
 		.student-filter-controls:not(.filters-expanded) {
 			display: none !important;
 		}
@@ -1009,5 +980,11 @@
 		.student-filter-controls.filters-expanded {
 			display: grid !important;
 		}
+
+		.student-card-footer {
+			align-items: stretch;
+		}
+		.student-card-footer :global(.action-buttons) { width: 100%; }
+
 	}
 </style>

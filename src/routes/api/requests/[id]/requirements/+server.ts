@@ -24,14 +24,14 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 
 	// Verify request belongs to this student
 	const [rows] = await pool.execute(
-		'SELECT student_id, status FROM requests WHERE request_id = ?',
+		'SELECT student_id, status, archived_at FROM requests WHERE request_id = ?',
 		[params.id]
 	);
-	const list = rows as { student_id: number; status: string }[];
+	const list = rows as { student_id: number; status: string; archived_at: unknown }[];
 	if (list.length === 0) return json({ error: 'Not found' }, { status: 404 });
 	if (list[0].student_id !== payload.userId) return json({ error: 'Forbidden' }, { status: 403 });
 	const initialStatus = list[0].status;
-	if (!canUpdateRequirementFiles(initialStatus)) {
+	if (list[0].archived_at || !canUpdateRequirementFiles(initialStatus)) {
 		return json({ error: 'Files can only be updated while pending or when corrections are requested.' }, { status: 409 });
 	}
 
@@ -109,7 +109,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 		await conn.beginTransaction();
 		// Recheck under the write lock: staff may have decided the request during upload.
 		const [currentRows] = await conn.execute(
-			'SELECT student_id, status FROM requests WHERE request_id = ? FOR UPDATE',
+			'SELECT student_id, status, archived_at FROM requests WHERE request_id = ? FOR UPDATE',
 			[params.id]
 		);
 		const current = (currentRows as Array<{ student_id: number; status: string }>)[0];
@@ -121,7 +121,7 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 			await conn.rollback();
 			return json({ error: 'Forbidden' }, { status: 403 });
 		}
-		if (current.status !== initialStatus || !canUpdateRequirementFiles(current.status)) {
+		if (current.status !== initialStatus || (current as { archived_at?: unknown }).archived_at || !canUpdateRequirementFiles(current.status)) {
 			await conn.rollback();
 			return json({ error: 'The request changed while uploading. Refresh and try again.' }, { status: 409 });
 		}

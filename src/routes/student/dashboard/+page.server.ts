@@ -10,7 +10,7 @@ export const load: PageServerLoad = ({ parent }) => timedLoad('student/dashboard
 	const [requests] = await timedQuery('student/dashboard:requests', () => pool.execute(
 		`SELECT r.request_id, r.status, r.date_requested, r.approved_file_path
 		 FROM requests r
-		 WHERE r.student_id = ? AND r.status != 'Rejected'
+		 WHERE r.student_id = ? AND r.archived_at IS NULL AND r.status NOT IN ('Rejected', 'Cancelled')
 		 ORDER BY r.date_requested DESC`,
 		[userId]
 	));

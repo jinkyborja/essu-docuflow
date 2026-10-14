@@ -2,8 +2,9 @@
 	import {formatDate, nextStep, type JourneyEvent} from '$lib/request-flow';
 	import { requestTimeline } from '$lib/student-request-display';
 	import Button from './Button.svelte';
+	import { requestStatusKey } from '$lib/request-status';
 	let {status, dateRequested, history = [], hasFile = false, completed: completedAt = false, openByDefault = false, compact = false}: {status:string;dateRequested:string;history?:JourneyEvent[];hasFile?:boolean;completed?:boolean;openByDefault?:boolean;compact?:boolean} = $props();
-	const completed = $derived(completedAt || history.some(event => event.new_status === 'Completed'));
+	const completed = $derived(completedAt || requestStatusKey(status) === 'released' || history.some(event => requestStatusKey(event.new_status) === 'released'));
 	const steps = $derived(requestTimeline(status, dateRequested, history, hasFile, completed));
 	let userExpanded = $state<boolean | null>(null);
 	const expanded = $derived(userExpanded ?? openByDefault);
@@ -11,7 +12,7 @@
 </script>
 <div class="request-journey" class:compact>
 	{#if !compact}
-		<p class="journey-title">{completed ? 'Completed' : status === 'Correction Requested' ? 'Your next step' : status === 'Approved' ? 'Ready for release' : 'What happens next'}</p>
+		<p class="journey-title">{completed ? 'Released' : requestStatusKey(status) === 'cancelled' ? 'Request cancelled' : status === 'Correction Requested' ? 'Your next step' : ['approved', 'ready_for_pickup'].includes(requestStatusKey(status) ?? '') ? 'Ready for Release' : 'What happens next'}</p>
 		<p class="journey-description">{nextStep(status,completed,hasFile)}</p>
 		<Button variant="ghost" icon={`fa-solid ${expanded ? 'fa-chevron-up' : 'fa-chevron-down'}`} ariaExpanded={expanded} ariaControls={id} onclick={() => userExpanded = !expanded}>Request timeline</Button>
 	{/if}

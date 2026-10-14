@@ -14,16 +14,25 @@ export const STATUS_COLORS: Record<RequestStatus, { color: string; classes: stri
 
 const labels: Record<RequestStatus, string> = {
 	pending: 'Pending', correction_requested: 'Correction Requested', approved: 'Approved',
-	processing: 'Processing', ready_for_pickup: 'Ready for pickup', released: 'Released',
+	processing: 'Processing', ready_for_pickup: 'Ready for Release', released: 'Released',
 	rejected: 'Rejected', cancelled: 'Cancelled'
 };
 
 export function requestStatusKey(value: string): RequestStatus | null {
-	const key = value.trim().toLowerCase().replace(/\s+/g, '_');
+	let key = value.trim().toLowerCase().replace(/\s+/g, '_');
+	// Keep the existing workflow key and stored values; both labels represent one status.
+	if (key === 'ready_for_release') key = 'ready_for_pickup';
+	if (key === 'canceled') key = 'cancelled';
+	if (key === 'completed') key = 'released';
 	return REQUEST_STATUSES.includes(key as RequestStatus) ? key as RequestStatus : null;
 }
 
 export function statusLabel(value: string): string {
+	value = releaseWording(value);
 	const key = requestStatusKey(value);
 	return key ? labels[key] : value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export function releaseWording(value: string): string {
+	return value.replace(/ready for pickup/gi, 'Ready for Release');
 }

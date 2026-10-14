@@ -4,6 +4,7 @@ import { supabase } from '$lib/server/supabase';
 import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
 import { JWT_SECRET } from '$env/static/private';
+import { requestStatusKey } from '$lib/request-status';
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
 	const token = cookies.get('session');
@@ -39,7 +40,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		const isOffice = ['Staff', 'Admin'].includes(payload.role);
 		const allowed = files.some((file) => isOffice || (
 			file.student_id === payload.userId &&
-			(file.file_kind === 'requirement' || file.status === 'Approved')
+			(file.file_kind === 'requirement' || ['approved', 'processing', 'ready_for_pickup', 'released'].includes(requestStatusKey(file.status) ?? ''))
 		));
 		if (!allowed) return json({ error: 'Forbidden' }, { status: 403 });
 	} else {

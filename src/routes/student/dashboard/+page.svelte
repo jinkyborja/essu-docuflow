@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { statusLabel } from '$lib/request-status';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import StatusChip from '$lib/components/ui/StatusChip.svelte';
@@ -15,7 +16,7 @@
 	const nextStep = $derived(data.layoutUser.idStatus === 'verified' ? 'Choose Request Document to start.' : data.layoutUser.idStatus === 'rejected' ? 'Upload a new ID photo, then resubmit.' : 'Wait for the office to finish reviewing. You can browse Forms meanwhile.');
 	const recentNotifs = $derived(data.recentHistory.map(h => ({
 		id: String(h.history_id),
-		title: h.request_id ? `${h.document_name ?? 'Document request'}: ${h.new_status}` : String(h.new_status),
+		title: h.request_id ? `${h.document_name ?? 'Document request'}: ${statusLabel(String(h.new_status))}` : String(h.new_status),
 		date: formatDate(h.changed_at)
 	})));
 </script>

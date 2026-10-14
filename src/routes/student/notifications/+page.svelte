@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { statusLabel, releaseWording } from '$lib/request-status';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -23,19 +24,19 @@
 	};
 
 	function mapHistory(h: Record<string, unknown>): Notif {
-		const status = h.new_status as string;
+		const status = releaseWording(h.new_status as string);
 		if (!h.request_id) return { id: String(h.history_id), type: 'system', title: status, message: status, date: new Date(h.changed_at as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' }), isRead: !!h.student_read };
 		const type: Notif['type'] =
 			status === 'Approved' ? 'request'
 			: status === 'Correction Requested' ? 'task'
 			: 'system';
 		const adminMsg = h.admin_message as string | null;
-		const displayStatus = status === 'Completed' ? 'Released' : status;
+		const displayStatus = statusLabel(status);
 		const message =
 			status === 'Completed'
 				? `The Graduate School office marked request ${h.request_id} as released. You can view its timeline in My Documents.`
 			: status === 'Approved'
-				? `Your request for ${h.document_name} (${h.request_id}) has been approved. Your document is ready for pickup at the Graduate School office.`
+				? `Your request for ${h.document_name} (${h.request_id}) has been approved. Your document is ready for release at the Graduate School office.`
 			: status === 'Rejected'
 				? `Your request for ${h.document_name} (${h.request_id}) has been rejected.${adminMsg ? ' Reason: ' + adminMsg : ''}`
 			: status === 'Correction Requested'

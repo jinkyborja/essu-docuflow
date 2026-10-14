@@ -109,7 +109,7 @@ test('Verified profiles show read-only academics and the office note; pending/re
 test('Eight statuses have shared distinct colors/labels, including legacy correction names and Badge rendering', () => {
 	assert.equal(new Set(Object.values(statuses.STATUS_COLORS).map(value => value.color)).size, 8);
 	assert.equal(statuses.statusLabel('Pending'), 'Pending'); assert.equal(statuses.statusLabel('Correction Requested'), 'Correction Requested');
-	assert.equal(statuses.statusLabel('ready_for_pickup'), 'Ready for pickup');
+	assert.equal(statuses.statusLabel('ready_for_pickup'), 'Ready for Release');
 	const badge = load('src/lib/components/ui/Badge.svelte').default;
 	for (const key of statuses.REQUEST_STATUSES) {
 		const html = render(badge, { props: { value: key } }).body;
@@ -182,7 +182,7 @@ test('Needs action loads pending, submitted-payment and processing requests with
 	const rows = [
 		{ request_id: 'REQ-2026-001', status: 'Pending', action_needed: 'Review requirements' },
 		{ request_id: 'REQ-2026-002', status: 'Approved', payment_status: 'submitted', action_needed: 'Verify payment' },
-		{ request_id: 'REQ-2026-003', status: 'processing', action_needed: 'Mark ready for pickup' }
+		{ request_id: 'REQ-2026-003', status: 'processing', action_needed: 'Mark ready for release' }
 	].map(row => ({ ...row, first_name: 'Juan', last_name: 'Cruz', student_id: '26-0007', program: 'Master of Arts', date_requested: '2020-10-10T00:00:00Z' }));
 	for (const role of ['Admin', 'Staff', 'Student', 'Unknown']) {
 		const queries = [];

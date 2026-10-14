@@ -25,7 +25,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 	if (payload.role === 'Student') {
 		const [rows] = await pool.execute(
 			`SELECT r.request_id, r.document_id, r.purpose,
-			        r.status, r.admin_message, r.approved_file_path, r.approved_file_name,
+			        r.status, r.admin_message, r.approved_file_path, r.approved_file_name, r.archived_at,
 		        r.date_requested
 			 FROM requests r
 			 WHERE r.student_id = ?
@@ -50,9 +50,10 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 	const [rows] = await pool.execute(
 		`SELECT r.request_id,
 		        u.first_name, u.middle_name, u.last_name, u.student_id AS student_code,
-		        u.program, r.purpose, r.status, r.date_requested
+		        u.program, r.purpose, r.status, r.date_requested, r.archived_at
 		 FROM requests r
 		 JOIN users u ON r.student_id = u.user_id
+		 WHERE ${payload.role === 'Admin' ? '1 = 1' : 'r.archived_at IS NULL'}
 		 ORDER BY r.date_requested DESC`
 	);
 	const result = rows as Array<Record<string, unknown>>;
@@ -270,33 +271,28 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
 	const request_id = typeof body?.request_id === 'string' ? body.request_id : '';
 	if (!request_id) return json({ error: 'Missing request_id.' }, { status: 400 });
 
-	// Clean up uploaded files from Supabase
-	const [rows] = await pool.execute(
-		'SELECT approved_file_path FROM requests WHERE request_id = ?',
-		[request_id]
-	);
-	const req = (rows as Record<string, unknown>[])[0];
-	if (req) {
-		const filePaths: string[] = await fetchRequestFilePaths([request_id]);
-		if (req.approved_file_path) filePaths.push(req.approved_file_path as string);
-		if (filePaths.length > 0) {
-			await supabase.storage.from('requirements').remove(filePaths);
-		}
-	}
-
-	// request_requirements cascades on delete; history has no FK cascade.
+	const conn = await pool.getConnection();
+	let paths: string[] = [];
 	try {
-		await pool.execute('DELETE FROM request_status_history WHERE request_id = ?', [request_id]);
-		await pool.execute('DELETE FROM requests WHERE request_id = ?', [request_id]);
+		await conn.beginTransaction();
+		const [rows] = await conn.execute('SELECT approved_file_path, archived_at FROM requests WHERE request_id = ? FOR UPDATE', [request_id]);
+		const row = (rows as Array<{approved_file_path:string|null;archived_at:unknown}>)[0];
+		if (!row) { await conn.rollback(); return json({error:'Request not found'}, {status:404}); }
+		if (row.archived_at) { await conn.rollback(); return json({error:'Archived requests must be retained.'}, {status:409}); }
+		const [files] = await conn.execute('SELECT file_path FROM request_requirements WHERE request_id = ? AND file_path IS NOT NULL', [request_id]);
+		paths = (files as Array<{file_path:string}>).map(file => file.file_path);
+		if (row.approved_file_path) paths.push(row.approved_file_path);
+		await conn.execute('DELETE FROM request_status_history WHERE request_id = ?', [request_id]);
+		await conn.execute('DELETE FROM requests WHERE request_id = ?', [request_id]);
+		await logActivitySafely(conn, { actor: payload, action: 'request.deleted', entityType: 'request', entityId: request_id, summary: 'Deleted request ' + request_id, details: { changedFields: ['request', 'request history'] } });
+		await conn.commit();
 	} catch (error) {
-		console.error('Request deletion failed:', error);
-		return json({ error: 'Could not delete the request.' }, { status: 500 });
+		await conn.rollback(); console.error('Request deletion failed:', error);
+		return json({error:'Could not delete the request.'}, {status:500});
+	} finally { conn.release(); }
+	if (paths.length) {
+		try { const {error} = await supabase.storage.from('requirements').remove([...new Set(paths)]); if(error) console.error('Request storage cleanup failed:',error.message); }
+		catch(error) { console.error('Request storage cleanup failed:',error); }
 	}
-	try {
-		const conn = await pool.getConnection();
-		try { await logActivitySafely(conn, { actor: payload, action: 'request.deleted', entityType: 'request', entityId: request_id, summary: `Deleted request ${request_id}`, details: { changedFields: ['request', 'request history'] } }); }
-		finally { conn.release(); }
-	} catch (error) { console.error('Could not write request deletion activity:', error); }
-
 	return json({ success: true });
 };

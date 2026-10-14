@@ -10,15 +10,17 @@ import { fetchRequestItems, documentNameSummary } from '$lib/server/request-item
 export const load: PageServerLoad = async ({ cookies, params }) => {
 	const token = cookies.get('session');
 	if (!token) redirect(302, '/login');
+	let role = '';
 	try {
 		const p = (await verifySession(token, JWT_SECRET));
+		role = p.role;
 		if (p.role === 'Student') redirect(302, '/student/dashboard');
 	} catch { redirect(302, '/login'); }
 
 	const [rows] = await pool.execute(
 		`SELECT r.request_id, r.purpose, r.status,
 		        r.admin_message, r.approved_file_path, r.approved_file_name,
-		        r.date_requested, r.document_id, r.decided_by, r.decided_at,
+		        r.date_requested, r.document_id, r.decided_by, r.decided_at, r.archived_at,
 		        TRIM(CONCAT_WS(' ', decider.first_name, decider.middle_name, decider.last_name, decider.suffix)) AS live_decider_name,
 		        decider.role AS live_decider_role,
 		        decision_log.id AS decision_log_id, decision_log.action AS decision_action,
@@ -73,6 +75,7 @@ export const load: PageServerLoad = async ({ cookies, params }) => {
 	);
 
 	const req = list[0];
+	if (req.archived_at && role !== 'Admin') error(403, 'Admin access required');
 	req.student_name = formatName(req.first_name, req.middle_name, req.last_name);
 	req.decision_recorded = !!req.decided_at && !!req.decision_log_id;
 	req.decision_actor_name = req.decision_recorded

@@ -1,3 +1,4 @@
+import { releaseWording } from '$lib/request-status';
 import type { RequestHandler } from './$types';
 import pool from '$lib/server/db';
 import { verifySession } from '$lib/server/jwt';
@@ -60,7 +61,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
 			activityActionLabels[String(row.action)] ?? row.action,
 			row.entity_type,
 			row.entity_id,
-			row.summary,
+			releaseWording(String(row.summary)),
 			detailText
 		].map(csvCell).join(','));
 	}

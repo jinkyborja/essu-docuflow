@@ -1,4 +1,5 @@
 import type { PoolConnection } from 'mysql2/promise';
+import { bundledFormPdf, isPdfName } from '$lib/form-pdf';
 
 export interface FormFileInput { page_no: number; storage_path: string | null; public_url: string; name: string; type: string; size?: number; }
 export interface FormInput { title: string; category: string; code?: string; description: string; fields: string[]; download_name?: string; files: FormFileInput[]; }
@@ -42,6 +43,7 @@ export function validate(body: Record<string, unknown>): string | null {
 		const ext = fileExtension(file.name);
 		if (!formFileMime[ext] || file.type !== formFileMime[ext] || (file.size != null && (!Number.isFinite(file.size) || file.size <= 0 || file.size > maxFormFileSize))) return `Unsupported file ${file.name}. Use JPG, PNG, WebP, PDF, DOCX, DOC, XLSX or XLS up to 10 MB.`;
 	}
+	if (!body.files.some(file => isPdfName(file.name) || (!file.storage_path && bundledFormPdf(file.public_url)))) return 'Add a PDF version so students can preview and download this form.';
 	return null;
 }
 

@@ -2,7 +2,7 @@
 	import { formatName, pluralize } from '$lib/formatting';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import RowMenu from '$lib/components/ui/RowMenu.svelte';
+	import ActionMenu from '$lib/components/ui/ActionMenu.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import TextField from '$lib/components/forms/TextField.svelte';
 	import { showToast } from '$lib/stores/toasts';
@@ -128,7 +128,7 @@
 {:else}
 <div class="space-y-5">
 	<!-- Header -->
-	<div class="staff-page-actions flex items-center justify-between">
+	<div class="staff-page-actions flex flex-wrap items-center justify-between gap-3">
 		<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20">
 			{staffList.length} {pluralize(staffList.length, 'member')}
 		</span>
@@ -136,7 +136,7 @@
 	</div>
 
 	<!-- Table -->
-	<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+	<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-visible">
 		{#if staffList.length === 0}
 			<div class="p-16 text-center">
 				<i class="fa-solid fa-user-tie text-4xl text-gray-200 mb-4 block"></i>
@@ -144,15 +144,15 @@
 			</div>
 		{:else}
 			<!-- Mobile card list -->
-			<div class="md:hidden divide-y divide-gray-100">
+			<div class="space-y-3 p-3 md:hidden">
 				{#each staffList as member}
-					<article class="p-4 flex flex-wrap items-center gap-3">
+					<article class="rounded-xl border border-gray-100 bg-white p-4 flex flex-wrap items-center gap-3">
 						<div class="w-10 h-10 rounded-xl bg-essu-green/10 text-essu-green flex items-center justify-center text-sm font-bold shrink-0">
 							{member.first_name[0]}{member.last_name[0]}
 						</div>
 						<div class="flex-1 min-w-0">
 							<div class="flex flex-wrap items-center gap-2">
-								<p class="font-medium text-gray-800 text-sm">{formatName(member.first_name, member.middle_name, member.last_name)}</p>
+								<p class="font-medium text-gray-800 text-sm break-words">{formatName(member.first_name, member.middle_name, member.last_name)}</p>
 								<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">
 									{member.role}
 								</span>
@@ -164,9 +164,9 @@
 						</div>
 						<div class="w-full border-t border-gray-100 pt-3">
 						<p class="mb-3 text-xs text-gray-500">Joined {new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
-						<div class="flex items-center gap-2">
-						<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button><RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, disabled: member.user_id === currentUserId, reason: 'You cannot delete your own account', onselect: () => openDelete(member)}]} />
-					</div>
+							<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, disabled: member.user_id === currentUserId, reason: 'You cannot delete your own account', onselect: () => openDelete(member)}]}>
+								<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
+							</ActionMenu>
 						</div>
 					</article>
 				{/each}
@@ -220,9 +220,9 @@
 									{new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
 								<td class="actions-cell">
-									<div class="action-buttons">
-										<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button><RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, disabled: member.user_id === currentUserId, reason: 'You cannot delete your own account', onselect: () => openDelete(member)}]} />
-									</div>
+									<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, disabled: member.user_id === currentUserId, reason: 'You cannot delete your own account', onselect: () => openDelete(member)}]}>
+										<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
+									</ActionMenu>
 								</td>
 							</tr>
 						{/each}

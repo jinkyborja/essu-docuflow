@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
@@ -13,6 +13,7 @@
 	import TextField from './TextField.svelte';
 	import TextArea from './TextArea.svelte';
 	import FormSection from './FormSection.svelte';
+	import { bundledFormPdf, isPdfName } from '$lib/form-pdf';
 	type FormFile = { file_id?: number; page_no: number; storage_path: string | null; public_url: string; name: string; type: string; size?: number };
 	type FormRecord = { form_id: number; title: string; category: string; code: string | null; description: string; fields: string[]; download_name: string; files: FormFile[] };
 	let forms = $state<FormRecord[]>([]);
@@ -25,6 +26,9 @@
 	let deleting = $state<FormRecord | null>(null); let saving = $state(false); let progress = $state(0);
 	let searchField = $state('');
 	let downloadFor = $state<number | null>(null);
+	let pdfBusy = $state<number | null>(null), pdfErrorFor = $state<number | null>(null), pdfError = $state('');
+	let pdfPreview = $state(''), pdfPreviewLoading = $state(false), pdfPreviewError = $state('');
+	onDestroy(() => { if (pdfPreview) URL.revokeObjectURL(pdfPreview); });
 	let title = $state(''); let categoryValue = $state(''); let newCategory = $state(''); let code = $state(''); let description = $state('');
 	let initialTitle = $state(''); let initialDownloadName = $state(''); let editorAttempted = $state(false);
 	let dragging = $state(false); let activeUploadName = $state(''); let titleInput = $state<HTMLInputElement>(); let editorTrigger = $state<HTMLElement | null>(null);
@@ -36,7 +40,8 @@
 	const filtered = $derived(forms.filter((f) => (category === 'All categories' || f.category === category) && `${f.title} ${f.category} ${f.code ?? ''}`.toLowerCase().includes(query.toLowerCase())));
 	const resolvedCategory = $derived(categoryValue === '__new' ? newCategory.trim() : categoryValue.trim());
 	const editorDirty = $derived(editing ? hasChanges() : !!(title || categoryValue || newCategory || code || description || draftFiles.length));
-	const editorValid = $derived(!!title.trim() && !!resolvedCategory && !!description.trim() && description.length <= 4000 && draftFiles.length >= 1 && draftFiles.length <= 5 && (!editing || editorDirty));
+	const hasPdf = $derived(draftFiles.some(file => isPdfName(file.name) || (!file.storage_path && bundledFormPdf(file.public_url))));
+	const editorValid = $derived(!!title.trim() && !!resolvedCategory && !!description.trim() && description.length <= 4000 && draftFiles.length >= 1 && draftFiles.length <= 5 && hasPdf && (!editing || editorDirty));
 	onMount(() => { void refresh(); });
 	async function refresh() {
 		loading = true; loadError = '';
@@ -89,7 +94,7 @@
 	async function save() {
 		editorAttempted = true;
 		const realCategory = resolvedCategory;
-		if (!editorValid) { inlineError = 'Complete the required fields and add between 1 and 5 files.'; return; }
+		if (!editorValid) { inlineError = 'Complete the required fields and include a PDF version among 1 to 5 files.'; return; }
 		saving = true; progress = 0; inlineError = '';
 		try {
 			const nextFiles = draftFiles.map((f) => ({ page_no: isPreview(f.name) ? f.page_no : 0, storage_path: f.storage_path, public_url: f.public_url, name: f.name, type: f.type, size: f.file?.size ?? f.size }));
@@ -124,6 +129,35 @@
 		downloadFor = null;
 	}
 	function cancelDiscard() { discardOpen = false; void tick().then(() => document.getElementById('form-title')?.focus()); }
+	async function formPdf(form: FormRecord): Promise<Blob> {
+		const response = await fetch('/api/forms/' + form.form_id + '/download');
+		if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.error ?? 'Could not load the PDF. Please try again.'); }
+		const bytes = await response.arrayBuffer();
+		if (new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error('The file is not a valid PDF. Please contact the Graduate School office.');
+		return new Blob([bytes], {type:'application/pdf'});
+	}
+	async function downloadPdf(form: FormRecord) {
+		if (pdfBusy !== null) return;
+		pdfBusy = form.form_id; pdfError = ''; pdfErrorFor = null;
+		try {
+			const objectUrl = URL.createObjectURL(await formPdf(form));
+			const link = document.createElement('a'); link.href = objectUrl; link.download = outputName(form, {name:'form.pdf'} as FormFile); link.click();
+			setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); toast('PDF download started.');
+		} catch (problem) { pdfError = problem instanceof Error ? problem.message : 'Could not download the PDF.'; pdfErrorFor = form.form_id; toast(pdfError, true); }
+		finally { pdfBusy = null; }
+	}
+	async function viewForm(form: FormRecord) {
+		selected = form; viewOpen = true;
+		if (canManage) return;
+		if (pdfPreview) URL.revokeObjectURL(pdfPreview);
+		pdfPreview = ''; pdfPreviewLoading = true; pdfPreviewError = '';
+		try {
+			const blob = await formPdf(form);
+			if (viewOpen && selected?.form_id === form.form_id) pdfPreview = URL.createObjectURL(blob);
+		} catch (problem) { pdfPreviewError = problem instanceof Error ? problem.message : 'Could not preview the PDF.'; }
+		finally { pdfPreviewLoading = false; }
+	}
+
 </script>
 
 
@@ -139,11 +173,11 @@
 	{:else}<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">{#each filtered as form (form.form_id)}
 		<Card class="form-library-card" hover>
 			<div class="library-card-heading"><span class="library-category">{form.category}</span>{#if form.code}<span class="library-code">{form.code}</span>{/if}</div>
-			<h3 class="library-title">{form.title}</h3><p class="library-description">{form.description}</p>
+			<h3 class="library-title">{form.title}</h3><p class="library-description">{form.description}</p>{#if pdfErrorFor === form.form_id}<p role="alert" class="mt-2 text-sm text-red-700">{pdfError}</p>{/if}
 			{#if previewPages(form).length}<p class="library-meta">{previewPages(form).length} {previewPages(form).length === 1 ? 'preview page' : 'preview pages'}</p>{/if}
 			{#snippet footer()}
-				<div class="library-file-actions"><Button variant="secondary" onclick={() => { selected = form; viewOpen = true; }} icon="fa-solid fa-eye">View</Button>{#each editableFilesFor(form) as file}<Button variant="secondary" title={file.name} onclick={() => downloadEditable(form, file)} icon="fa-solid fa-download">Download <span class="library-file-type">{extension(file.name).toUpperCase()}</span></Button>{/each}{#if previewPages(form).length}<Button variant="secondary" onclick={() => downloadPreview(form)} icon="fa-solid fa-download">Download preview <span class="library-file-type">{[...new Set(previewPages(form).map(file => extension(file.name).toUpperCase()))].join(' / ')}</span></Button>{/if}</div>
-				{#if canManage}<RowMenu label={'Actions for ' + form.title} items={[{label: 'Edit', onselect: () => openEditor(form)}, {label: 'Delete', danger: true, onselect: () => { deleting = form; deleteOpen = true; }}]} />{/if}
+				<div class="library-footer-actions"><div class="library-file-actions"><Button variant="secondary" onclick={() => void viewForm(form)} icon="fa-solid fa-eye">View</Button>{#if !canManage}<Button variant="secondary" loading={pdfBusy === form.form_id} disabled={pdfBusy !== null && pdfBusy !== form.form_id} onclick={() => void downloadPdf(form)} icon="fa-solid fa-download">Download <span class="library-file-type">PDF</span></Button>{:else}{#each editableFilesFor(form) as file}<Button variant="secondary" title={file.name} onclick={() => downloadEditable(form, file)} icon="fa-solid fa-download">Download <span class="library-file-type">{extension(file.name).toUpperCase()}</span></Button>{/each}{#if previewPages(form).length}<Button variant="secondary" onclick={() => downloadPreview(form)} icon="fa-solid fa-download">Download preview <span class="library-file-type">{[...new Set(previewPages(form).map(file => extension(file.name).toUpperCase()))].join(' / ')}</span></Button>{/if}{/if}</div>
+				{#if canManage}<RowMenu label={'Actions for ' + form.title} items={[{label: 'Edit', onselect: () => openEditor(form)}, {label: 'Delete', danger: true, onselect: () => { deleting = form; deleteOpen = true; }}]} />{/if}</div>
 			{/snippet}
 		</Card>
 	{/each}</div>{/if}
@@ -166,7 +200,7 @@
 			<section class="space-y-4 border-t border-gray-200 pt-5" aria-labelledby="files-heading">
 				<div class="flex items-center justify-between gap-3"><h3 id="files-heading" class="form-section-label">Files</h3><span class="text-xs font-medium text-gray-500">{draftFiles.length} of 5 files</span></div>
 				<button type="button" class="form-dropzone {dragging ? 'form-dropzone-active' : ''}" aria-label="Add form files. Drag files here or browse." disabled={saving} onclick={() => fileInput?.click()} ondragenter={(e) => { e.preventDefault(); dragging = true; }} ondragover={(e) => { e.preventDefault(); dragging = true; }} ondragleave={(e) => { if (e.currentTarget === e.target) dragging = false; }} ondrop={(e) => { e.preventDefault(); dragging = false; addFiles(e.dataTransfer?.files ?? null); }}>
-					<i class="fa-solid fa-cloud-arrow-up text-2xl text-essu-green" aria-hidden="true"></i><span class="text-sm font-semibold text-gray-800">Drag files here or <span class="text-essu-green underline">Browse</span></span><span class="text-xs text-gray-500">Images or PDF for preview. Word or Excel for the editable version. Up to 5 files, 10 MB each.</span>
+					<i class="fa-solid fa-cloud-arrow-up text-2xl text-essu-green" aria-hidden="true"></i><span class="text-sm font-semibold text-gray-800">Drag files here or <span class="text-essu-green underline">Browse</span></span><span class="text-xs text-gray-500">Include a PDF for student downloads. Images, Word or Excel can be added as supporting copies. Up to 5 files, 10 MB each.</span>
 				</button>
 				<input bind:this={fileInput} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.doc,.xlsx,.xls" multiple class="sr-only" aria-label="Browse form files" disabled={saving} onchange={(e) => { addFiles(e.currentTarget.files); e.currentTarget.value = ''; }} />
 				{#if editorAttempted && draftFiles.length === 0}<p class="form-error"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> Add at least one file.</p>{/if}
@@ -192,8 +226,8 @@
 <ConfirmDialog open={deleteOpen} title="Delete form" message={'Delete “' + (deleting?.title ?? 'this form') + '”? Its files will be removed. This cannot be undone.'} confirmLabel="Delete form" loading={saving} onclose={() => deleteOpen = false} onconfirm={() => void deleteForm()} />
 {/if}
 <Modal open={viewOpen} title={selected?.title ?? 'View form'} size="xl" onclose={() => viewOpen = false}>
-	{#snippet body()}<div class="space-y-4">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}{#if selected && previewPages(selected).length === 0}<div class="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">Preview isn't available for Word files. Download the editable version to open it.</div>{/if}{#each selected ? previewPages(selected) : [] as file}<div><p class="mb-2 text-sm font-medium">Page {file.page_no}</p>{#if extension(file.name) === 'pdf'}<div class="flex items-center gap-3 rounded-lg bg-gray-50 p-6"><i class="fa-solid fa-file-pdf text-3xl text-red-500"></i><a href={file.public_url} target="_blank" rel="noopener" class="text-essu-green underline">Open PDF</a></div>{:else}<img src={file.public_url} alt={`${selected?.title} page ${file.page_no}`} class="mx-auto max-h-[65vh] rounded border border-gray-200 object-contain" />{/if}</div>{/each}</div>{/snippet}
-	{#snippet footer()}<Button variant="secondary" onclick={() => viewOpen = false}>Close</Button>{#if selected}{#each editableFilesFor(selected) as file}<Button onclick={() => downloadEditable(selected!, file)} icon="fa-solid fa-download">{editableLabel(file)}</Button>{/each}{#if previewPages(selected).length}<Button onclick={() => downloadPreview(selected!)} icon="fa-solid fa-download">Download preview</Button>{/if}{/if}{/snippet}
+	{#snippet body()}<div class="space-y-4">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}{#if !canManage}{#if pdfPreviewLoading}<p role="status">Loading PDF preview?</p>{:else if pdfPreviewError}<LoadError message={pdfPreviewError} onretry={() => selected && void viewForm(selected)} />{:else if pdfPreview}<iframe src={pdfPreview} title={selected?.title ?? 'Form preview'} class="h-[65dvh] w-full rounded-lg border border-gray-200"></iframe>{/if}{:else}{#if selected && previewPages(selected).length === 0}<div class="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">Preview isn't available for Word files. Download the editable version to open it.</div>{/if}{#each selected ? previewPages(selected) : [] as file}<div><p class="mb-2 text-sm font-medium">Page {file.page_no}</p>{#if extension(file.name) === 'pdf'}<div class="flex items-center gap-3 rounded-lg bg-gray-50 p-6"><i class="fa-solid fa-file-pdf text-3xl text-red-500"></i><a href={file.public_url} target="_blank" rel="noopener" class="text-essu-green underline">Open PDF</a></div>{:else}<img src={file.public_url} alt={`${selected?.title} page ${file.page_no}`} class="mx-auto max-h-[65vh] rounded border border-gray-200 object-contain" />{/if}</div>{/each}{/if}</div>{/snippet}
+	{#snippet footer()}<Button variant="secondary" onclick={() => viewOpen = false}>Close</Button>{#if selected}{#if !canManage}<Button onclick={() => selected && void downloadPdf(selected)} loading={pdfBusy === selected.form_id} icon="fa-solid fa-download">Download PDF</Button>{:else}{#each editableFilesFor(selected) as file}<Button onclick={() => downloadEditable(selected!, file)} icon="fa-solid fa-download">{editableLabel(file)}</Button>{/each}{#if previewPages(selected).length}<Button onclick={() => downloadPreview(selected!)} icon="fa-solid fa-download">Download preview</Button>{/if}{/if}{/if}{/snippet}
 </Modal>
 
 
@@ -206,7 +240,8 @@
 	.library-title { margin: 0; color: var(--color-text); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); line-height: var(--line-height); }
 	.library-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; margin: var(--space-3) 0; color: var(--color-text-muted); font-size: var(--font-size-body); line-height: var(--line-height); }
 	.library-meta { margin: 0 0 var(--space-4); }
-	.library-file-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding-top: var(--space-4); }
+	.library-footer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); width: 100%; }
+	.library-file-actions { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding-top: var(--space-4); }
 	.library-file-type { padding-block: 0; background: var(--color-bg); color: var(--color-text-muted); }
 	.form-label { display: block; margin-bottom: 6px; color: var(--color-text); font-size: var(--font-size-body); font-weight: 600; }
 	.form-control { display: block; width: 100%; height: 44px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); padding: 0 var(--space-3); color: var(--color-text); font-size: var(--font-size-input); line-height: var(--line-height); outline: none; transition: border-color var(--motion-fast), box-shadow var(--motion-fast); }
@@ -235,6 +270,8 @@
 	:global(.ui-modal-panel:has(.form-editor-body) > div:nth-child(2)) { overscroll-behavior: contain; padding: 20px 24px; }
 	:global(.ui-modal-panel:has(.form-editor-body) > div:last-child) { position: sticky; bottom: 0; z-index: 2; background: var(--color-surface); border-radius: 0 0 16px 16px; }
 	@media (max-width: 599px) {
+		.library-footer-actions { align-items: stretch; }
+		.library-footer-actions :global(.row-menu-trigger) { min-height: 44px; }
 		:global(.ui-modal-backdrop:has(.form-editor-body)) { align-items: flex-end; padding: 0; }
 		:global(.ui-modal-panel:has(.form-editor-body)) { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 16px 16px 0 0; }
 		:global(.ui-modal-panel:has(.form-editor-body) > div:first-child) { border-radius: 16px 16px 0 0; padding-right: 18px; padding-left: 18px; }

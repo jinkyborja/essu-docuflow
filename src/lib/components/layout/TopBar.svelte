@@ -29,7 +29,7 @@
 	<Button variant="ghost" icon="fa-solid fa-bars" ariaLabel={menuLabel} title={desktop ? `${menuLabel} (Ctrl+B)` : menuLabel} ariaControls="portal-navigation" ariaExpanded={desktop ? !$sidebarCollapsed : $sidebarMobileOpen} onclick={toggleNavigation} class="shell-hamburger" />
 	<div class="topbar-actions">
 		<a href={notificationHref} class="notification-bell" aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'} title="Notifications"><i class="fa-regular fa-bell" aria-hidden="true"></i>{#if unread > 0}<span class="notification-count" aria-hidden="true">{unread > 99 ? '99+' : unread}</span>{/if}</a>
-		<UserMenu {user} {role} {userRole} compact />
+		<span title={`${user.name}, ${role === 'student' ? 'Student' : userRole ?? 'Staff'}`}><UserMenu {user} {role} {userRole} compact /></span>
 	</div>
 	<span class="sr-only" aria-live="polite">{announcement}</span>
 </header>

@@ -1,5 +1,5 @@
 import { formatName } from '$lib/formatting';
-import { redirect } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import {attachRequestJourney} from '$lib/server/request-journey';
 import pool from '$lib/server/db';
@@ -18,11 +18,13 @@ export const load: PageServerLoad = ({ cookies, url }) => timedLoad('staff/reque
 		role = p.role;
 	} catch { redirect(302, '/login'); }
 
+	const archived = url.searchParams.get('view') === 'archived';
+	if (archived && role !== 'Admin') error(403, 'Admin access required');
 	const [rows] = await timedQuery('staff/requests:list', () => pool.execute(
 		`SELECT r.request_id,
 		        u.first_name, u.middle_name, u.last_name,
 		        u.student_id AS student_code, u.program,
-		        r.status, r.purpose, r.date_requested,
+		        r.status, r.purpose, r.date_requested, r.archived_at,
 		        r.decided_by, r.decided_at,
 		        TRIM(CONCAT_WS(' ', decider.first_name, decider.middle_name, decider.last_name, decider.suffix)) AS live_decider_name,
 		        decider.role AS live_decider_role,
@@ -47,6 +49,7 @@ export const load: PageServerLoad = ({ cookies, url }) => timedLoad('staff/reque
 		   ORDER BY al.created_at DESC, al.id DESC
 		   LIMIT 1
 		 )
+		 WHERE r.archived_at IS ${archived ? 'NOT NULL' : 'NULL'}
 		 ORDER BY r.date_requested DESC`
 	));
 
@@ -71,6 +74,7 @@ export const load: PageServerLoad = ({ cookies, url }) => timedLoad('staff/reque
 	return {
 		requests,
 		isAdmin: role === 'Admin',
+		archived,
 		initialStatus: url.searchParams.get('status') ?? '',
 		deliveryWaiting: url.searchParams.get('delivery') === 'waiting',
 		initialDecider: role === 'Admin' && /^\d+$/.test(url.searchParams.get('decided_by') ?? '') ? url.searchParams.get('decided_by')! : ''

@@ -25,7 +25,7 @@
 
 <div class="space-y-6">
 	<!-- Stats -->
-	<div class="ui-stat-grid grid grid-cols-2 xl:grid-cols-4 gap-4">
+	<div class="ui-stat-grid grid grid-cols-1 min-[360px]:grid-cols-2 xl:grid-cols-4 gap-4">
 		<a href="/staff/students" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Total Students"   value={data.counts.students} icon="fa-solid fa-users"         color="blue"   /></a>
 		<a href="/staff/requests" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Total Requests"   value={data.counts.requests} icon="fa-solid fa-file-lines"    color="teal"   /></a>
 		<a href="/staff/requests?status=Pending" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Pending Requests" value={data.counts.pending}  icon="fa-solid fa-clock"         color="orange" /></a>
@@ -38,7 +38,7 @@
 	{/if}
 
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-		<a href="/staff/requests?status=Approved&amp;delivery=waiting" class="rounded-xl border border-essu-green/20 bg-white p-4 text-sm text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingDelivery} {pluralize(data.counts.awaitingDelivery, 'request')} ready for pickup</strong><span class="block mt-1 text-xs text-gray-500">Open a request and mark it released after the student collects the document.</span></a>
+		<a href="/staff/requests?status=Approved&amp;delivery=waiting" class="rounded-xl border border-essu-green/20 bg-white p-4 text-sm text-essu-green focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingDelivery} {pluralize(data.counts.awaitingDelivery, 'request')} ready for release</strong><span class="block mt-1 text-xs text-gray-500">Open a request and mark it released after the student collects the document.</span></a>
 		<a href="/staff/requests?status=Correction%20Requested" class="rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-800 focus:outline-none focus:ring-2 focus:ring-essu-green/30"><strong>{data.counts.awaitingCorrections} {pluralize(data.counts.awaitingCorrections, 'request')} awaiting student corrections</strong><span class="block mt-1 text-xs text-gray-500">Review outstanding corrections and office messages.</span></a>
 	</div>
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
