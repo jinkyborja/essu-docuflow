@@ -270,7 +270,10 @@
 	:global(.ui-modal-panel:has(.form-editor-body) > div:nth-child(2)) { overscroll-behavior: contain; padding: 20px 24px; }
 	:global(.ui-modal-panel:has(.form-editor-body) > div:last-child) { position: sticky; bottom: 0; z-index: 2; background: var(--color-surface); border-radius: 0 0 16px 16px; }
 	@media (max-width: 599px) {
-		.library-footer-actions { align-items: stretch; }
+		.library-footer-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+		.library-file-actions { min-width: 0; padding-top: 0; }
+		.library-file-actions :global(.ui-button) { min-width: 0; flex: 1 1 8rem; }
+		.library-footer-actions :global(.row-menu) { grid-column: 2; grid-row: 1; align-self: end; }
 		.library-footer-actions :global(.row-menu-trigger) { min-height: 44px; }
 		:global(.ui-modal-backdrop:has(.form-editor-body)) { align-items: flex-end; padding: 0; }
 		:global(.ui-modal-panel:has(.form-editor-body)) { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 16px 16px 0 0; }

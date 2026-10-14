@@ -74,9 +74,9 @@
 	</div>
 	<div class="staff-filter-bar flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
 		<label class="relative min-w-0 flex-1"><span class="sr-only">Search requests</span><i aria-hidden="true" class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i><input bind:value={search} type="search" placeholder="Search requests" class="min-h-11 w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
-		<select aria-label="Request status" bind:value={filterStatus} class="min-h-11 w-full sm:w-auto rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="">All statuses</option>{#each filterStatuses as status}<option value={status}>{statusLabel(status)}</option>{/each}</select>
-		{#if data.isAdmin}<select aria-label="Decided by" bind:value={decidedBy} class="min-h-11 w-full sm:w-auto rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="">All decision makers</option>{#each deciderOptions as option}<option value={option.id}>{option.name} - {option.role}</option>{/each}</select>{/if}
-		<button type="button" aria-pressed={deliveryWaiting} title="Approved requests ready for release" onclick={toggleDelivery} class="min-h-11 w-full sm:w-auto rounded-full border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 {deliveryWaiting ? 'border-essu-green bg-essu-green/10 text-essu-green' : 'border-gray-200 bg-white text-gray-600'}"><i class="fa-solid fa-truck mr-1.5" aria-hidden="true"></i>Ready for Release</button>
+		<select aria-label="Request status" bind:value={filterStatus} class="request-status-select min-h-11 w-full sm:w-auto rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="">All statuses</option>{#each filterStatuses as status}<option value={status}>{statusLabel(status)}</option>{/each}</select>
+		{#if data.isAdmin}<select aria-label="Decided by" bind:value={decidedBy} class="request-decider-select min-h-11 w-full sm:w-auto rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="">All decision makers</option>{#each deciderOptions as option}<option value={option.id}>{option.name} - {option.role}</option>{/each}</select>{/if}
+		<button type="button" aria-pressed={deliveryWaiting} title="Approved requests ready for release" onclick={toggleDelivery} class="request-pickup-filter min-h-11 w-full sm:w-auto rounded-full border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 {deliveryWaiting ? 'border-essu-green bg-essu-green/10 text-essu-green' : 'border-gray-200 bg-white text-gray-600'}"><i class="fa-solid fa-truck mr-1.5" aria-hidden="true"></i>Ready for Release</button>
 		{#if search || filterStatus || deliveryWaiting || decidedBy}<Button variant="ghost" onclick={() => { search = ''; filterStatus = ''; deliveryWaiting = false; decidedBy = ''; }}>Clear</Button>{/if}
 	</div>
 <div class="rounded-xl border border-gray-100 bg-white shadow-sm">
@@ -169,26 +169,50 @@
 		.staff-requests-page .staff-filter-bar {
 			display: grid;
 			grid-template-columns: repeat(2, minmax(0, 1fr));
+			grid-template-areas:
+				"search search"
+				"status pickup"
+				"decider decider"
+				"clear clear";
 			gap: 0.5rem;
 		}
 
+		.staff-requests-page .staff-filter-bar:not(:has(.request-decider-select)) {
+			grid-template-areas:
+				"search search"
+				"status pickup"
+				"clear clear";
+		}
+
 		.staff-requests-page .staff-filter-bar > label {
-			grid-column: 1 / -1;
+			grid-area: search;
 			width: 100%;
 			min-width: 0;
 		}
 
-		.staff-requests-page .staff-filter-bar > select {
+		.staff-requests-page .request-status-select {
+			grid-area: status;
 			width: 100%;
 			min-width: 0;
 		}
 
-		.staff-requests-page .staff-filter-bar > button {
-			grid-column: 1 / -1;
+		.staff-requests-page .request-pickup-filter {
+			grid-area: pickup;
+			width: 100%;
+			min-width: 0;
+		}
+
+		.staff-requests-page .request-decider-select {
+			grid-area: decider;
+			width: 100%;
+			min-width: 0;
+		}
+
+		.staff-requests-page .staff-filter-bar :global(.ui-button) {
+			grid-area: clear;
 		}
 
 		.staff-requests-page :global(.staff-filter-bar .ui-button) {
-			grid-column: 1 / -1;
 			width: 100%;
 		}
 	}

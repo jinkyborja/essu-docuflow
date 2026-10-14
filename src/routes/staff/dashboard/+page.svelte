@@ -165,10 +165,13 @@
 			<style>
 				@media (max-width: 640px) {
 					.staff-dashboard-page :global(.ui-stat-grid) {
+						display: grid;
 						grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+						gap: 1rem;
 					}
 
 					.staff-dashboard-page :global(.ui-stat-grid > *) {
+						display: block;
 						width: 100%;
 						min-width: 0;
 					}
@@ -176,6 +179,25 @@
 					.staff-dashboard-page :global(.ui-stat-card) {
 						width: 100%;
 						min-width: 0;
+						min-height: 106px;
+						padding: 1rem !important;
+						flex-direction: row;
+						align-items: center;
+						gap: 0.75rem !important;
+					}
+
+					.staff-dashboard-page :global(.ui-stat-card > div:first-child) {
+						width: 2.5rem;
+						height: 2.5rem;
+						margin-top: 0;
+					}
+
+					.staff-dashboard-page :global(.ui-stat-card > div:last-child > p:first-child) {
+						font-size: 0.8rem;
+					}
+
+					.staff-dashboard-page :global(.ui-stat-card > div:last-child > p:nth-child(2)) {
+						font-size: 1.25rem;
 					}
 
 					.dashboard-activity-title {
@@ -202,6 +224,12 @@
 						justify-content: center;
 						gap: 0.5rem;
 						text-align: center;
+					}
+				}
+
+				@media (max-width: 359px) {
+					.staff-dashboard-page :global(.ui-stat-grid) {
+						grid-template-columns: minmax(0, 1fr) !important;
 					}
 				}
 			</style>

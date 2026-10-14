@@ -187,7 +187,7 @@
 								<i class="fa-solid fa-file-lines text-essu-green"></i>
 							</div>
 							<div class="min-w-0">
-								<h3 class="font-semibold text-gray-800 truncate">{doc.name}</h3>
+								<h3 class="document-card-title font-semibold text-gray-800 truncate" title={doc.name}>{doc.name}</h3>
 								<p class="text-xs text-gray-400 mt-0.5">
 									Added by {doc.uploaded_by_name} ·
 									{new Date(doc.upload_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
@@ -199,7 +199,7 @@
 
 					<!-- Template -->
 					{#if doc.template_path}
-						<div class="document-template mt-3 flex flex-wrap items-center gap-2 text-xs bg-essu-green/5 border border-essu-green/20 rounded-lg px-3 py-2">
+						<div class="document-template document-template-mobile mt-3 flex flex-wrap items-center gap-2 text-xs bg-essu-green/5 border border-essu-green/20 rounded-lg px-3 py-2">
 							<i class="fa-solid fa-paperclip text-essu-green shrink-0"></i>
 							<span class="document-template-name flex-1 truncate text-essu-green font-medium">{doc.template_name}</span>
 							<div class="document-template-actions flex flex-wrap items-center gap-2"><Button variant="secondary" size="sm" onclick={() => void openTemplate(doc.template_path!)} icon="fa-solid fa-eye">View</Button>
@@ -249,6 +249,33 @@
 		.document-template-actions :global(.ui-button) {
 			flex: 1 1 0;
 			min-height: 44px;
+		}
+	}
+	@media (max-width: 767px) {
+		.document-card-title {
+			overflow: visible;
+			overflow-wrap: anywhere;
+			text-overflow: clip;
+			white-space: normal;
+		}
+
+		.document-template-mobile {
+			align-items: flex-start;
+		}
+
+		.document-template-mobile .document-template-name {
+			flex: 1 1 calc(100% - 2rem);
+			min-width: 0;
+			overflow: visible;
+			overflow-wrap: anywhere;
+			text-overflow: clip;
+			white-space: normal;
+		}
+
+		.document-template-mobile .document-template-actions {
+			display: flex;
+			width: 100%;
+			justify-content: flex-end;
 		}
 	}
 </style>

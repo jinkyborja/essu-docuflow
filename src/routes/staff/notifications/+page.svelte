@@ -170,7 +170,7 @@ task:    { icon: 'fa-solid fa-clipboard-list',       color: 'text-purple-600', b
 					<span class="font-semibold">{unreadCount}</span> unread
 				</span>
 			{/if}
-			<div class="relative">
+			<div class="staff-notification-search relative">
 				<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
 				<input type="text" bind:value={search} aria-label="Search notifications" placeholder="Search notifications..."
 					oninput={() => (currentPage = 1)}
@@ -178,7 +178,7 @@ task:    { icon: 'fa-solid fa-clipboard-list',       color: 'text-purple-600', b
 			</div>
 			{#if unreadCount > 0}
 				<button onclick={() => void markAllNotificationsRead()}
-					class="min-h-11 px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+					class="staff-mark-all-read min-h-11 px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 					<i class="fa-solid fa-check-double mr-1 text-xs"></i>Mark all as read
 				</button>
 			{/if}
@@ -275,6 +275,31 @@ task:    { icon: 'fa-solid fa-clipboard-list',       color: 'text-purple-600', b
 </Modal>
 
 <style>
+	@media (max-width: 640px) {
+		.staff-notifications > div:first-child {
+			align-items: stretch;
+		}
+
+		.staff-notification-controls {
+			width: 100%;
+			min-width: 0;
+		}
+
+		.staff-notification-search {
+			width: 100%;
+			min-width: 0;
+		}
+
+		.staff-notification-search input {
+			width: 100%;
+		}
+
+		.staff-mark-all-read {
+			max-width: 100%;
+			white-space: normal;
+		}
+	}
+
 	@media (max-width: 639px) {
 		.staff-notification-controls {
 			width: 100%;

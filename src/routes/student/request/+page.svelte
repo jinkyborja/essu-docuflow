@@ -145,5 +145,12 @@
 	.requirement-copy { flex: 1; min-width: 0; }
 	.requirement-downloads { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 	:global(.wizard-step-card h2) { font-size: var(--font-size-card-title); }
-	@media (max-width: 639px) { .wizard-action-bar { padding: var(--space-4); } .wizard-action-summary { order: -1; flex-basis: 100%; } }
+	@media (max-width: 639px) {
+		.wizard-action-bar { padding: var(--space-4); }
+		.wizard-action-summary { order: -1; flex-basis: 100%; }
+		.wizard-action-bar :global(.ui-button) { flex: 1 1 7rem; min-width: 0; }
+		.requirement-heading { min-width: 0; }
+		.requirement-downloads { width: 100%; }
+		.requirement-downloads :global(.ui-button) { max-width: 100%; }
+	}
 </style>

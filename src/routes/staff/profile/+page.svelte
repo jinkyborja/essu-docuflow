@@ -182,7 +182,7 @@
 	}
 </script>
 
-<div class="max-w-4xl mx-auto space-y-5">
+<div class="staff-profile-page max-w-4xl mx-auto space-y-5">
 	<!-- Profile header -->
 	<div class="profile-header bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
 		<div class="flex items-center gap-5">
@@ -294,6 +294,19 @@
 		</button>
 	{/snippet}
 </Modal>
+
+<style>
+	@media (max-width: 640px) {
+		.staff-profile-page :global(.profile-data-grid) {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.staff-profile-page :global(.profile-data-grid > div) {
+			min-width: 0;
+			overflow-wrap: anywhere;
+		}
+	}
+</style>
 
 <!-- Edit Professional Info Modal (Admin only) -->
 <Modal open={professionalOpen} title="Edit Professional Information" size="sm" onclose={() => (professionalOpen = false)}>

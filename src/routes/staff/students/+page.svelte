@@ -382,8 +382,8 @@
 	{#if usageError}<LoadError message="We couldn’t check linked requests. Please try again." onretry={() => void loadRequestUsage()} />{:else if !usageLoaded}<p role="status" class="flex items-center gap-2 text-sm text-gray-600"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Checking linked requests…</p>{/if}
 	<!-- Search / Filter -->
 	<div class="staff-filter-bar space-y-3">
-		<div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-			<div class="flex flex-wrap items-center gap-1">
+		<div class="student-search-row flex flex-col gap-3 lg:flex-row lg:items-center">
+			<div class="student-status-tabs flex flex-wrap items-center gap-1">
 				{#each [{key:'pending',label:'Pending'},{key:'verified',label:'Verified'},{key:'rejected',label:'Rejected'},{key:'all',label:'All'}] as tab}
 					<button aria-pressed={statusTab === tab.key} onclick={() => { statusTab = tab.key as typeof statusTab; syncQuery(); }} class="rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-essu-green/50 {statusTab === tab.key ? 'bg-essu-green text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">{tab.label} ({tabCounts[tab.key as keyof typeof tabCounts]})</button>
 				{/each}
@@ -391,7 +391,7 @@
 					{filtered.length} of {students.length} students
 				</span>
 			</div>
-			<div class="relative flex-1 min-w-0">
+			<div class="student-search relative flex-1 min-w-0">
 				<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
 				<input
 					value={search}
@@ -469,12 +469,12 @@
 				{#each filtered as s}
 					<article class="student-card rounded-xl border border-gray-100 bg-white p-4">
 						<div class="student-identity">
-							<p class="font-medium text-gray-800 text-sm">{@html highlight(fullName(s), search.trim())}</p>
+							<p class="font-medium text-gray-800 text-sm" title={fullName(s)}>{@html highlight(fullName(s), search.trim())}</p>
 							<p class="student-card-id font-mono text-xs text-gray-500">{@html highlight(s.student_id, search.trim())}</p>
 							<p class="student-email text-xs text-gray-400" title={s.email}>{@html highlight(s.email, search.trim())}</p>
 						</div>
 						<div class="student-card-program">
-							<span class="program-value text-sm text-gray-700">{@html highlight(s.program, search.trim())}</span>
+							<span class="program-value text-sm text-gray-700" title={s.program ?? ''}>{@html highlight(s.program, search.trim())}</span>
 							<div class="student-card-meta">
 								{#if s.student_type}
 									<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {typeColors[s.student_type] ?? 'bg-gray-100 text-gray-600 border border-gray-200'}">{s.student_type}</span>
@@ -953,6 +953,7 @@
 		overflow: visible !important;
 		white-space: normal;
 		overflow-wrap: anywhere;
+		line-clamp: unset !important;
 		-webkit-line-clamp: unset !important;
 	}
 
@@ -969,8 +970,26 @@
 	}
 
 	@media (max-width: 767px) {
+		.staff-page-actions {
+			flex-wrap: wrap;
+		}
+
 		.staff-page-actions :global(.ui-button) {
+			width: auto;
+			max-width: 100%;
+		}
+
+		.student-search-row {
+			align-items: stretch;
+		}
+
+		.student-status-tabs {
+			min-width: 0;
+		}
+
+		.student-search {
 			width: 100%;
+			min-width: 0;
 		}
 
 		.student-filter-controls:not(.filters-expanded) {
@@ -982,9 +1001,28 @@
 		}
 
 		.student-card-footer {
-			align-items: stretch;
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
 		}
-		.student-card-footer :global(.action-buttons) { width: 100%; }
+		.student-card-footer :global(.action-buttons) {
+			width: auto;
+			min-width: 0;
+		}
+
+		.student-card-footer :global(.action-buttons .ui-button),
+		.student-card-footer :global(.row-menu-trigger) {
+			min-height: 44px;
+		}
+
+		.student-card .program-value {
+			display: block;
+			max-width: none;
+			overflow: visible;
+			overflow-wrap: anywhere;
+			white-space: normal;
+			text-overflow: clip;
+		}
 
 	}
 </style>

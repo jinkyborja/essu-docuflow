@@ -156,5 +156,14 @@
 	.requirement-file-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-3); border-top: 1px solid var(--color-border); }
 	.file-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 	.group-empty { padding-bottom: var(--space-4); color: var(--color-text-muted); font-size: var(--font-size-helper); }
+	@media (max-width: 639px) {
+		.request-header { align-items: stretch; }
+		.request-header > :global(.ui-button),
+		.request-header > .file-actions { width: 100%; }
+		.requirement-file-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+		.requirement-file-row > div:first-child { grid-column: 1 / -1; min-width: 0; }
+		.requirement-file-row > .file-actions { grid-column: 1 / -1; width: 100%; }
+		.file-actions :global(.ui-button) { flex: 1 1 8rem; min-width: 0; }
+	}
 	@media (pointer: coarse) { summary { min-height: var(--control-height-touch); } }
 </style>

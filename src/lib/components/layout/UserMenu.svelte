@@ -15,7 +15,7 @@
 </script>
 
 <div class="user-menu" class:compact class:sidebar={location === 'sidebar'}>
-	<RowMenu label={`Open user menu for ${user.name}`} triggerClass="user-menu-trigger" placement={location === 'sidebar' ? 'top-start' : 'bottom-end'} loading={$logoutPending} items={[
+	<RowMenu label={`Open user menu for ${user.name}, ${roleLabel}`} triggerClass="user-menu-trigger" placement={location === 'sidebar' ? 'top-start' : 'bottom-end'} loading={$logoutPending} items={[
 		{ label: 'My Profile', href: profileHref, icon: 'fa-solid fa-circle-user', onselect: () => sidebarMobileOpen.set(false) },
 		...(location === 'sidebar' ? [{ label: 'Log out', icon: 'fa-solid fa-right-from-bracket', disabled: $logoutPending, reason: 'Logging out…', onselect: logout }] : [])
 	]}>

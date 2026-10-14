@@ -214,5 +214,12 @@
 	.notification-message { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; margin-top: var(--space-1); color: var(--color-text-muted); }
 	.notification-action-note { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); color: var(--color-primary); font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); }
 	.notification-meta { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--font-size-helper); }
-	@media (max-width: 639px) { .notification-controls { width: 100%; } .notification-meta { flex-basis: 100%; flex-direction: row; justify-content: space-between; } }
+	@media (max-width: 639px) {
+		.notification-controls { width: 100%; min-width: 0; }
+		.notification-filters { width: 100%; }
+		.notification-search { width: 100%; min-width: 0; }
+		.notification-search input { width: 100%; }
+		.notification-meta { flex-basis: 100%; flex-direction: row; justify-content: space-between; }
+		.notification-controls :global(.ui-button) { max-width: 100%; white-space: normal; }
+	}
 </style>

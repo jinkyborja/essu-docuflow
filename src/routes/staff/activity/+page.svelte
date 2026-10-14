@@ -841,6 +841,13 @@
 		}
 	}
 
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.activity-table-wrap {
+			overflow-x: auto !important;
+			overflow-y: hidden;
+		}
+	}
+
 	@media (max-width: 480px) {
 		.activity-filter-form { grid-template-columns: minmax(0, 1fr); }
 		.activity-filter-actions { align-items: stretch; }

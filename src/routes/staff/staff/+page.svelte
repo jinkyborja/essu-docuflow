@@ -145,7 +145,7 @@
 	<p class="text-sm text-gray-500 max-w-xs">This page is only accessible to administrators. Contact your admin if you need access.</p>
 </div>
 {:else}
-<div class="space-y-5">
+<div class="staff-management-page space-y-5">
 	<!-- Header -->
 	<div class="staff-page-actions flex flex-wrap items-center justify-between gap-3">
 		<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20">
@@ -165,18 +165,18 @@
 			<!-- Mobile card list -->
 			<div class="space-y-3 p-3 md:hidden">
 				{#each staffList as member}
-					<article class="rounded-xl border border-gray-100 bg-white p-4 flex flex-wrap items-center gap-3">
+					<article class="staff-member-card rounded-xl border border-gray-100 bg-white p-4 flex flex-wrap items-center gap-3">
 						<div class="w-10 h-10 rounded-xl bg-essu-green/10 text-essu-green flex items-center justify-center text-sm font-bold shrink-0">
 							{member.first_name[0]}{member.last_name[0]}
 						</div>
 						<div class="flex-1 min-w-0">
 							<div class="flex flex-wrap items-center gap-2">
-								<p class="font-medium text-gray-800 text-sm break-words">{formatName(member.first_name, member.middle_name, member.last_name)}</p>
+								<p class="font-medium text-gray-800 text-sm break-words" title={formatName(member.first_name, member.middle_name, member.last_name)}>{formatName(member.first_name, member.middle_name, member.last_name)}</p>
 								<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">
 									{member.role}
 								</span>
 							</div>
-							<p class="text-xs text-gray-500 break-words">{member.email}</p>
+							<p class="text-xs text-gray-500 break-words" title={member.email}>{member.email}</p>
 							{#if member.position}
 								<p class="text-xs text-gray-500 mt-0.5">{member.position}</p>
 							{/if}

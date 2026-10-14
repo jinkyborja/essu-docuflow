@@ -586,4 +586,9 @@
 	:global(.student-type-option.ui-button) { width: 100%; justify-content: flex-start; }
 	:global(.student-type-option.selected.ui-button) { border-color: var(--color-primary); background: var(--color-primary-soft); }
 	@media (min-width: 640px) { .school-id-content { grid-template-columns: 144px minmax(0, 1fr); } }
+	@media (max-width: 639px) {
+		:global(.profile-data-grid) { grid-template-columns: minmax(0, 1fr); }
+		:global(.profile-data-grid > div) { min-width: 0; overflow-wrap: anywhere; }
+		:global(.student-identity-header.ui-card) { flex-wrap: wrap; }
+	}
 </style>
