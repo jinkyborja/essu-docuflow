@@ -23,7 +23,7 @@
 	};
 </script>
 
-<div class="space-y-6">
+<div class="staff-dashboard-page space-y-6">
 	<!-- Stats -->
 	<div class="ui-stat-grid grid grid-cols-1 min-[360px]:grid-cols-2 xl:grid-cols-4 gap-4">
 		<a href="/staff/students" class="rounded-xl focus:outline-none focus:ring-2 focus:ring-essu-green/30"><StatCard label="Total Students"   value={data.counts.students} icon="fa-solid fa-users"         color="blue"   /></a>
@@ -129,7 +129,7 @@
 									<i class="{item.new_status === 'Request submitted' ? 'fa-solid fa-file-circle-plus' : activityIcons[status ?? ''] ?? 'fa-solid fa-gear'} text-xs" aria-hidden="true"></i>
 								</div>
 								<div class="min-w-0">
-									<p class="text-sm font-medium text-gray-700 leading-tight truncate">
+									<p class="dashboard-activity-title text-sm font-medium text-gray-700 leading-tight truncate">
 										{item.document_name}: {item.new_status === 'Request submitted' ? 'Request submitted' : statusLabel(item.new_status as string)}
 									</p>
 									<p class="text-xs text-gray-400 mt-0.5">
@@ -146,7 +146,7 @@
 			<!-- Quick Links -->
 			<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
 				<h2 class="font-semibold text-gray-800 mb-3">Quick Links</h2>
-				<div class="space-y-1">
+				<div class="dashboard-quick-links space-y-1">
 					{#each [
 						{ href: '/staff/requests', icon: 'fa-solid fa-inbox', label: 'All Requests', color: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
 						{ href: '/staff/documents', icon: 'fa-solid fa-folder-open', label: 'Manage Documents', color: 'text-green-600 bg-green-50 hover:bg-green-100' },
@@ -161,6 +161,50 @@
 					{/each}
 				</div>
 			</div>
+
+			<style>
+				@media (max-width: 640px) {
+					.staff-dashboard-page :global(.ui-stat-grid) {
+						grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+					}
+
+					.staff-dashboard-page :global(.ui-stat-grid > *) {
+						width: 100%;
+						min-width: 0;
+					}
+
+					.staff-dashboard-page :global(.ui-stat-card) {
+						width: 100%;
+						min-width: 0;
+					}
+
+					.dashboard-activity-title {
+						display: -webkit-box;
+						overflow: hidden;
+						white-space: normal;
+						line-clamp: 2;
+						-webkit-box-orient: vertical;
+						-webkit-line-clamp: 2;
+					}
+
+					.dashboard-quick-links {
+						display: grid;
+						grid-template-columns: repeat(2, minmax(0, 1fr));
+						gap: 0.5rem;
+					}
+
+					.dashboard-quick-links > a {
+						min-width: 0;
+						width: 100%;
+						box-sizing: border-box;
+						margin-block-start: 0;
+						flex-direction: column;
+						justify-content: center;
+						gap: 0.5rem;
+						text-align: center;
+					}
+				}
+			</style>
 		</div>
 	</div>
 </div>

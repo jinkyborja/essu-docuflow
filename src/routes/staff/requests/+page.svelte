@@ -67,13 +67,13 @@
 	}));
 	const filterStatuses = ['Pending', 'Correction Requested', 'Approved', 'Processing', 'Ready for Release', 'Released', 'Rejected', 'Cancelled'];
 </script>
-<div class="space-y-5">
+<div class="staff-requests-page space-y-5">
 	{#if data.isAdmin}<div class="staff-page-actions flex flex-wrap items-center justify-between gap-3">{#if data.archived}<h2 class="text-lg font-semibold text-gray-800">Archived Requests</h2><Button variant="secondary" href="/staff/requests">All Requests</Button>{:else}<span></span><Button variant="secondary" href="/staff/requests?view=archived" icon="fa-solid fa-box-archive">Archived Requests</Button>{/if}</div>{/if}
 	<div class="ui-stat-grid grid grid-cols-1 min-[360px]:grid-cols-2 xl:grid-cols-4 gap-4">
 		{#each kpis as kpi}<button type="button" aria-pressed={filterStatus === kpi.status} title={'Filter ' + statusLabel(kpi.status) + ' requests'} onclick={() => toggleStatus(kpi.status)} class="rounded-xl border-2 text-left focus:outline-none focus:ring-2 focus:ring-essu-green/30 {filterStatus === kpi.status ? 'border-essu-green' : 'border-transparent'}"><StatCard label={statusLabel(kpi.status)} value={requests.filter(req => requestStatusKey(req.status) === kpi.key).length} icon={kpi.icon} color={kpi.color} /></button>{/each}
 	</div>
 	<div class="staff-filter-bar flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-		<label class="relative min-w-0 flex-1"><span class="sr-only">Search requests</span><i aria-hidden="true" class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i><input bind:value={search} type="search" placeholder="Search by name, request ID or student ID..." class="min-h-11 w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
+		<label class="relative min-w-0 flex-1"><span class="sr-only">Search requests</span><i aria-hidden="true" class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i><input bind:value={search} type="search" placeholder="Search requests" class="min-h-11 w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
 		<select aria-label="Request status" bind:value={filterStatus} class="min-h-11 w-full sm:w-auto rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="">All statuses</option>{#each filterStatuses as status}<option value={status}>{statusLabel(status)}</option>{/each}</select>
 		{#if data.isAdmin}<select aria-label="Decided by" bind:value={decidedBy} class="min-h-11 w-full sm:w-auto rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="">All decision makers</option>{#each deciderOptions as option}<option value={option.id}>{option.name} - {option.role}</option>{/each}</select>{/if}
 		<button type="button" aria-pressed={deliveryWaiting} title="Approved requests ready for release" onclick={toggleDelivery} class="min-h-11 w-full sm:w-auto rounded-full border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 {deliveryWaiting ? 'border-essu-green bg-essu-green/10 text-essu-green' : 'border-gray-200 bg-white text-gray-600'}"><i class="fa-solid fa-truck mr-1.5" aria-hidden="true"></i>Ready for Release</button>
@@ -128,5 +128,68 @@
 </div>
 <ConfirmDialog open={!!actionTarget} title={action === 'cancel' ? 'Cancel Request' : 'Archive Request'} message={action === 'cancel' ? 'Are you sure you want to cancel this document request?' : 'Are you sure you want to archive this request?'} cancelLabel={action === 'cancel' ? 'Keep Request' : 'Cancel'} confirmLabel={action === 'cancel' ? 'Confirm Cancellation' : 'Confirm Archive'} variant={action === 'cancel' ? 'danger' : 'primary'} loading={actionBusy} error={actionError} onclose={() => { if (!actionBusy) actionTarget = null; }} onconfirm={confirmAction} />
 <style>
-	@media (max-width: 639px) { .staff-filter-bar { gap: var(--space-2); } .staff-filter-bar :global(.ui-button) { width: 100%; } }
+	@media (max-width: 640px) {
+		.staff-requests-page :global(.ui-stat-grid) {
+			grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+		}
+
+		.staff-requests-page :global(.ui-stat-grid > *) {
+			width: 100%;
+			min-width: 0;
+		}
+
+		.staff-requests-page :global(.ui-stat-card) {
+			width: 100%;
+			min-width: 0;
+			min-height: 0;
+			padding: 0.75rem !important;
+			gap: 0.5rem !important;
+			flex-direction: row;
+			align-items: center;
+		}
+
+		.staff-requests-page :global(.ui-stat-card > div:first-child) {
+			width: 2rem;
+			height: 2rem;
+			margin-top: 0;
+		}
+
+		.staff-requests-page :global(.ui-stat-card > div:first-child i) {
+			font-size: 1rem;
+		}
+
+		.staff-requests-page :global(.ui-stat-card > div:last-child > p:first-child) {
+			font-size: 0.75rem;
+		}
+
+		.staff-requests-page :global(.ui-stat-card > div:last-child > p:nth-child(2)) {
+			font-size: 1.25rem;
+		}
+
+		.staff-requests-page .staff-filter-bar {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.5rem;
+		}
+
+		.staff-requests-page .staff-filter-bar > label {
+			grid-column: 1 / -1;
+			width: 100%;
+			min-width: 0;
+		}
+
+		.staff-requests-page .staff-filter-bar > select {
+			width: 100%;
+			min-width: 0;
+		}
+
+		.staff-requests-page .staff-filter-bar > button {
+			grid-column: 1 / -1;
+		}
+
+		.staff-requests-page :global(.staff-filter-bar .ui-button) {
+			grid-column: 1 / -1;
+			width: 100%;
+		}
+	}
 </style>

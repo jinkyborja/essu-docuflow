@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { deserialize } from '$app/forms';
 	import { formatName, pluralize } from '$lib/formatting';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -70,7 +71,7 @@
 	let deleteTarget = $state<StaffMember | null>(null);
 
 	function openDelete(m: StaffMember) {
-		if (m.user_id === currentUserId) return;
+		if (m.role !== 'Staff' || m.user_id === currentUserId) return;
 		deleteError = ''; deleteTarget = m;
 		deleteOpen = true;
 	}
@@ -78,10 +79,28 @@
 	async function handleDelete() {
 		if (!deleteTarget || deleting) return; deleting = true; deleteError = ''; const target = deleteTarget;
 		try {
-			const response = await fetch('/api/staff', {method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: target.user_id})});
-			const result = await response.json(); if (!response.ok) throw new Error(result.error ?? 'Could not delete staff member.');
+			const response = await fetch('?/delete', {
+				method: 'POST',
+				headers: { 'x-sveltekit-action': 'true' },
+				body: new URLSearchParams({ user_id: String(target.user_id) })
+			});
+			const result = deserialize(await response.text());
+			if (result.type !== 'success') {
+				const failureData = 'data' in result && typeof result.data === 'object' && result.data !== null
+					? result.data as { deleteError?: unknown }
+					: null;
+				const message = typeof failureData?.deleteError === 'string'
+					? failureData.deleteError
+					: result.type === 'error' && result.error instanceof Error
+						? result.error.message
+						: 'Could not delete staff member.';
+				throw new Error(message);
+			}
 			staffList = staffList.filter(member => member.user_id !== target.user_id); deleteOpen = false; showToast('Staff member deleted.');
-		} catch (error) { deleteError = (error as Error).message; showToast(deleteError, 'error'); } finally { deleting = false; }
+			deleteTarget = null;
+		} catch (error) {
+			deleteError = error instanceof Error ? error.message : 'Could not delete staff member.';
+		} finally { deleting = false; }
 	}
 	function openInvite() {
 		inviteEmail = '';
@@ -164,9 +183,13 @@
 						</div>
 						<div class="w-full border-t border-gray-100 pt-3">
 						<p class="mb-3 text-xs text-gray-500">Joined {new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
-							<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, disabled: member.user_id === currentUserId, reason: 'You cannot delete your own account', onselect: () => openDelete(member)}]}>
+							{#if member.role === 'Staff' && member.user_id !== currentUserId}
+								<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, onselect: () => openDelete(member)}]}>
+									<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
+								</ActionMenu>
+							{:else}
 								<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
-							</ActionMenu>
+							{/if}
 						</div>
 					</article>
 				{/each}
@@ -220,9 +243,13 @@
 									{new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
 								</td>
 								<td class="actions-cell">
-									<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, disabled: member.user_id === currentUserId, reason: 'You cannot delete your own account', onselect: () => openDelete(member)}]}>
+									{#if member.role === 'Staff' && member.user_id !== currentUserId}
+										<ActionMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={[{label: 'Delete', danger: true, onselect: () => openDelete(member)}]}>
+											<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
+										</ActionMenu>
+									{:else}
 										<Button variant="secondary" size="sm" onclick={() => openEdit(member)}>Edit</Button>
-									</ActionMenu>
+									{/if}
 								</td>
 							</tr>
 						{/each}
@@ -275,7 +302,7 @@
 	{/snippet}
 </Modal>
 
-<ConfirmDialog open={deleteOpen} title="Delete staff member" message={'Delete ' + (deleteTarget ? formatName(deleteTarget.first_name, deleteTarget.middle_name, deleteTarget.last_name) : 'this staff member') + '? This permanently removes their account.'} confirmLabel="Delete staff member" loading={deleting} error={deleteError} onclose={() => deleteOpen = false} onconfirm={() => void handleDelete()} />
+<ConfirmDialog open={deleteOpen} title="Delete staff member" message={'Delete ' + (deleteTarget ? formatName(deleteTarget.first_name, deleteTarget.middle_name, deleteTarget.last_name) : 'this staff member') + '? This cannot be undone.'} confirmLabel="Delete" cancelLabel="Cancel" variant="danger" loading={deleting} error={deleteError} onclose={() => deleteOpen = false} onconfirm={() => void handleDelete()} />
 <!-- Invite Modal -->
 <Modal open={inviteOpen} title="Invite Staff Member" size="sm" onclose={() => { if (!inviting) inviteOpen = false; }}>
 	{#snippet body()}
