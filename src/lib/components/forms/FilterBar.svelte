@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	interface FilterOption {
 		value: string;
@@ -35,25 +36,23 @@
 	}: Props = $props();
 </script>
 
-<div class="ui-filter-bar bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex flex-wrap gap-3 items-end">
-	<!-- Search -->
-	<div class="relative flex-1 min-w-48">
-		<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+<div class="ui-filter-bar">
+	<label class="ui-filter-search">
+		<span class="sr-only">Search</span>
+		<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
 		<input
-			type="text"
+			type="search"
 			value={searchValue}
 			placeholder={searchPlaceholder}
 			oninput={(e) => onSearch?.((e.target as HTMLInputElement).value)}
-			class="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light transition"
 		/>
-	</div>
+	</label>
 
-	<!-- Filter selects -->
 	{#each filters as filter}
 		<select
 			value={filterValues[filter.key] ?? ''}
+			aria-label={filter.placeholder}
 			onchange={(e) => onFilterChange?.(filter.key, (e.target as HTMLSelectElement).value)}
-			class="py-2 px-3 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-essu-green/30 focus:border-essu-green-light transition"
 		>
 			<option value="">{filter.placeholder}</option>
 			{#each filter.options as opt}
@@ -62,19 +61,25 @@
 		</select>
 	{/each}
 
-	<!-- Extra slot (e.g., checkboxes) -->
 	{#if extra}
 		{@render extra()}
 	{/if}
 
-	<!-- Reset -->
 	{#if onReset}
-		<button
-			onclick={onReset}
-			class="py-2 px-3 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1.5"
-		>
-			<i class="fa-solid fa-rotate-left text-xs"></i>
-			Reset
-		</button>
+		<Button type="button" variant="ghost" size="sm" icon="fa-solid fa-rotate-left" onclick={onReset}>Reset</Button>
 	{/if}
 </div>
+
+<style>
+	.ui-filter-bar { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); align-items: end; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-card); }
+	.ui-filter-search { position: relative; display: flex; min-width: 0; align-items: center; }
+	.ui-filter-search > i { position: absolute; left: var(--space-3); color: var(--color-text-muted); pointer-events: none; }
+	.ui-filter-search input, .ui-filter-bar select { width: 100%; min-width: 0; height: var(--control-height-touch); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); padding: 0 var(--space-3); color: var(--color-text); font: inherit; font-size: var(--font-size-input); }
+	.ui-filter-search input { padding-left: 40px; }
+	.ui-filter-search input:focus-visible, .ui-filter-bar select:focus-visible { border-color: var(--color-primary); outline: 2px solid var(--color-primary); outline-offset: 2px; box-shadow: var(--focus-ring); }
+	@media (min-width: 640px) {
+		.ui-filter-bar { display: flex; flex-wrap: wrap; padding: var(--space-4); }
+		.ui-filter-search { flex: 1 1 16rem; }
+		.ui-filter-bar select { flex: 0 1 14rem; }
+	}
+</style>

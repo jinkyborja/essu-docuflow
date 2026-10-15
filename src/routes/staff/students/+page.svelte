@@ -399,7 +399,7 @@
 				<input
 					value={search}
 					oninput={event => { search = (event.currentTarget as HTMLInputElement).value; syncQuery(); }}
-					type="text"
+					type="search"
 					placeholder="Search by name, ID, email, or program..."
 					class="h-11 w-full pl-9 pr-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 				/>
@@ -422,19 +422,19 @@
 		</div>
 		<div id="student-filters" class="student-filter-controls" class:filters-expanded={showMobileFilters}>
 			<label class="filter-control-label">Program
-				<select aria-label="Program" value={filterProgram} onchange={event => { filterProgram = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+				<select aria-label="Program" value={filterProgram} onchange={event => { filterProgram = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="h-11 min-h-11 min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
 					<option value="">All programs</option>
 					{#each graduatePrograms as program}<option value={program.value}>{program.label}</option>{/each}
 				</select>
 			</label>
 			<label class="filter-control-label">Date type
-				<select aria-label="Date type" value={dateType} onchange={event => { dateType = (event.currentTarget as HTMLSelectElement).value as typeof dateType; syncQuery(); }} class="min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+				<select aria-label="Date type" value={dateType} onchange={event => { dateType = (event.currentTarget as HTMLSelectElement).value as typeof dateType; syncQuery(); }} class="h-11 min-h-11 min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
 					<option value="registered">Registered</option>
 					<option value="decision">Verified or decided on</option>
 				</select>
 			</label>
 			<label class="filter-control-label">Date range
-				<select aria-label="Date range" value={dateRange} onchange={changeDateRange} class="min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+				<select aria-label="Date range" value={dateRange} onchange={changeDateRange} class="h-11 min-h-11 min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
 					<option value="any">Any time</option>
 					<option value="today">Today</option>
 					<option value="7d">Last 7 days</option>
@@ -447,7 +447,7 @@
 				<label class="filter-control-label">To<input aria-label="To date" type="date" value={customTo} onchange={event => { customTo = (event.currentTarget as HTMLInputElement).value; syncQuery(); }} class="mt-1 h-11 w-full min-w-0 px-3 border border-gray-200 rounded-lg text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" /></label>
 			{/if}
 			<label class="filter-control-label">Student type
-				<select aria-label="Student type" value={filterType} onchange={event => { filterType = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
+				<select aria-label="Student type" value={filterType} onchange={event => { filterType = (event.currentTarget as HTMLSelectElement).value; syncQuery(); }} class="h-11 min-h-11 min-w-0 w-full px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white text-gray-700">
 					<option value="">All Types</option>
 					<option value="Enrolled">Enrolled</option>
 					<option value="Former">Former</option>

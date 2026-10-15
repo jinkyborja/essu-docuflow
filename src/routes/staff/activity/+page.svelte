@@ -139,9 +139,7 @@
 	<form bind:this={filterForm} method="GET" action="/staff/activity" class="activity-filter-form rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
 		<div class="activity-filter-toolbar">
 			<h2>Filter activity</h2>
-			<a href={exportUrl()} class="activity-export-button">
-				<i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV
-			</a>
+			<Button href={exportUrl()} variant="secondary" icon="fa-solid fa-file-csv">Export CSV</Button>
 		</div>
 		<label class="activity-filter-field activity-filter-from text-xs font-medium text-gray-600">From
 			<input type="date" name="from" value={data.filters.from} class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
@@ -177,7 +175,7 @@
 			</div>
 			<div class="activity-submit-actions">
 				<Button type="submit">Apply filters</Button>
-				<a href="/staff/activity" class="activity-clear">Clear filters</a>
+				<Button href="/staff/activity" variant="secondary" class="activity-clear">Clear filters</Button>
 			</div>
 		</div>
 	</form>
@@ -332,28 +330,6 @@
 		color: #26372f;
 		font-size: 14px;
 		font-weight: 600;
-	}
-
-	.activity-export-button {
-		display: inline-flex;
-		min-height: 40px;
-		flex: 0 0 auto;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		padding: 0 14px;
-		border: 1px solid #176b3d;
-		border-radius: 8px;
-		background: #176b3d;
-		color: #fff;
-		font-size: 13px;
-		font-weight: 600;
-		text-decoration: none;
-		white-space: nowrap;
-	}
-
-	.activity-export-button:hover {
-		background: #145b35;
 	}
 
 	.activity-filter-form {
@@ -845,7 +821,6 @@
 		.activity-filter-form { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 12px; }
 		.activity-filter-toolbar { gap: 8px; }
 		.activity-filter-toolbar h2 { font-size: 13px; }
-		.activity-export-button { min-height: 40px; padding-inline: 10px; font-size: 12px; }
 		.activity-filter-from,
 		.activity-filter-to,
 		.activity-filter-role,

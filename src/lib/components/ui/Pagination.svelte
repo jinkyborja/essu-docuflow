@@ -51,8 +51,9 @@
 		{#if onItemsPerPageChange}
 			<select
 				value={itemsPerPage}
+				aria-label="Items per page"
 				onchange={(e) => onItemsPerPageChange(Number((e.target as HTMLSelectElement).value))}
-				class="text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-essu-green/30"
+				class="pagination-size text-sm border border-gray-200 rounded-lg px-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 			>
 				{#each pageSizeOptions as n}
 					<option value={n}>{n} / page</option>
@@ -63,12 +64,13 @@
 
 	<div class="flex items-center gap-1">
 		<button
+			type="button"
 			onclick={() => onPageChange(currentPage - 1)}
 			disabled={currentPage <= 1}
-			class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+			class="pagination-arrow p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
 			aria-label="Previous page"
 		>
-			<i class="fa-solid fa-chevron-left text-xs"></i>
+			<i class="fa-solid fa-chevron-left text-xs" aria-hidden="true"></i>
 		</button>
 
 		{#each pages() as page}
@@ -76,8 +78,11 @@
 				<span class="px-2 text-gray-400 text-sm">…</span>
 			{:else}
 				<button
+					type="button"
 					onclick={() => onPageChange(page as number)}
-					class="w-8 h-8 rounded-lg text-sm font-medium transition-colors
+					aria-label={`Page ${page}`}
+					aria-current={currentPage === page ? 'page' : undefined}
+					class="pagination-page w-10 h-10 rounded-lg text-sm font-medium transition-colors
 						{currentPage === page
 							? 'bg-essu-green text-white'
 							: 'text-gray-600 hover:bg-gray-100'}"
@@ -88,12 +93,22 @@
 		{/each}
 
 		<button
+			type="button"
 			onclick={() => onPageChange(currentPage + 1)}
 			disabled={currentPage >= totalPages}
-			class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+			class="pagination-arrow p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
 			aria-label="Next page"
 		>
-			<i class="fa-solid fa-chevron-right text-xs"></i>
+			<i class="fa-solid fa-chevron-right text-xs" aria-hidden="true"></i>
 		</button>
 	</div>
+
+	<style>
+		.pagination-size { height: var(--control-height); min-height: var(--control-height); }
+		.pagination-arrow, .pagination-page { min-width: var(--control-height); min-height: var(--control-height); }
+		@media (pointer: coarse) {
+			.pagination-size { height: var(--control-height-touch); min-height: var(--control-height-touch); }
+			.pagination-arrow, .pagination-page { min-width: var(--control-height-touch); min-height: var(--control-height-touch); }
+		}
+	</style>
 </div>

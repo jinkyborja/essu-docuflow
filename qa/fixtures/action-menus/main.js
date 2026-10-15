@@ -17,7 +17,10 @@ const requests = students.map((student, index) => ({
 	approved_file_name: index === 1 ? 'Enrollment.pdf' : null,
 	completed_at: index === 4 ? '2026-10-14' : null,
 	document_name: 'Certificate of Enrollment', date_requested: student.date_registered,
-	items: [{ document_id: 1, name: 'Certificate of Enrollment' }]
+	items: [
+		{ document_id: 1, name: 'Certificate of Enrollment' },
+		{ document_id: 2, name: 'Official Transcript of Records' }
+	]
 }));
 window.fixtureCalls = [];
 const nativeAnchorClick = HTMLAnchorElement.prototype.click;
@@ -26,9 +29,17 @@ HTMLAnchorElement.prototype.click = function () {
 	return nativeAnchorClick.call(this);
 };
 function samplePdf() {
-	const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
-	const stream = 'BT /F1 18 Tf 30 100 Td (ESSU DocuFlow QA) Tj ET';
-	objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+	const objects = [
+		'<< /Type /Catalog /Pages 2 0 R >>',
+		'<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>',
+		'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+		'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+	];
+	for (const [label, y] of [['ESSU DocuFlow QA page 1', 300], ['ESSU DocuFlow QA page 2', 260]]) {
+		const stream = `BT /F1 18 Tf 30 ${y} Td (${label}) Tj ET`;
+		objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+		if (label.endsWith('page 1')) objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Resources << /Font << /F1 4 0 R >> >> /Contents 7 0 R >>');
+	}
 	let result = '%PDF-1.4\n', offsets = [0];
 	objects.forEach((object, index) => { offsets.push(result.length); result += `${index + 1} 0 obj\n${object}\nendobj\n`; });
 	const xref = result.length;
@@ -36,8 +47,10 @@ function samplePdf() {
 	return result + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
 }
 // Only fake data is used; an unexpected endpoint fails the test instead of contacting a server.
+const nativeFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
 	const url = String(input), method = init?.method ?? 'GET';
+	if (url.startsWith('blob:')) return nativeFetch(input, init);
 	window.fixtureCalls.push({ url, method });
 	if (url === '/api/requests') return Response.json(requests.slice(0, 1));
 	if (/^\/api\/requests\/[^/]+\/lifecycle$/.test(url)) {

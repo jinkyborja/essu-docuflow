@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import { positionFloatingPanel } from '$lib/floating-panel';
+
 	// Custom single-select dropdown. Replaces native <select> where we want
 	// consistent styling, room for per-option descriptions, and long labels that
 	// wrap instead of blowing out the container.
@@ -44,11 +47,27 @@
 		open = true;
 		// Start navigation from the current selection so arrow keys feel natural.
 		activeIndex = selected ? options.findIndex((o) => o.value === selected.value) : 0;
+		void tick().then(() => {
+			if (!open || !listEl) return;
+			listEl.showPopover();
+			positionList();
+		});
 	}
 
 	function closeList() {
+		if (listEl?.matches(':popover-open')) listEl.hidePopover();
 		open = false;
 		activeIndex = -1;
+	}
+
+	function positionList() {
+		if (open && listEl?.matches(':popover-open') && triggerEl) {
+			positionFloatingPanel(triggerEl, listEl, {
+				placement: 'bottom-start',
+				width: triggerEl.getBoundingClientRect().width,
+				maxHeight: 256
+			});
+		}
 	}
 
 	function choose(index: number) {
@@ -70,18 +89,22 @@
 		}
 		switch (e.key) {
 			case 'ArrowDown':
+				if (!options.length) { e.preventDefault(); break; }
 				e.preventDefault();
 				activeIndex = (activeIndex + 1) % options.length;
 				break;
 			case 'ArrowUp':
+				if (!options.length) { e.preventDefault(); break; }
 				e.preventDefault();
 				activeIndex = (activeIndex - 1 + options.length) % options.length;
 				break;
 			case 'Home':
+				if (!options.length) { e.preventDefault(); break; }
 				e.preventDefault();
 				activeIndex = 0;
 				break;
 			case 'End':
+				if (!options.length) { e.preventDefault(); break; }
 				e.preventDefault();
 				activeIndex = options.length - 1;
 				break;
@@ -91,19 +114,33 @@
 				choose(activeIndex);
 				break;
 			case 'Escape':
+				e.preventDefault();
+				e.stopPropagation();
+				closeList();
+				break;
 			case 'Tab':
 				closeList();
 				break;
 		}
 	}
 
-	// Close when focus or a click lands outside the component.
-	function onWindowPointerDown(e: PointerEvent) {
-		if (!open) return;
-		const target = e.target as Node;
-		if (triggerEl?.contains(target) || listEl?.contains(target)) return;
-		closeList();
-	}
+	$effect(() => {
+		if (!open || !listEl || !triggerEl) return;
+		const observer = new ResizeObserver(positionList);
+		observer.observe(listEl);
+		observer.observe(triggerEl);
+		window.addEventListener('scroll', positionList, true);
+		window.addEventListener('resize', positionList);
+		window.visualViewport?.addEventListener('resize', positionList);
+		window.visualViewport?.addEventListener('scroll', positionList);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('scroll', positionList, true);
+			window.removeEventListener('resize', positionList);
+			window.visualViewport?.removeEventListener('resize', positionList);
+			window.visualViewport?.removeEventListener('scroll', positionList);
+		};
+	});
 
 	// Keep the highlighted option in view while arrowing through a long list.
 	$effect(() => {
@@ -111,8 +148,6 @@
 		listEl.querySelector(`[data-index="${activeIndex}"]`)?.scrollIntoView({ block: 'nearest' });
 	});
 </script>
-
-<svelte:window onpointerdown={onWindowPointerDown} />
 
 <div class="relative">
 	<button
@@ -146,9 +181,11 @@
 		<div
 			bind:this={listEl}
 			id={listId}
+			popover="auto"
+			onbeforetoggle={(event) => { if (event.newState === 'closed') { open = false; activeIndex = -1; } }}
 			role="listbox"
 			tabindex="-1"
-			class="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg py-1"
+			class="select-listbox"
 		>
 			{#each options as opt, i (opt.value)}
 				{@const isSelected = opt.value === value}
@@ -184,3 +221,10 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	.select-listbox { position: fixed; z-index: 100; inset: auto; margin: 0; box-sizing: border-box; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); padding-block: var(--space-1); box-shadow: var(--shadow-raised); }
+	.select-listbox [role="option"] { min-height: var(--control-height); border: 0; border-radius: 0; background: transparent; }
+	.select-listbox [role="option"]:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+	@media (pointer: coarse) { .select-listbox [role="option"] { min-height: var(--control-height-touch); } }
+</style>

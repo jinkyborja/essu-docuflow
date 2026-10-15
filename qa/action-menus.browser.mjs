@@ -118,6 +118,12 @@ try {
 		await command('Emulation.setDeviceMetricsOverride', { width, height: 800, deviceScaleFactor: 1, mobile: false });
 		for (const view of ['staff', 'students', 'requests']) {
 			await load(view);
+			if (view === 'students') {
+				await evaluate("window.qaFilterToggle = document.querySelector('.student-filter-toggle'); if (qaFilterToggle?.getClientRects().length) qaFilterToggle.click()");
+				await waitFor("!qaFilterToggle?.getClientRects().length || qaFilterToggle.getAttribute('aria-expanded') === 'true'");
+				const heights = await evaluate("[...document.querySelectorAll('.student-filter-controls select')].filter(control => control.getClientRects().length).map(control => control.getBoundingClientRect().height)");
+				assert(heights.length > 0 && heights.every(height => height >= 44), `Student filters meet touch sizing at ${width}: ${heights}`);
+			}
 			const layout = await evaluate(`(() => {
 				const groups = [...document.querySelectorAll('.action-buttons')].filter(group => group.getClientRects().length);
 				return { pageOverflow: document.documentElement.scrollWidth > innerWidth,
@@ -231,6 +237,11 @@ try {
 	await key('Escape');
 	await command('Emulation.setDeviceMetricsOverride', { width: 320, height: 480, deviceScaleFactor: 1, mobile: true });
 	await command('Emulation.setTouchEmulationEnabled', { enabled: true });
+	await loadRevision('pagination');
+	await waitFor("!!document.querySelector('.pagination-page')");
+	assert(await evaluate("(() => { const controls = [...document.querySelectorAll('.pagination-page, .pagination-arrow, .pagination-size')]; return controls.every(control => control.getBoundingClientRect().width >= 44 && control.getBoundingClientRect().height >= 44); })()"), 'Pagination controls meet touch sizing');
+	await evaluate("document.querySelector('.pagination-page[aria-label=\"Page 3\"]').click()");
+	assert.equal(await evaluate("document.querySelector('output').textContent"), 'page:3', 'Touch-sized pagination still responds to selection');
 	await load('keyboard');
 	await evaluate("document.querySelector('[aria-label=\"Keyboard sample\"]').click()");
 	await assertMenu('Mobile long disabled reason');
@@ -259,6 +270,43 @@ try {
 			const title = document.querySelector('.system-title'), tagline = document.querySelector('.story-copy h2');
 			return title.previousElementSibling === tagline && title.getBoundingClientRect().top >= tagline.getBoundingClientRect().bottom && document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('.login-story p,.login-story strong')].filter(node => node.textContent === 'ESSU DocuFlow').length === 1;
 		})()`), `Login title at ${width}`);
+		await evaluate("document.querySelector('.login-switch-card').click()");
+		await waitFor("!!document.querySelector('[role=combobox][aria-label=\"Program or course\"]')");
+		await evaluate("window.qaSelect = document.querySelector('[role=combobox][aria-label=\"Program or course\"]'); qaSelect.scrollIntoView({block:'center'}); qaSelect.focus()");
+		await key('ArrowDown');
+		await waitFor("!!document.querySelector('.select-listbox:popover-open')");
+		assert(await evaluate("(() => { const list = document.querySelector('.select-listbox'), rect = list.getBoundingClientRect(); return rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight && rect.width <= qaSelect.getBoundingClientRect().width; })()"), `Registration listbox fits the viewport at ${width}`);
+		await key('Escape');
+		await waitFor("!document.querySelector('.select-listbox:popover-open') && qaSelect.getAttribute('aria-expanded') === 'false'");
+		await evaluate("qaSelect.click()");
+		await waitFor("!!document.querySelector('.select-listbox:popover-open')");
+		await key('ArrowDown'); await key('Enter');
+		assert(await evaluate("qaSelect.getAttribute('aria-expanded') === 'false' && !qaSelect.textContent.includes('Select your program')"), `Registration listbox keyboard selection at ${width}`);
+		assert(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `Registration dropdown has no horizontal page overflow at ${width}`);
+		await loadRevision('pagination');
+		await waitFor("!!document.querySelector('.pagination-page[aria-label=\"Page 3\"]')");
+		await evaluate("document.querySelector('.pagination-page[aria-label=\"Page 3\"]').click()");
+		assert.equal(await evaluate("document.querySelector('output').textContent"), 'page:3', `Pagination invokes the requested page at ${width}`);
+		await evaluate("const size = document.querySelector('.pagination-size'); size.value = '25'; size.dispatchEvent(new Event('change', {bubbles:true}))");
+		assert.equal(await evaluate("document.querySelector('output').textContent"), 'size:25', `Pagination size invokes its callback at ${width}`);
+		assert(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `Pagination has no horizontal overflow at ${width}`);
+		await loadRevision('requests');
+		await waitFor("!!document.querySelector('[title=\"Show all documents\"]')");
+		await evaluate("window.qaDocumentTrigger = document.querySelector('[title=\"Show all documents\"]'); qaDocumentTrigger.click()");
+		await waitFor("!!document.querySelector('.document-popover:popover-open')");
+		assert(await evaluate("(() => { const panel = document.querySelector('.document-popover'), rect = panel.getBoundingClientRect(); return rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight && panel.getAttribute('role') === 'dialog'; })()"), `Request document details fit the viewport at ${width}`);
+		await key('Escape');
+		await waitFor("!document.querySelector('.document-popover:popover-open') && qaDocumentTrigger.getAttribute('aria-expanded') === 'false'");
+		await openRow(0);
+		await evaluate("qaDocumentTrigger.click()");
+		await waitFor("!!document.querySelector('.document-popover:popover-open') && !document.querySelector('.row-menu-panel:popover-open')");
+		assert.equal(await evaluate("document.querySelectorAll('[popover]:popover-open').length"), 1, 'Only one auto popover is open on the page');
+		await key('Escape');
+		await waitFor("!document.querySelector('.document-popover:popover-open')");
+		await evaluate("qaDocumentTrigger.click()");
+		await waitFor("!!document.querySelector('.document-popover:popover-open')");
+		await evaluate("document.querySelector('h1').click()");
+		await waitFor("!document.querySelector('.document-popover:popover-open')");
 		await loadRevision('documents');
 		await waitFor("!document.body.innerText.includes('Loading document details')");
 		await evaluate("window.fixturePreviewDelay = 300; [...document.querySelectorAll('.request-header .ui-button')].find(button => button.textContent.trim() === 'View').click()");
@@ -281,11 +329,14 @@ try {
 		await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Download Preview PDF').click()");
 		await waitFor("window.fixtureDownload?.endsWith('.pdf')");
 		await evaluate("document.querySelector('.library-view-button').click()");
-		await waitFor("!!document.querySelector('[role=dialog] iframe[src^=blob]')");
+		await waitFor("!!document.querySelector('[role=dialog] .pdf-viewer canvas')");
+		await waitFor("!!document.querySelector('[role=dialog] .pdf-page[data-pdf-page=\"2\"] canvas')");
+		assert(await evaluate("document.querySelectorAll('[role=dialog] .pdf-page').length === 2 && document.querySelector('[role=dialog] .pdf-viewer').scrollHeight > document.querySelector('[role=dialog] .pdf-viewer').clientHeight"), 'PDF.js renders scrollable pages directly in the modal');
+		assert(await evaluate("(() => { const dialog = document.querySelector('[role=dialog]'), viewer = dialog.querySelector('.pdf-viewer'), canvas = viewer.querySelector('canvas'); return !!dialog.querySelector('h2') && !!dialog.querySelector('[aria-label=\"Close modal\"]') && !viewer.querySelector('iframe,embed,object') && canvas.getBoundingClientRect().width <= viewer.clientWidth; })()"), 'PDF pages fit the modal without using the native browser viewer');
 		assert(await evaluate("window.fixtureCalls.some(call => call.url === '/api/forms/4/download?preview=1')"), 'View requests the PDF preview endpoint');
 		await key('Escape');
 		await evaluate("window.fixtureMissingPdf = true; document.querySelector('.library-view-button').click()");
-		await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('PDF preview unavailable')");
+		await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('PDF preview is unavailable.')");
 		assert(await evaluate("!document.querySelector('[role=dialog] iframe')"), 'A missing PDF preview does not display the DOCX file');
 		await key('Escape');
 		await evaluate("window.fixtureMissingPdf = false");
@@ -295,7 +346,7 @@ try {
 		await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Download DOCX').click()");
 		await waitFor("window.fixtureDownload?.endsWith('.docx')");
 		await evaluate("document.querySelector('.library-view-button').click()");
-		await waitFor("!!document.querySelector('[role=dialog] iframe[src^=blob]')");
+		await waitFor("!!document.querySelector('[role=dialog] .pdf-viewer canvas')");
 		await key('Escape');
 		assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `Forms overflow at ${width}`);
 	}

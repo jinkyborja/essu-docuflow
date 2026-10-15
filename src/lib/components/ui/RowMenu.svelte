@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick, type Snippet } from 'svelte';
+	import { positionFloatingPanel, type FloatingPanelPlacement } from '$lib/floating-panel';
 	export type RowMenuItem = { label: string; href?: string; icon?: string; onselect?: () => void; danger?: boolean; disabled?: boolean; reason?: string };
 	let { items, label = 'More actions', triggerContent, header, triggerClass = '', placement = 'bottom-end', loading = false, disabled = false }: {
 		items: RowMenuItem[];
@@ -7,7 +8,7 @@
 		triggerContent?: Snippet;
 		header?: Snippet;
 		triggerClass?: string;
-		placement?: 'bottom-end' | 'top-start';
+		placement?: FloatingPanelPlacement;
 		loading?: boolean;
 		disabled?: boolean;
 	} = $props();
@@ -22,23 +23,7 @@
 	}
 	function position() {
 		if (!open || !menu?.matches(':popover-open')) return;
-		const viewport = window.visualViewport;
-		const edge = 8, gap = 8;
-		const viewportLeft = viewport?.offsetLeft ?? 0, viewportTop = viewport?.offsetTop ?? 0;
-		const viewportRight = viewportLeft + (viewport?.width ?? document.documentElement.clientWidth);
-		const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
-		menu.style.setProperty('--menu-available-width', `${viewportRight - viewportLeft - edge * 2}px`);
-		const rect = trigger.getBoundingClientRect(), bounds = menu.getBoundingClientRect();
-		const aboveSpace = rect.top - viewportTop - edge - gap;
-		const belowSpace = viewportBottom - rect.bottom - edge - gap;
-		const preferAbove = placement === 'top-start';
-		const above = preferAbove
-			? bounds.height <= aboveSpace || (bounds.height > belowSpace && aboveSpace > belowSpace)
-			: bounds.height > belowSpace && aboveSpace > belowSpace;
-		const left = preferAbove ? rect.left : rect.right - bounds.width;
-		const top = above ? rect.top - bounds.height - gap : rect.bottom + gap;
-		menu.style.left = `${Math.max(viewportLeft + edge, Math.min(left, viewportRight - bounds.width - edge))}px`;
-		menu.style.top = `${Math.max(viewportTop + edge, Math.min(top, viewportBottom - bounds.height - edge))}px`;
+		positionFloatingPanel(trigger, menu, { placement });
 	}
 	async function show(index = 0) {
 		if (disabled || loading || !items.length) return;
@@ -121,7 +106,7 @@
 	.trigger-content.busy { opacity: 0; }
 	.menu-spinner { position: absolute; animation: menu-spin 900ms linear infinite; }
 	/* The native popover top layer escapes table overflow and stacking contexts. */
-	.row-menu-panel { position: fixed; z-index: 100; inset: auto; margin: 0; padding: var(--space-2); box-sizing: border-box; width: max-content; min-width: min(12rem, var(--menu-available-width, calc(100vw - var(--space-4)))); max-width: min(20rem, var(--menu-available-width, calc(100vw - var(--space-4)))); height: auto; max-height: none; overflow: visible; white-space: normal; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-raised); }
+	.row-menu-panel { position: fixed; z-index: 100; inset: auto; margin: 0; padding: var(--space-2); box-sizing: border-box; width: max-content; min-width: min(12rem, var(--floating-available-width, calc(100vw - var(--space-4)))); max-width: min(20rem, var(--floating-available-width, calc(100vw - var(--space-4)))); height: auto; overflow-x: hidden; overflow-y: auto; white-space: normal; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-raised); }
 	.menu-header { margin-bottom: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); }
 	.row-menu-item { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: var(--control-height); padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-control); background: transparent; text-align: left; text-decoration: none; color: var(--color-text); font-size: var(--font-size-body); font-weight: var(--font-weight-normal); line-height: var(--line-height); transition: background-color var(--motion-fast); }
 	.row-menu-item:hover, .row-menu-item:focus { background: var(--color-primary-soft); }

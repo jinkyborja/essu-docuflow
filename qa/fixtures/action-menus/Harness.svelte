@@ -8,6 +8,7 @@
 	import Forms from '../../../src/routes/student/forms/+page.svelte';
 	import AdminForms from '../../../src/routes/staff/forms/+page.svelte';
 	import Login from '../../../src/routes/login/+page.svelte';
+	import Pagination from '../../../src/lib/components/ui/Pagination.svelte';
 	let { view, role, students, requests } = $props();
 	const staff = $derived(students.map(student => ({ ...student, role: 'Staff', position: 'Registrar' })));
 	let selected = $state('');
@@ -25,6 +26,9 @@
 				<Requests data={{ requests, isAdmin: role === 'Admin' }} />
 			{:else if view === 'archived'}
 				<Requests data={{ requests: [{ ...requests[3], archived_at: '2026-10-14' }], isAdmin: true, archived: true }} />
+			{:else if view === 'pagination'}
+				<Pagination totalItems={25} itemsPerPage={10} currentPage={2} onPageChange={page => selected = `page:${page}`} onItemsPerPageChange={size => selected = `size:${size}`} />
+				<output>{selected}</output>
 			{:else if view === 'documents'}
 				<Documents data={{ requests }} />
 			{:else if view === 'forms'}

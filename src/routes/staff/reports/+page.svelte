@@ -3,6 +3,7 @@
 	import { REQUEST_STATUSES, requestStatusKey, statusLabel, STATUS_COLORS, type RequestStatus } from '$lib/request-status';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { page } from '$app/stores';
 	import type { PageData } from './$types';
 
@@ -283,12 +284,8 @@
 					<label class="sr-only" for="report-end">End date</label>
 					<input id="report-end" type="date" bind:value={customEnd} min={customStart} />
 				{/if}
-				<button class="report-control-button report-export" onclick={exportCsv} disabled={filtered.length === 0}>
-					<i class="fa-solid fa-download" aria-hidden="true"></i> Export CSV
-				</button>
-				<button class="report-control-button report-print-button" onclick={() => window.print()}>
-					<i class="fa-solid fa-print" aria-hidden="true"></i> Print
-				</button>
+				<Button variant="primary" class="report-control-button" icon="fa-solid fa-download" onclick={exportCsv} disabled={filtered.length === 0}>Export CSV</Button>
+				<Button variant="secondary" class="report-control-button" icon="fa-solid fa-print" onclick={() => window.print()}>Print</Button>
 			</div>
 		</div>
 	</header>
@@ -300,7 +297,7 @@
 				description={timeRange === 'custom' && (!customStart || !customEnd) ? 'Select both a start date and an end date to view report activity.' : 'There are no document requests for the selected dates. Widen the period to see more activity.'}
 				icon="fa-solid fa-chart-column"
 			/>
-			<button class="report-control-button report-export" onclick={tryWiderPeriod}>Try a wider period</button>
+			<Button variant="primary" class="report-control-button" onclick={tryWiderPeriod}>Try a wider period</Button>
 		</section>
 	{:else}
 		<section class="report-kpis" aria-label="Request key performance indicators">
@@ -473,59 +470,15 @@
 
 	.report-toolbar select,
 	.report-toolbar input {
-		min-height: 42px;
+		box-sizing: border-box;
+		height: var(--control-height-touch);
+		min-height: var(--control-height-touch);
 		border: 1px solid var(--report-border);
 		border-radius: 0.65rem;
 		background: #fff;
 		color: var(--report-ink);
 		font-size: 0.76rem;
-		padding: 0.55rem 0.7rem;
-	}
-
-	.report-control-button {
-		display: inline-flex;
-		min-height: 42px;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		border: 1px solid var(--report-border);
-		border-radius: 0.65rem;
-		background: #fff;
-		color: #344b40;
-		font-size: 0.76rem;
-		font-weight: 650;
-		padding: 0.55rem 0.8rem;
-		transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
-	}
-
-	.report-control-button:hover:not(:disabled) {
-		transform: translateY(-1px);
-		border-color: #9fbeaa;
-		background: #f3f8f4;
-	}
-
-	.report-control-button:focus-visible,
-	.report-toolbar select:focus-visible,
-	.report-toolbar input:focus-visible,
-	.report-open-link:focus-visible {
-		outline: 3px solid rgb(43 128 96 / 0.28);
-		outline-offset: 2px;
-	}
-
-	.report-control-button:disabled {
-		cursor: not-allowed;
-		opacity: 0.55;
-	}
-
-	.report-export {
-		border-color: #1f6b50;
-		background: #1f6b50;
-		color: #fff;
-	}
-
-	.report-export:hover:not(:disabled) {
-		border-color: #174f3e;
-		background: #174f3e;
+		padding-inline: 0.7rem;
 	}
 
 	.report-print-meta { display: none; }
@@ -635,7 +588,7 @@
 	.report-open-link:hover { color: #174f3e; text-decoration: underline; }
 	.report-empty-page { display: flex; min-height: 330px; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--report-border); border-radius: 0.9rem; background: #fff; box-shadow: var(--report-shadow); padding: 1.5rem; }
 	.report-empty-page :global(.ui-empty-state) { padding: 1.5rem 1rem 0.8rem; }
-	.report-empty-page .report-control-button { margin-bottom: 1.3rem; }
+	.report-empty-page :global(.button-tooltip) { margin-bottom: 1.3rem; }
 
 	@media (max-width: 1100px) {
 		.report-page-header { align-items: flex-start; flex-direction: column; }
@@ -647,18 +600,24 @@
 
 	@media (max-width: 760px) {
 		.report-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-		.report-control-button { min-height: 44px; }
+		.report-control-button { min-height: var(--control-height-touch); }
 		:global(.staff-portal .portal-main .report-layout .report-toolbar) {
 			display: grid;
 			width: 100%;
 			grid-template-columns: minmax(0, 1fr);
 		}
-		:global(.staff-portal .portal-main .report-layout .report-toolbar > :is(select, input, .report-control-button)) {
+		:global(.staff-portal .portal-main .report-layout .report-toolbar > :is(select, input)) {
 			box-sizing: border-box;
 			grid-column: 1 / -1;
 			width: 100%;
 			min-width: 0;
 		}
+		:global(.staff-portal .portal-main .report-layout .report-toolbar > .button-tooltip) {
+			grid-column: 1 / -1;
+			width: 100%;
+			min-width: 0;
+		}
+		:global(.staff-portal .portal-main .report-layout .report-toolbar > .button-tooltip > .ui-button) { width: 100%; }
 	}
 
 	@media (max-width: 480px) {

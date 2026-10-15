@@ -14,6 +14,7 @@
 	import TextField from './TextField.svelte';
 	import TextArea from './TextArea.svelte';
 	import FormSection from './FormSection.svelte';
+	import PdfDocumentViewer from './PdfDocumentViewer.svelte';
 	import { bundledFormPdf, isPdfName } from '$lib/form-pdf';
 	type FormFile = { file_id?: number; page_no: number; storage_path: string | null; public_url: string; name: string; type: string; size?: number };
 	type FormRecord = { form_id: number; title: string; category: string; code: string | null; description: string; fields: string[]; download_name: string; files: FormFile[] };
@@ -26,9 +27,9 @@
 	let editing = $state<FormRecord | null>(null); let selected = $state<FormRecord | null>(null);
 	let deleting = $state<FormRecord | null>(null); let saving = $state(false); let progress = $state(0);
 	let pdfBusy = $state<number | null>(null), pdfErrorFor = $state<number | null>(null), pdfError = $state('');
-	let pdfPreview = $state(''), pdfPreviewLoading = $state(false), pdfPreviewError = $state('');
+	let pdfPreview = $state<Blob | null>(null), pdfPreviewLoading = $state(false), pdfPreviewError = $state('');
 	let previewRequest = 0;
-	onDestroy(() => { previewRequest++; if (pdfPreview) URL.revokeObjectURL(pdfPreview); });
+	onDestroy(() => { previewRequest++; });
 	let title = $state(''); let categoryValue = $state(''); let newCategory = $state(''); let code = $state(''); let description = $state('');
 	let initialTitle = $state(''); let initialDownloadName = $state(''); let editorAttempted = $state(false);
 	let dragging = $state(false); let activeUploadName = $state(''); let titleInput = $state<HTMLInputElement>(); let editorTrigger = $state<HTMLElement | null>(null);
@@ -173,10 +174,24 @@
 	}
 	function cancelDiscard() { discardOpen = false; void tick().then(() => document.getElementById('form-title')?.focus()); }
 	async function formPdf(form: FormRecord, preview = false): Promise<Blob> {
-		const response = await fetch('/api/forms/' + form.form_id + '/download' + (preview ? '?preview=1' : ''));
-		if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.error ?? 'Could not load the PDF. Please try again.'); }
-		const bytes = await response.arrayBuffer();
-		if (new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error('The file is not a valid PDF. Please contact the Graduate School office.');
+		let response: Response;
+		try {
+			response = await fetch('/api/forms/' + form.form_id + '/download' + (preview ? '?preview=1' : ''));
+		} catch {
+			throw new Error(preview ? 'Unable to load PDF preview. Please try again.' : 'Could not load the PDF. Please try again.');
+		}
+		if (!response.ok) {
+			if (preview) throw new Error(response.status === 404 || response.status === 409 ? 'PDF preview is unavailable.' : 'Unable to load PDF preview. Please try again.');
+			const result = await response.json().catch(() => ({}));
+			throw new Error(result.error ?? 'Could not load the PDF. Please try again.');
+		}
+		let bytes: ArrayBuffer;
+		try {
+			bytes = await response.arrayBuffer();
+		} catch {
+			throw new Error(preview ? 'Unable to load PDF preview. Please try again.' : 'Could not load the PDF. Please try again.');
+		}
+		if (new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error(preview ? 'Unable to load PDF preview. Please try again.' : 'The file is not a valid PDF. Please contact the Graduate School office.');
 		return new Blob([bytes], {type:'application/pdf'});
 	}
 	async function downloadPdf(form: FormRecord) {
@@ -191,17 +206,16 @@
 	}
 	async function viewForm(form: FormRecord) {
 		const request = ++previewRequest;
-		if (pdfPreview) URL.revokeObjectURL(pdfPreview);
-		pdfPreview = ''; pdfPreviewError = '';
+		pdfPreview = null; pdfPreviewError = '';
 		selected = form; viewOpen = true;
 		pdfPreviewLoading = true;
 		try {
-			const blob = await formPdf(form, true);
-			const previewUrl = URL.createObjectURL(blob);
-			if (request === previewRequest && viewOpen && selected?.form_id === form.form_id) pdfPreview = previewUrl;
-			else URL.revokeObjectURL(previewUrl);
+			const file = await formPdf(form, true);
+			if (request === previewRequest && viewOpen && selected?.form_id === form.form_id) pdfPreview = file;
 		} catch (problem) {
-			if (request === previewRequest && viewOpen) pdfPreviewError = problem instanceof Error ? problem.message : 'Could not preview the PDF.';
+			if (request === previewRequest && viewOpen) pdfPreviewError = problem instanceof Error && problem.message === 'PDF preview is unavailable.'
+				? problem.message
+				: 'Unable to load PDF preview. Please try again.';
 		} finally {
 			if (request === previewRequest) pdfPreviewLoading = false;
 		}
@@ -209,8 +223,7 @@
 	function closePreview() {
 		previewRequest++;
 		viewOpen = false; pdfPreviewLoading = false; pdfPreviewError = '';
-		if (pdfPreview) URL.revokeObjectURL(pdfPreview);
-		pdfPreview = '';
+		pdfPreview = null;
 	}
 
 </script>
@@ -290,7 +303,7 @@
 <ConfirmDialog open={deleteOpen} title="Delete form" message={'Delete “' + (deleting?.title ?? 'this form') + '”? Its files will be removed. This cannot be undone.'} confirmLabel="Delete form" loading={saving} onclose={() => deleteOpen = false} onconfirm={() => void deleteForm()} />
 {/if}
 <Modal open={viewOpen} title={selected?.title ?? 'View form'} size="xl" onclose={closePreview}>
-	{#snippet body()}<div class="library-preview-content">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}<p class="text-sm text-gray-500">Preview is available as a PDF. Other file formats remain available from Download.</p>{#if pdfPreviewLoading}<p role="status">Loading PDF preview…</p>{:else if pdfPreviewError}<LoadError message={pdfPreviewError} onretry={() => selected && void viewForm(selected)} />{:else if pdfPreview}<iframe src={pdfPreview} title={`${selected?.title ?? 'Form'} PDF preview`} class="library-preview-frame"></iframe>{:else}<div class="library-preview-unavailable">PDF preview is unavailable for this form. You can still download any available files.</div>{/if}</div>{/snippet}
+	{#snippet body()}<div class="library-preview-content">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}<p class="text-sm text-gray-500">PDF preview. Other file formats remain available from Download.</p>{#if pdfPreviewLoading}<p class="library-preview-state" role="status">Loading PDF preview...</p>{:else if pdfPreviewError}<div class="library-preview-unavailable" role="alert"><p>{pdfPreviewError}</p><Button variant="secondary" onclick={() => selected && void viewForm(selected)}>Retry</Button></div>{:else if pdfPreview}<PdfDocumentViewer file={pdfPreview} />{:else}<div class="library-preview-unavailable">PDF preview is unavailable.</div>{/if}</div>{/snippet}
 	{#snippet footer()}<Button variant="secondary" onclick={closePreview}>Close</Button>{/snippet}
 </Modal>
 
@@ -324,8 +337,14 @@
 	.library-format-list { display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-1); }
 	.library-file-type { padding-block: 0; background: var(--color-bg); color: var(--color-text-muted); }
 	.library-preview-content { display: grid; min-width: 0; gap: var(--space-3); }
-	.library-preview-frame { display: block; width: 100%; height: 65dvh; min-height: 300px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-bg); }
-	.library-preview-unavailable { border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-bg); padding: var(--space-4); color: var(--color-text-muted); font-size: var(--font-size-body); }
+	.library-preview-content > p { flex: 0 0 auto; }
+	.library-preview-content :global(.pdf-viewer) { flex: 1 1 auto; width: 100%; height: clamp(320px, 62dvh, 760px); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+	.library-preview-state { margin: auto; color: var(--color-text-muted); text-align: center; }
+	.library-preview-unavailable { display: grid; justify-items: center; gap: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-bg); padding: var(--space-4); color: var(--color-text-muted); font-size: var(--font-size-body); text-align: center; }
+	.library-preview-unavailable p { margin: 0; }
+	:global(.ui-modal-panel:has(.library-preview-content)) { min-height: 0; overflow: hidden; }
+	:global(.ui-modal-panel:has(.library-preview-content) > .modal-body) { display: flex; min-height: 0; overflow: hidden; }
+	:global(.ui-modal-panel:has(.library-preview-content) > .modal-body > .library-preview-content) { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; }
 	.form-label { display: block; margin-bottom: 6px; color: var(--color-text); font-size: var(--font-size-body); font-weight: 600; }
 	.form-control { display: block; width: 100%; height: 44px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); padding: 0 var(--space-3); color: var(--color-text); font-size: var(--font-size-input); line-height: var(--line-height); outline: none; transition: border-color var(--motion-fast), box-shadow var(--motion-fast); }
 	.form-control:hover { border-color: var(--line-strong); }
@@ -362,7 +381,13 @@
 	}
 	@media (max-width: 599px) {
 		.library-filters { grid-template-columns: minmax(0, 1fr); }
-		.library-preview-frame { height: 62dvh; min-height: 260px; }
+		:global(.ui-modal-backdrop:has(.library-preview-content)) { align-items: stretch; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+		:global(.ui-modal-panel:has(.library-preview-content)) { width: 100%; height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); max-height: 100dvh; border-radius: 0; }
+		:global(.ui-modal-panel:has(.library-preview-content) > .modal-header) { padding-top: max(var(--space-3), env(safe-area-inset-top, 0px)); }
+		:global(.ui-modal-panel:has(.library-preview-content) > .modal-body) { padding: var(--space-3); }
+		:global(.ui-modal-panel:has(.library-preview-content) > .modal-footer) { padding-bottom: max(var(--space-3), env(safe-area-inset-bottom, 0px)); }
+		.library-preview-content { gap: var(--space-2); }
+		.library-preview-content :global(.pdf-viewer) { height: auto; min-height: 0; }
 		:global(.ui-modal-backdrop:has(.form-editor-body)) { align-items: flex-end; padding: 0; }
 		:global(.ui-modal-panel:has(.form-editor-body)) { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 16px 16px 0 0; }
 		:global(.ui-modal-panel:has(.form-editor-body) > div:first-child) { border-radius: 16px 16px 0 0; padding-right: 18px; padding-left: 18px; }

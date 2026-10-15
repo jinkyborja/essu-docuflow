@@ -25,6 +25,7 @@
 	"dependencies": {
 		"@fontsource/poppins": "^5.2.7",
 		"@supabase/supabase-js": "^2.99.1",
-		"mysql2": "^3.18.2"
+		"mysql2": "^3.18.2",
+		"pdfjs-dist": "^4.8.69"
 	}
 }
