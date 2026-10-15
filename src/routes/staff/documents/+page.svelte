@@ -156,18 +156,10 @@
 	}
 
 	async function templateUrl(path: string) { const response = await fetch('/api/storage?bucket=templates&path=' + encodeURIComponent(path)); const result = await response.json(); if (!response.ok || !result.url) throw new Error(result.error ?? 'Could not open template.'); return result.url as string; }
-	async function openTemplate(path: string, name: string) {
-		if (/\.pdf$/i.test(name) || /\.pdf$/i.test(path)) {
-			templatePreviewPath = path;
-			templatePreviewName = name;
-			templatePreviewOpen = true;
-			return;
-		}
-		const preview = window.open('about:blank', '_blank');
-		if (!preview) { showToast('Allow pop-ups to view this template.', 'error'); return; }
-		preview.opener = null;
-		try { preview.location.replace(await templateUrl(path)); showToast('Template opened.'); }
-		catch (error) { preview.close(); showToast((error as Error).message, 'error'); }
+	function openTemplate(path: string, name: string) {
+		templatePreviewPath = path;
+		templatePreviewName = name;
+		templatePreviewOpen = true;
 	}
 	async function downloadTemplate(path: string, name: string) { try { const url = await templateUrl(path); const response = await fetch(url); if (!response.ok) throw new Error('Could not download template.'); const objectUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = objectUrl; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); showToast('Template download started.'); } catch (error) { showToast((error as Error).message, 'error'); } }
 </script>

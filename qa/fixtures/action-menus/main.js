@@ -58,6 +58,8 @@ window.fetch = async (input, init) => {
 		if (window.fixtureFailAction) return Response.json({error:'Could not save request'}, {status:500});
 		return Response.json({success:true, status:body.action === 'cancel' ? 'Cancelled' : 'Rejected'});
 	}
+	if (url.startsWith('/api/storage?bucket=templates')) return Response.json({url:'/qa/template.docx'});
+	if (url === '/qa/template.docx') return new Response('PKfixture-docx-bytes', {headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}});
 	if (url === '/api/documents') return Response.json([{document_id:1, name:'Certificate of Enrollment', requirements:[]}]);
 	if (url.startsWith('/api/storage?')) {
 		if (window.fixtureFailPreview) return Response.json({error:'Document unavailable'}, {status:403});

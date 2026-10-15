@@ -635,10 +635,10 @@
 </Modal>
 
 <!-- Edit Modal -->
-<Modal open={editOpen} title="Edit Student" size="md" onclose={() => { if (!saving) editOpen = false; }}>
+<Modal open={editOpen} title="Edit Student" size="lg" panelClass="edit-student-modal" onclose={() => { if (!saving) editOpen = false; }}>
 	{#snippet body()}
 		{#if editStudent}
-			<form id="edit-student-form" onsubmit={handleEdit} class="space-y-4">
+			<form id="edit-student-form" onsubmit={handleEdit} class="edit-student-form space-y-4">
 				{#if saveError}
 					<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
 						<i class="fa-solid fa-circle-exclamation mr-1"></i>{saveError}
@@ -646,8 +646,8 @@
 				{/if}
 
 				<!-- Name row 1: First, Middle -->
-				<div class="grid grid-cols-2 gap-3">
-					<div>
+				<div class="edit-student-grid edit-student-name-grid">
+					<div class="edit-student-field">
 						<label for="edit-student-first-name" class="block text-sm font-medium text-gray-700 mb-1.5">
 							First Name <span class="text-red-500">*</span>
 						</label>
@@ -659,7 +659,7 @@
 							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 						/>
 					</div>
-					<div>
+					<div class="edit-student-field">
 						<label for="edit-student-middle-name" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Middle Name <span class="text-xs text-gray-400 font-normal">(optional)</span>
 						</label>
@@ -673,8 +673,8 @@
 				</div>
 
 				<!-- Name row 2: Last, Suffix -->
-				<div class="grid grid-cols-3 gap-3">
-					<div class="col-span-2">
+				<div class="edit-student-grid edit-student-last-grid">
+					<div class="edit-student-field">
 						<label for="edit-student-last-name" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Last Name <span class="text-red-500">*</span>
 						</label>
@@ -686,7 +686,7 @@
 							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 						/>
 					</div>
-					<div>
+					<div class="edit-student-field">
 						<label for="edit-student-suffix" class="block text-sm font-medium text-gray-700 mb-1.5">Suffix</label>
 						<select
 							id="edit-student-suffix"
@@ -704,8 +704,8 @@
 				</div>
 
 				<!-- Student ID + Email -->
-				<div class="grid grid-cols-2 gap-3">
-					<div>
+				<div class="edit-student-grid edit-student-two-column">
+					<div class="edit-student-field">
 						<label for="edit-student-id" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Student ID <span class="text-red-500">*</span>
 						</label>
@@ -717,7 +717,7 @@
 							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 						/>
 					</div>
-					<div>
+					<div class="edit-student-field">
 						<label for="edit-student-email" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Email <span class="text-red-500">*</span>
 						</label>
@@ -731,9 +731,9 @@
 					</div>
 				</div>
 
-				<!-- Program + Student Type -->
-				<div class="grid grid-cols-2 gap-3">
-					<div>
+				<!-- Program + Campus -->
+				<div class="edit-student-grid edit-student-two-column">
+					<div class="edit-student-field">
 						<label for="edit-student-program" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Program <span class="text-red-500">*</span>
 						</label>
@@ -746,14 +746,18 @@
 							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
 						/>
 					</div>
-					<div>
+					<div class="edit-student-field">
 						<label for="edit-student-campus" class="block text-sm font-medium text-gray-700 mb-1.5">Campus</label>
 						<select id="edit-student-campus" bind:value={editStudent.campus} class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 							<option value={null}>Not collected</option>
 							{#each campuses as option}<option value={option.value}>{option.label}</option>{/each}
 						</select>
 					</div>
-					<div>
+				</div>
+
+				<!-- Student Type + Last School Year -->
+				<div class="edit-student-grid edit-student-two-column">
+					<div class="edit-student-field">
 						<label for="edit-student-type" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Student Type <span class="text-red-500">*</span>
 						</label>
@@ -769,28 +773,26 @@
 							<option value="Alumni">Alumni</option>
 						</select>
 					</div>
-				</div>
-
-				<!-- Last School Year -->
-				<div>
-					<label for="edit-student-last-school-year" class="block text-sm font-medium text-gray-700 mb-1.5">
-						Last School Year <span class="text-red-500">*</span>
-					</label>
-					<input
-						id="edit-student-last-school-year"
-						bind:value={editStudent.last_school_year}
-						type="number"
-						min={editStudent.student_type === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN}
-						max={SCHOOL_YEAR_MAX}
-						step="1"
-						required
-						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
-					/>
+					<div class="edit-student-field">
+						<label for="edit-student-last-school-year" class="block text-sm font-medium text-gray-700 mb-1.5">
+							Last School Year <span class="text-red-500">*</span>
+						</label>
+						<input
+							id="edit-student-last-school-year"
+							bind:value={editStudent.last_school_year}
+							type="number"
+							min={editStudent.student_type === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN}
+							max={SCHOOL_YEAR_MAX}
+							step="1"
+							required
+							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
+						/>
+					</div>
 				</div>
 
 				<!-- Verified toggle -->
-				<div class="flex items-center justify-between px-3 py-3 bg-gray-50 rounded-lg border border-gray-100">
-					<div>
+				<div class="edit-student-verified flex items-center justify-between px-3 py-3 bg-gray-50 rounded-lg border border-gray-100">
+					<div class="min-w-0">
 						<p class="text-sm font-medium text-gray-700">Email Verified</p>
 						<p class="text-xs text-gray-400 mt-0.5">Email verification is separate from student ID approval. Requests require office ID verification.</p>
 					</div>
@@ -810,8 +812,8 @@
 		{/if}
 	{/snippet}
 	{#snippet footer()}
-		<Button variant="secondary" disabled={saving} onclick={() => (editOpen = false)}>Cancel</Button>
-		<Button type="submit" form="edit-student-form" loading={saving}>Save changes</Button>
+		<Button variant="secondary" class="edit-student-cancel" disabled={saving} onclick={() => (editOpen = false)}>Cancel</Button>
+		<Button type="submit" form="edit-student-form" class="edit-student-save" loading={saving}>Save changes</Button>
 	{/snippet}
 </Modal>
 
@@ -821,6 +823,61 @@
 {/if}
 
 <style>
+	:global(.edit-student-modal.ui-modal-panel) {
+		width: 100%;
+		max-width: 760px;
+		min-height: 0;
+		max-height: calc(100dvh - 32px);
+		overflow: hidden;
+	}
+	:global(.edit-student-modal .modal-header),
+	:global(.edit-student-modal .modal-footer) { flex-shrink: 0; }
+	:global(.edit-student-modal .modal-header) { min-width: 0; }
+	:global(.edit-student-modal .modal-header h2) { min-width: 0; overflow-wrap: anywhere; }
+	:global(.edit-student-modal .modal-body) {
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-x: hidden;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		scroll-padding-block: var(--space-4);
+		scrollbar-gutter: stable;
+		-webkit-overflow-scrolling: touch;
+	}
+	.edit-student-form { min-width: 0; width: 100%; }
+	.edit-student-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); min-width: 0; }
+	.edit-student-last-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+	.edit-student-field { min-width: 0; }
+	.edit-student-field :global(input:not([type='checkbox'])),
+	.edit-student-field :global(select) {
+		box-sizing: border-box;
+		width: 100%;
+		min-width: 0;
+		height: 44px;
+		min-height: 44px;
+		border-radius: var(--radius-control);
+		font-size: var(--font-size-body);
+	}
+	.edit-student-verified { min-width: 0; gap: var(--space-3); }
+	.edit-student-verified > div { overflow-wrap: anywhere; }
+	:global(.edit-student-modal .modal-footer) { gap: var(--space-3); }
+	:global(.edit-student-modal .modal-footer .ui-button) { min-width: 0; min-height: 44px; white-space: nowrap; }
+	@media (max-width: 767px) {
+		:global(.edit-student-modal.ui-modal-panel) { max-height: calc(100dvh - 24px); }
+		:global(.edit-student-modal .modal-body) { padding-block: var(--space-4); }
+		.edit-student-form { font-size: var(--font-size-body); }
+		.edit-student-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+		.edit-student-field :global(input:not([type='checkbox'])),
+		.edit-student-field :global(select) { font-size: 16px; }
+		.edit-student-verified { align-items: flex-start; }
+		:global(.edit-student-modal .modal-footer) {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			flex-wrap: nowrap;
+			padding-bottom: max(var(--space-4), env(safe-area-inset-bottom, 0px));
+		}
+		:global(.edit-student-modal .modal-footer .ui-button) { width: 100%; justify-content: center; padding-inline: var(--space-2); }
+	}
 	.filter-control-label {
 		display: grid;
 		gap: 6px;

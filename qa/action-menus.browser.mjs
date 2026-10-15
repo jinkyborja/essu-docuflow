@@ -1,4 +1,4 @@
-// Run with: node qa/action-menus.browser.mjs [--request-wizard-only]
+// Run with: node qa/action-menus.browser.mjs [--request-wizard-only|--document-preview-only]
 // Uses installed Vite/Svelte and headless Edge/Chrome, with no QA accounts or extra packages.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -10,6 +10,9 @@ import tailwindcss from '@tailwindcss/vite';
 
 const root = process.cwd();
 const focusedRequestWizard = process.argv.includes('--request-wizard-only');
+const focusedDocumentPreview = process.argv.includes('--document-preview-only');
+const focusedStudentEdit = process.argv.includes('--student-edit-only');
+const focusedBrowserFlow = focusedRequestWizard || focusedDocumentPreview || focusedStudentEdit;
 const browserPath = process.env.QA_BROWSER_PATH ?? [
 	'C:/Program Files/Google/Chrome/Application/chrome.exe',
 	'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -122,7 +125,7 @@ try {
 	}
 	await command('Page.enable'); await command('Runtime.enable');
 	let menuChecks = 0;
-	if (!focusedRequestWizard) {
+	if (!focusedBrowserFlow) {
 	for (const width of [320, 375, 390, 430, 767, 768, 1024, 1280, 1440, 1920]) {
 		await command('Emulation.setDeviceMetricsOverride', { width, height: 800, deviceScaleFactor: 1, mobile: false });
 		for (const view of ['staff', 'students', 'requests']) {
@@ -358,7 +361,80 @@ try {
 		await evaluate('document.fonts.ready');
 	}
 	for (const width of [320, 375, 390, 430, 768, 1024, 1280, 1440]) {
-		await command('Emulation.setDeviceMetricsOverride', {width,height:900,deviceScaleFactor:1,mobile:false});
+		await command('Emulation.setDeviceMetricsOverride', {width,height:focusedStudentEdit ? 640 : 900,deviceScaleFactor:1,mobile:false});
+		if (focusedStudentEdit) {
+			await load('students');
+			await openRow(0);
+			await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Edit details').click()");
+			await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('Edit Student') && !!document.querySelector('#edit-student-form')");
+			const modal = await evaluate(`(() => {
+				const panel = document.querySelector('.edit-student-modal');
+				const header = panel.querySelector('.modal-header').getBoundingClientRect();
+				const body = panel.querySelector('.modal-body');
+				const bodyRect = body.getBoundingClientRect();
+				const footer = panel.querySelector('.modal-footer');
+				const footerRect = footer.getBoundingClientRect();
+				const nameColumns = getComputedStyle(panel.querySelector('.edit-student-name-grid')).gridTemplateColumns.split(' ').length;
+				const controls = [...panel.querySelectorAll('#edit-student-form input:not([type=checkbox]), #edit-student-form select')];
+				return {
+					headerBelow: header.bottom <= bodyRect.top,
+					footerBelow: footerRect.top >= bodyRect.bottom && footerRect.bottom <= innerHeight,
+					scrollableBody: body.scrollHeight > body.clientHeight,
+					nameColumns,
+					expectedColumns: innerWidth < 768 ? 1 : 2,
+					controlWidthsFit: controls.every(control => control.getBoundingClientRect().width <= body.clientWidth),
+					email: panel.querySelector('#edit-student-email').value,
+					program: panel.querySelector('#edit-student-program').value,
+					allLabelsAssociated: [...panel.querySelectorAll('#edit-student-form label[for]')].every(label => !!panel.querySelector('#' + CSS.escape(label.htmlFor))),
+					fieldHeights: controls.map(control => control.getBoundingClientRect().height),
+					footerButtonHeights: [...footer.querySelectorAll('.ui-button')].map(button => button.getBoundingClientRect().height),
+					panelFits: panel.getBoundingClientRect().left >= 0 && panel.getBoundingClientRect().right <= innerWidth &&
+						panel.getBoundingClientRect().top >= 0 && panel.getBoundingClientRect().bottom <= innerHeight,
+					pageOverflow: document.documentElement.scrollWidth > innerWidth
+				};
+			})()`);
+			assert(modal.headerBelow && modal.footerBelow, `Edit modal header and footer stay outside the scrollable body at ${width}: ${JSON.stringify(modal)}`);
+			assert(modal.scrollableBody && modal.panelFits, `Edit modal scrolls within the viewport at ${width}: ${JSON.stringify(modal)}`);
+			assert(modal.nameColumns === modal.expectedColumns, `Edit modal uses responsive form columns at ${width}: ${modal.nameColumns}`);
+			assert(modal.controlWidthsFit && modal.allLabelsAssociated && modal.fieldHeights.every(height => height === 44),
+				`Edit modal fields remain aligned and accessible at ${width}: ${JSON.stringify(modal)}`);
+			assert(modal.email === 'a-very-long-student-email-address-for-responsive-layout-checks@example.invalid' &&
+				modal.program === 'Master of Science in Hospitality Management and Sustainable Tourism',
+				`Long email and program values remain editable at ${width}`);
+			assert(modal.footerButtonHeights.length === 2 && modal.footerButtonHeights.every(height => height === 44),
+				`Edit modal footer actions have consistent touch-friendly heights at ${width}`);
+			assert(!modal.pageOverflow, `Edit modal does not cause horizontal page overflow at ${width}`);
+			const scroll = await evaluate(`(() => {
+				const panel = document.querySelector('.edit-student-modal');
+				const body = panel.querySelector('.modal-body'), footer = panel.querySelector('.modal-footer');
+				const initialFooterTop = footer.getBoundingClientRect().top;
+				body.scrollTop = body.scrollHeight;
+				const last = panel.querySelector('#edit-student-form .edit-student-verified').getBoundingClientRect();
+				return { lastControlReachable: last.top >= body.getBoundingClientRect().top && last.bottom <= body.getBoundingClientRect().bottom,
+					footerStaysVisible: footer.getBoundingClientRect().top === initialFooterTop && footer.getBoundingClientRect().bottom <= innerHeight };
+			})()`);
+			assert(scroll.lastControlReachable && scroll.footerStaysVisible, `Last field remains reachable without covering the footer at ${width}`);
+			await key('Escape');
+			await waitFor("!document.querySelector('[role=dialog]')");
+			await openRow(0);
+			await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Edit details').click()");
+			await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('Edit Student')");
+			await mouseClick('.edit-student-modal .edit-student-cancel');
+			await waitFor("!document.querySelector('[role=dialog]')");
+			continue;
+		}
+		if (focusedDocumentPreview) {
+			await loadRevision('documents-admin');
+			await waitFor("!!document.querySelector('.document-template-actions .ui-button')");
+			await evaluate("window.fixtureDownload = null; [...document.querySelectorAll('.document-template-actions .ui-button')].find(button => button.textContent.trim() === 'View').click()");
+			await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('A preview is not available for this file format.')");
+			assert(await evaluate("!!document.querySelector('[role=dialog]') && !![...document.querySelectorAll('[role=dialog] .ui-button')].find(button => button.textContent.trim() === 'Download') && window.fixtureDownload === null && !document.querySelector('.row-menu-panel:popover-open')"),
+				`DOCX View stays in the preview modal without starting a download at ${width}`);
+			assert(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `Documents preview modal does not cause overflow at ${width}`);
+			await key('Escape');
+			await waitFor("!document.querySelector('[role=dialog]')");
+			continue;
+		}
 		await loadRevision('request-wizard');
 		const selectionStart = await evaluate(`(() => {
 			const cards = [...document.querySelectorAll('.ui-document-option')];
@@ -512,17 +588,21 @@ try {
 		await key('Escape');
 		assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `Forms overflow at ${width}`);
 	}
-	if (!focusedRequestWizard) {
+	if (!focusedBrowserFlow) {
 		await command('Emulation.setDeviceMetricsOverride', {width:1440,height:900,deviceScaleFactor:1,mobile:false});
 		await loadRevision('archived'); await waitFor("!!document.querySelector('.request-table-wrap tbody tr')");
 		assert(await evaluate("document.body.innerText.includes('Archived Requests') && document.querySelector('.request-table-wrap .status-chip').textContent.includes('Rejected')"));
 		await openRow(0); assert.equal(await evaluate("document.querySelectorAll('[role=menuitem][aria-disabled=true]').length"),2);
 		console.log('Passed cancellation/archive confirmation, saved state and failure recovery; login placement and document/form preview/download at mobile, tablet and desktop; archived view retains the original status.');
-	} else {
+	} else if (focusedRequestWizard) {
 		console.log('Passed request wizard selection, requirement, footer and stepper checks at all configured widths.');
+	} else if (focusedStudentEdit) {
+		console.log('Passed Edit Student modal layout, scrolling, footer, accessibility and Cancel checks at all configured widths.');
+	} else {
+		console.log('Passed DOCX View modal behavior without an automatic download at all configured widths.');
 	}
 	assert.equal(errors.length, 0, JSON.stringify(errors));
-	if (!focusedRequestWizard) console.log('Passed keyboard arrows, Home/End, typeahead, Enter/Space, Tab/Shift+Tab, Escape/focus, outside click, one menu at a time, long labels, touch, scroll/resize and clipped-parent checks.');
+	if (!focusedBrowserFlow) console.log('Passed keyboard arrows, Home/End, typeahead, Enter/Space, Tab/Shift+Tab, Escape/focus, outside click, one menu at a time, long labels, touch, scroll/resize and clipped-parent checks.');
 } finally {
 	socket?.close(); browser.kill(); await server.close();
 }

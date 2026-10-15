@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import StatusChip from '$lib/components/ui/StatusChip.svelte';
 	import LoadError from '$lib/components/ui/LoadError.svelte';
@@ -16,7 +16,7 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	let profile = $state({} as typeof data.profile);
+	let profile = $state({ ...untrack(() => data.profile) });
 	$effect(() => { profile = { ...data.profile }; });
 	let photoFile = $state<File | null>(null);
 	let photoInput = $state<HTMLInputElement>();

@@ -13,9 +13,10 @@
 		headerActions?: Snippet;
 		closeDisabled?: boolean;
 		descriptionId?: string;
+		panelClass?: string;
 	}
 
-	const { open, title, size = 'md', onclose, body, footer, headerActions, closeDisabled = false, descriptionId }: Props = $props();
+	const { open, title, size = 'md', onclose, body, footer, headerActions, closeDisabled = false, descriptionId, panelClass = '' }: Props = $props();
 	const titleId = $props.id();
 	let panel = $state<HTMLDivElement>();
 
@@ -74,7 +75,7 @@
 			aria-labelledby={titleId}
 			aria-describedby={descriptionId}
 			tabindex="-1"
-			class="ui-modal-panel {sizeClass[size]}"
+			class="ui-modal-panel {sizeClass[size]} {panelClass}"
 		>
 			<!-- Header -->
 			<div class="modal-header">

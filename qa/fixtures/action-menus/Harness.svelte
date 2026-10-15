@@ -7,6 +7,7 @@
 	import Documents from '../../../src/routes/student/documents/+page.svelte';
 	import Forms from '../../../src/routes/student/forms/+page.svelte';
 	import AdminForms from '../../../src/routes/staff/forms/+page.svelte';
+	import StaffDocuments from '../../../src/routes/staff/documents/+page.svelte';
 	import RequestWizard from '../../../src/routes/student/request/+page.svelte';
 	import Login from '../../../src/routes/login/+page.svelte';
 	import Pagination from '../../../src/lib/components/ui/Pagination.svelte';
@@ -41,6 +42,10 @@
 				<Forms />
 			{:else if view === 'forms-admin'}
 				<AdminForms />
+			{:else if view === 'documents-admin'}
+				<StaffDocuments data={{ documents: [
+					{ document_id: 7, name: 'DOCX Preview Sample', template_path: 'qa/sample.docx', template_name: 'sample.docx', requirements: [], upload_date: '2026-10-15T08:00:00Z', uploaded_by_name: 'QA User' }
+				], forms: [] }} />
 			{:else if view === 'request-wizard'}
 				<RequestWizard data={{ idStatus: 'verified', documents: [
 					{ document_id: 1, name: 'Certificate of Enrollment', template_path: null, template_name: null, requirements: [
