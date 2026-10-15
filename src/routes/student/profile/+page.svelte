@@ -2,7 +2,6 @@
 	import { invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import Card from '$lib/components/ui/Card.svelte';
 	import StatusChip from '$lib/components/ui/StatusChip.svelte';
 	import LoadError from '$lib/components/ui/LoadError.svelte';
 	import { showToast } from '$lib/stores/toasts';
@@ -300,32 +299,43 @@
 	}
 </script>
 
-<div class="max-w-4xl mx-auto space-y-6">
-	<Card class="student-identity-header"><div class="identity-avatar" aria-hidden="true">{initials}</div><div class="identity-copy"><h2>{fullName}</h2><p>{profile.program} · {profile.student_id}</p></div></Card>
-	<section id="school-id-photo-card" class="scroll-mt-24 space-y-4 rounded-xl border border-gray-200 bg-white p-6" aria-label="School ID photo">
-		<div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-xl font-semibold text-gray-800">School ID photo</h2><StatusChip kind="id" value={profile.id_status} /></div>
-		<p class="text-sm text-gray-600">School ID front · JPG, PNG or WebP · up to 5 MB</p>
-		<div class="school-id-content">
-			<div class="school-id-preview">{#if selectedPhotoUrl || photoUrl}<img src={selectedPhotoUrl || photoUrl} alt={selectedPhotoUrl ? 'New school ID photo preview' : 'Your uploaded school ID front'} onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview could not load. Refresh the preview.'; }} />{:else}<p class="text-center text-xs text-gray-500">{photoPreviewLoading ? 'Loading photo…' : profile.has_id_photo ? 'Refresh to view your uploaded photo' : 'No ID photo uploaded'}</p>{/if}</div>
-			<div class="space-y-3">
-				<Button variant="secondary" icon="fa-solid fa-camera" disabled={profile.id_status === 'verified' || photoUploading} disabledReason={profile.id_status === 'verified' ? 'Contact the Graduate School office to replace a verified ID photo' : undefined} onclick={() => photoInput?.click()}>Replace photo</Button>
-				{#if academicLocked}<p class="locked-note"><i class="fa-solid fa-lock" aria-hidden="true"></i>Verified ID photos are locked. Contact the Graduate School office to replace yours.</p>{/if}
-				{#if profile.id_status !== 'verified'}<form onsubmit={uploadIdPhoto} class="space-y-3"><label for="school-id-photo" class="sr-only">Choose a new school ID photo (front)</label><input id="school-id-photo" bind:this={photoInput} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" disabled={photoUploading} class="hidden" onchange={(event) => { const selected = event.currentTarget.files?.[0]; if (!selected) return; photoError = validateStudentIdPhoto(selected) ?? ''; photoMessage = ''; if (photoError) { event.currentTarget.value = ''; showToast(photoError, 'error'); } else photoFile = selected; }} />{#if photoFile}<p class="break-words text-sm font-medium text-gray-800">{photoFile.name} <span class="text-xs font-normal text-gray-500">· {formatFileSize(photoFile.size)}</span></p><div class="flex flex-wrap gap-2"><Button type="submit" loading={photoUploading} loadingLabel="Uploading…" disabled={!!photoError}>Upload photo</Button><Button variant="ghost" disabled={photoUploading} onclick={() => { photoFile = null; photoError = ''; if (photoInput) photoInput.value = ''; }}>Remove selection</Button></div><p class="text-xs text-gray-600">Uploading the new photo automatically resubmits your ID for office review.</p>{/if}</form>{/if}
-				{#if profile.has_id_photo}<div class="photo-preview-tools"><p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p><Button variant="ghost" icon="fa-solid fa-arrows-rotate" ariaLabel="Refresh photo preview" title="Refresh photo preview" loading={photoPreviewLoading} disabled={photoUploading} onclick={previewIdPhoto} /></div>{/if}
+<div class="account-profile-page">
+	<div class="profile-header bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+		<div class="flex items-center gap-5">
+			<div class="w-20 h-20 rounded-2xl bg-essu-green/10 border border-essu-green/20 flex items-center justify-center text-2xl font-bold text-essu-green shrink-0" aria-hidden="true">{initials}</div>
+			<div>
+				<h2 class="text-xl font-bold text-gray-800">{fullName}</h2>
+				<p class="text-sm text-gray-500 mt-0.5">{profile.program} · {profile.student_id}</p>
 			</div>
 		</div>
-		{#if photoError}<p class="text-sm text-red-700" role="alert">{photoError}</p>{/if}{#if photoMessage}<p class="text-sm text-essu-green" role="status">{photoMessage}</p>{/if}{#if photoPreviewError}<LoadError message="We couldn’t load your ID photo preview. Please try again." onretry={previewIdPhoto} />{/if}
-	</section>
+	</div>
 
-	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-		<div class="xl:col-span-2 space-y-4">
+	<div class="profile-content-grid grid grid-cols-1 gap-5">
+		<div class="profile-main-sections space-y-4">
+			<section id="school-id-photo-card" class="profile-section scroll-mt-24 rounded-xl border border-gray-100 bg-white shadow-sm" aria-label="School ID photo">
+				<div class="profile-section-heading flex-wrap"><h3>School ID photo</h3><StatusChip kind="id" value={profile.id_status} /></div>
+				<div class="profile-section-content space-y-4">
+					<p class="text-sm text-gray-600">School ID front · JPG, PNG or WebP · up to 5 MB</p>
+					<div class="school-id-content">
+						<div class="school-id-preview">{#if selectedPhotoUrl || photoUrl}<img src={selectedPhotoUrl || photoUrl} alt={selectedPhotoUrl ? 'New school ID photo preview' : 'Your uploaded school ID front'} onerror={() => { photoUrl = ''; photoPreviewError = 'Photo preview could not load. Refresh the preview.'; }} />{:else}<p class="text-center text-xs text-gray-500">{photoPreviewLoading ? 'Loading photo…' : profile.has_id_photo ? 'Refresh to view your uploaded photo' : 'No ID photo uploaded'}</p>{/if}</div>
+						<div class="space-y-3">
+							<Button variant="secondary" icon="fa-solid fa-camera" disabled={profile.id_status === 'verified' || photoUploading} disabledReason={profile.id_status === 'verified' ? 'Contact the Graduate School office to replace a verified ID photo' : undefined} onclick={() => photoInput?.click()}>Replace photo</Button>
+							{#if academicLocked}<p class="locked-note"><i class="fa-solid fa-lock" aria-hidden="true"></i>Verified ID photos are locked. Contact the Graduate School office to replace yours.</p>{/if}
+							{#if profile.id_status !== 'verified'}<form onsubmit={uploadIdPhoto} class="space-y-3"><label for="school-id-photo" class="sr-only">Choose a new school ID photo (front)</label><input id="school-id-photo" bind:this={photoInput} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" disabled={photoUploading} class="hidden" onchange={(event) => { const selected = event.currentTarget.files?.[0]; if (!selected) return; photoError = validateStudentIdPhoto(selected) ?? ''; photoMessage = ''; if (photoError) { event.currentTarget.value = ''; showToast(photoError, 'error'); } else photoFile = selected; }} />{#if photoFile}<p class="break-words text-sm font-medium text-gray-800">{photoFile.name} <span class="text-xs font-normal text-gray-500">· {formatFileSize(photoFile.size)}</span></p><div class="flex flex-wrap gap-2"><Button type="submit" loading={photoUploading} loadingLabel="Uploading…" disabled={!!photoError}>Upload photo</Button><Button variant="ghost" disabled={photoUploading} onclick={() => { photoFile = null; photoError = ''; if (photoInput) photoInput.value = ''; }}>Remove selection</Button></div><p class="text-xs text-gray-600">Uploading the new photo automatically resubmits your ID for office review.</p>{/if}</form>{/if}
+							{#if profile.has_id_photo}<div class="photo-preview-tools"><p class="text-xs text-gray-500">Last uploaded: {formatDate(profile.id_photo_uploaded_at)}</p><Button variant="ghost" icon="fa-solid fa-arrows-rotate" ariaLabel="Refresh photo preview" title="Refresh photo preview" loading={photoPreviewLoading} disabled={photoUploading} onclick={previewIdPhoto} /></div>{/if}
+						</div>
+					</div>
+					{#if photoError}<p class="text-sm text-red-700" role="alert">{photoError}</p>{/if}{#if photoMessage}<p class="text-sm text-essu-green" role="status">{photoMessage}</p>{/if}{#if photoPreviewError}<LoadError message="We couldn’t load your ID photo preview. Please try again." onretry={previewIdPhoto} />{/if}
+				</div>
+			</section>
+
 			<!-- Personal Info -->
-			<div class="bg-white rounded-xl border border-gray-100 ">
-				<div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-					<h3 class="text-xl font-semibold text-gray-700">Personal Information</h3>
+			<div class="profile-section bg-white rounded-xl border border-gray-100 shadow-sm">
+				<div class="profile-section-heading">
+					<h3 class="font-semibold text-gray-700">Personal Information</h3>
 					<Button variant="ghost" icon="fa-solid fa-pen" onclick={openEdit}>Edit</Button>
 				</div>
-				<div class="profile-data-grid grid grid-cols-2 gap-4 p-6 text-sm">
+				<div class="profile-section-content profile-data-grid grid grid-cols-2 gap-4 text-sm">
 					<div><p class="text-xs text-gray-400">First Name</p><p class="font-medium">{profile.first_name}</p></div>
 					<div><p class="text-xs text-gray-400">Middle Name</p><p class="font-medium">{profile.middle_name || '—'}</p></div>
 					<div><p class="text-xs text-gray-400">Last Name</p>
@@ -337,14 +347,14 @@
 			</div>
 
 			<!-- Academic Info -->
-			<div class="bg-white rounded-xl border border-gray-100 ">
-				<div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-					<h3 class="text-xl font-semibold text-gray-700">Academic Information</h3>
+			<div class="profile-section bg-white rounded-xl border border-gray-100 shadow-sm">
+				<div class="profile-section-heading">
+					<h3 class="font-semibold text-gray-700">Academic Information</h3>
 					{#if !academicLocked}
 						<Button variant="ghost" icon="fa-solid fa-pen" onclick={openAcademic}>Edit</Button>
 					{/if}
 				</div>
-				<div class="profile-data-grid grid grid-cols-2 gap-4 p-6 text-sm">
+				<div class="profile-section-content profile-data-grid grid grid-cols-2 gap-4 text-sm">
 					<div><p class="text-xs text-gray-400">{#if academicLocked}<i class="fa-solid fa-lock" aria-hidden="true"></i> {/if}Student ID</p><p class="font-medium">{profile.student_id}</p></div>
 					<div><p class="text-xs text-gray-400">{#if academicLocked}<i class="fa-solid fa-lock" aria-hidden="true"></i> {/if}Program</p><p class="font-medium">{profile.program}</p></div>
 					<div class="col-span-2"><p class="text-xs text-gray-400">{#if academicLocked}<i class="fa-solid fa-lock" aria-hidden="true"></i> {/if}Campus</p><p class="font-medium">{profile.campus ?? 'Not collected'}</p></div>
@@ -362,12 +372,12 @@
 		</div>
 
 		<!-- Account Settings -->
-		<div class="space-y-4">
-			<div class="bg-white rounded-xl border border-gray-100 ">
-				<div class="px-6 py-4 border-b border-gray-100">
-					<h3 class="text-xl font-semibold text-gray-700">Account Settings</h3>
+		<div class="profile-settings space-y-4">
+			<div class="profile-section bg-white rounded-xl border border-gray-100">
+				<div class="profile-section-heading">
+					<h3 class="font-semibold text-gray-700">Account Settings</h3>
 				</div>
-				<div class="p-4 space-y-2">
+				<div class="profile-section-content">
 					<Button variant="ghost" icon="fa-solid fa-lock" onclick={openPassword} class="account-action">Change password</Button>
 					<Button variant="ghost" icon="fa-solid fa-envelope" onclick={openEmail} class="account-action">Change email</Button>
 				</div>
@@ -569,11 +579,6 @@
 </Modal>
 
 <style>
-	:global(.student-identity-header.ui-card) { display: flex; align-items: center; gap: var(--space-4); }
-	.identity-avatar { display: grid; place-items: center; flex-shrink: 0; width: var(--space-12); height: var(--space-12); border-radius: var(--radius-control); background: var(--color-primary-soft); color: var(--color-primary); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); }
-	.identity-copy { min-width: 0; }
-	.identity-copy h2 { margin: 0; color: var(--color-text); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); }
-	.identity-copy p { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--font-size-body); overflow-wrap: anywhere; }
 	.school-id-content { display: grid; gap: var(--space-4); align-items: start; }
 	.school-id-preview { display: grid; place-items: center; width: 144px; min-height: 160px; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-bg); }
 	.school-id-preview img { width: 120px; max-width: 100%; max-height: 200px; border-radius: var(--radius-control); object-fit: contain; }
@@ -589,6 +594,5 @@
 	@media (max-width: 639px) {
 		:global(.profile-data-grid) { grid-template-columns: minmax(0, 1fr); }
 		:global(.profile-data-grid > *) { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
-		:global(.student-identity-header.ui-card) { flex-wrap: wrap; }
 	}
 </style>

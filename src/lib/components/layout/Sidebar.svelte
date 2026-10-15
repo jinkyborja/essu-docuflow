@@ -17,6 +17,9 @@
 	const collapsed = $derived(desktop && $sidebarCollapsed);
 	const mobileOpen = $derived(!desktop && $sidebarMobileOpen);
 	const currentPath = $derived($page.url.pathname);
+	const portalLabel = $derived(
+		role === 'student' ? 'Student Portal' : userRole?.toLowerCase() === 'admin' ? 'Admin Portal' : 'Staff Portal'
+	);
 	const requestAction = $derived(role === 'student' ? items.find(item => item.href === '/student/request') : undefined);
 	let navigation: HTMLElement;
 
@@ -73,7 +76,7 @@
 <aside bind:this={navigation} id="portal-navigation" class="portal-sidebar" class:collapsed class:mobile-open={mobileOpen} inert={!desktop && !mobileOpen} role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen ? true : undefined} aria-label="Sidebar navigation" tabindex="-1">
 	<div class="sidebar-brand">
 		<div class="portal-brand-mark" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></div>
-		{#if !collapsed}<div class="brand-copy"><p>ESSU DocuFlow</p><span>Graduate School Office</span></div>{/if}
+		{#if !collapsed}<div class="brand-copy"><p>ESSU DocuFlow</p><span>{portalLabel}</span></div>{/if}
 		<div class="drawer-close"><Button variant="ghost" icon="fa-solid fa-xmark" ariaLabel="Close navigation" onclick={closeMobile} class="sidebar-close" /></div>
 	</div>
 

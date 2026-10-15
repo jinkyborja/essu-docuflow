@@ -80,7 +80,7 @@
 	function reset() { currentStep = 1; selectedDocs = []; purpose = ''; files = {}; submitError = ''; successOpen = false; submittedId = ''; }
 </script>
 
-<div class="request-workspace mx-auto max-w-3xl space-y-6">
+<div class="request-workspace w-full min-w-0 space-y-6">
 	{#if data.idStatus !== 'verified'}
 		<Button href="/student/forms" icon="fa-solid fa-file-lines">Browse forms</Button>
 	{:else}

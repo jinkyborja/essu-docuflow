@@ -182,7 +182,7 @@
 	}
 </script>
 
-<div class="staff-profile-page max-w-4xl mx-auto space-y-5">
+<div class="account-profile-page">
 	<div class="profile-header bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
 		<div class="flex items-center gap-5">
 			<div class="w-20 h-20 rounded-2xl bg-essu-green/10 border border-essu-green/20 flex items-center justify-center text-2xl font-bold text-essu-green shrink-0">
@@ -195,17 +195,17 @@
 		</div>
 	</div>
 
-	<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-		<div class="xl:col-span-2 space-y-4">
+	<div class="profile-content-grid grid grid-cols-1 gap-5">
+		<div class="profile-main-sections space-y-4">
 			<!-- Personal Info -->
-			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-				<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+			<div class="profile-section bg-white rounded-xl border border-gray-100 shadow-sm">
+				<div class="profile-section-heading">
 					<h3 class="font-semibold text-gray-700">Personal Information</h3>
 					<button onclick={openPersonal} class="text-sm text-essu-green hover:underline flex items-center gap-1">
 						<i class="fa-solid fa-pen text-xs"></i> Edit
 					</button>
 				</div>
-				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
+				<div class="profile-section-content profile-data-grid grid grid-cols-2 gap-4 text-sm">
 					<div><p class="text-xs text-gray-400 mb-0.5">First Name</p><p class="font-medium text-gray-700">{profile.first_name}</p></div>
 					<div><p class="text-xs text-gray-400 mb-0.5">Middle Name</p><p class="font-medium text-gray-700">{profile.middle_name ?? '—'}</p></div>
 					<div><p class="text-xs text-gray-400 mb-0.5">Last Name</p><p class="font-medium text-gray-700">{profile.last_name}</p></div>
@@ -213,8 +213,8 @@
 			</div>
 
 			<!-- Professional Info -->
-			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-				<div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+			<div class="profile-section bg-white rounded-xl border border-gray-100 shadow-sm">
+				<div class="profile-section-heading">
 					<h3 class="font-semibold text-gray-700">Professional Information</h3>
 					{#if profile.role === 'Admin'}
 						<button onclick={openProfessional} class="text-sm text-essu-green hover:underline flex items-center gap-1">
@@ -222,7 +222,7 @@
 						</button>
 					{/if}
 				</div>
-				<div class="profile-data-grid grid grid-cols-2 gap-4 p-5 text-sm">
+				<div class="profile-section-content profile-data-grid grid grid-cols-2 gap-4 text-sm">
 					<div><p class="text-xs text-gray-400 mb-0.5">Role</p><p class="font-medium text-gray-700">{profile.role}</p></div>
 					<div><p class="text-xs text-gray-400 mb-0.5">Position</p><p class="font-medium text-gray-700">{profile.position ?? '—'}</p></div>
 					<div><p class="text-xs text-gray-400 mb-0.5">Email</p><p class="font-medium text-gray-700">{profile.email}</p></div>
@@ -232,12 +232,12 @@
 		</div>
 
 		<!-- Account Settings -->
-		<div>
-			<div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-				<div class="px-5 py-4 border-b border-gray-100">
+		<div class="profile-settings">
+			<div class="profile-section bg-white rounded-xl border border-gray-100 shadow-sm">
+				<div class="profile-section-heading">
 					<h3 class="font-semibold text-gray-700">Account Settings</h3>
 				</div>
-				<div class="p-4 space-y-2">
+				<div class="profile-section-content">
 					<button onclick={openPassword} class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left">
 						<div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
 							<i class="fa-solid fa-lock text-gray-600 text-sm"></i>
@@ -296,11 +296,11 @@
 
 <style>
 	@media (max-width: 640px) {
-		.staff-profile-page :global(.profile-data-grid) {
+		.account-profile-page :global(.profile-data-grid) {
 			grid-template-columns: minmax(0, 1fr);
 		}
 
-		.staff-profile-page :global(.profile-data-grid > div) {
+		.account-profile-page :global(.profile-data-grid > div) {
 			min-width: 0;
 			overflow-wrap: anywhere;
 		}

@@ -55,14 +55,16 @@
 	>
 		<TopBar role="student" user={data.layoutUser} {unread} />
 
-		<main id="main-content" tabindex="-1" class="portal-main">
+		<main id="main-content" tabindex="-1" class="portal-main page-layout page-container page-main">
 			<PageIntro title={pageTitle} role="student" />
-			{#if data.layoutUser.idStatus === 'pending'}
-				<section class="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" aria-label="Account review"><p>Your account is being reviewed by the Graduate School office.</p><Button href="/student/forms">Browse forms</Button></section>
-			{:else if data.layoutUser.idStatus === 'rejected'}
-				<VerificationHelp reason={data.layoutUser.idRejectReason} />
-			{/if}
-			{#if $navigating}<LoadingState label="Loading your workspace…" />{:else}{@render children()}{/if}
+			<div class="page-body">
+				{#if data.layoutUser.idStatus === 'pending'}
+					<section class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" aria-label="Account review"><p>Your account is being reviewed by the Graduate School office.</p><Button href="/student/forms">Browse forms</Button></section>
+				{:else if data.layoutUser.idStatus === 'rejected'}
+					<VerificationHelp reason={data.layoutUser.idRejectReason} />
+				{/if}
+				{#if $navigating}<LoadingState label="Loading your workspace…" />{:else}{@render children()}{/if}
+			</div>
 		</main>
 	</div>
 </div>

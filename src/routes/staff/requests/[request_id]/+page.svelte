@@ -127,7 +127,7 @@
 
 
 
-<div class="max-w-4xl mx-auto space-y-5">
+<div class="w-full min-w-0 space-y-5">
 	<!-- Back + header -->
 	<div class="flex items-center gap-3">
 		<a href="/staff/requests" aria-label="Back to All Requests" title="Back to All Requests" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">

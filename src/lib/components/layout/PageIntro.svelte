@@ -40,7 +40,7 @@
 	);
 </script>
 
-<div class="portal-page-header" class:dashboard={$page.url.pathname.endsWith('/dashboard')}>
+<div class="portal-page-header page-header" class:dashboard={$page.url.pathname.endsWith('/dashboard')}>
 	<PageHeader {title} {description} icon={headerIcon} variant={headerVariant} />
 	{#if isStudentDocuments}
 		<div class="page-actions">
@@ -50,10 +50,7 @@
 </div>
 
 <style>
-	.portal-page-header { min-width: 0; margin-bottom: var(--space-6); }
-	.page-actions { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
-	.portal-page-header.dashboard { margin-bottom: 0.5rem; }
-	:global(.staff-portal .portal-main.dashboard) { padding: 1.5rem; }
-	:global(.staff-portal .portal-main > .portal-page-header.dashboard) { margin-bottom: 0.5rem; }
+	.portal-page-header { display: flex; flex-direction: column; gap: var(--page-content-gap); min-width: 0; }
+	.page-actions { display: flex; justify-content: flex-end; }
 	@media print { .portal-page-header { display: none; } }
 </style>

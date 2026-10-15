@@ -13,8 +13,8 @@
 	const visibleRows = $derived(hideRoutineActivity
 		? data.rows.filter(row => row.action !== routineAction)
 		: data.rows);
-	const pageStart = $derived(data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
-	const pageEnd = $derived(Math.min(data.page * data.pageSize, data.total));
+	const pageStart = $derived(data.rows.length === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
+	const pageEnd = $derived(data.rows.length === 0 ? 0 : pageStart + data.rows.length - 1);
 
 	function activityUrl(pageNumber: number): string {
 		const params = new URLSearchParams($currentPage.url.searchParams);
@@ -198,37 +198,37 @@
 </script>
 
 <div class="activity-page">
-	<div class="activity-export">
-		<a href={exportUrl()} class="inline-flex items-center gap-2 rounded-lg bg-essu-green px-4 py-2.5 text-sm font-medium text-white hover:bg-essu-green-mid focus:outline-none focus:ring-2 focus:ring-essu-green/30">
-			<i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV
-		</a>
-	</div>
-
 	<form bind:this={filterForm} method="GET" action="/staff/activity" class="activity-filter-form rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-		<label class="text-xs font-medium text-gray-600">From
+		<div class="activity-filter-toolbar">
+			<h2>Filter activity</h2>
+			<a href={exportUrl()} class="activity-export-button">
+				<i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV
+			</a>
+		</div>
+		<label class="activity-filter-field activity-filter-from text-xs font-medium text-gray-600">From
 			<input type="date" name="from" value={data.filters.from} class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 		</label>
-		<label class="text-xs font-medium text-gray-600">To
+		<label class="activity-filter-field activity-filter-to text-xs font-medium text-gray-600">To
 			<input type="date" name="to" value={data.filters.to} class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 		</label>
-		<label class="text-xs font-medium text-gray-600">Person
+		<label class="activity-filter-field activity-filter-person text-xs font-medium text-gray-600">Person
 			<select name="person" value={data.filters.person} class="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 				<option value="">All people</option>
 				{#each data.people as person}<option value={person.actor_user_id}>{person.actor_name} · {person.actor_role}</option>{/each}
 			</select>
 		</label>
-		<label class="text-xs font-medium text-gray-600">Role
+		<label class="activity-filter-field activity-filter-role text-xs font-medium text-gray-600">Role
 			<select name="role" value={data.filters.role} class="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 				<option value="">All roles</option><option value="Admin">Admin</option><option value="Staff">Staff</option><option value="Student">Student</option>
 			</select>
 		</label>
-		<label class="text-xs font-medium text-gray-600">Action type
+		<label class="activity-filter-field activity-filter-action text-xs font-medium text-gray-600">Action type
 			<select name="action" value={data.filters.action} class="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 				<option value="">All actions</option>
 				{#each Object.entries(data.actionLabels) as [action, label]}<option value={action}>{label}</option>{/each}
 			</select>
 		</label>
-		<label class="text-xs font-medium text-gray-600">Search
+		<label class="activity-filter-field activity-filter-search text-xs font-medium text-gray-600">Search
 			<input type="search" name="search" value={data.filters.search} placeholder="Search activity…" class="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 		</label>
 		<div class="activity-filter-actions">
@@ -237,8 +237,10 @@
 				<button type="button" onclick={() => applyQuickRange(7)}>Last 7 days</button>
 				<button type="button" onclick={() => applyQuickRange(30)}>Last 30 days</button>
 			</div>
-			<Button type="submit">Apply filters</Button>
-			<a href="/staff/activity" class="activity-clear rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">Clear filters</a>
+			<div class="activity-submit-actions">
+				<Button type="submit">Apply filters</Button>
+				<a href="/staff/activity" class="activity-clear">Clear filters</a>
+			</div>
 		</div>
 	</form>
 
@@ -253,7 +255,7 @@
 
 	<div class="activity-results-summary">
 		<p class="activity-result-count">
-			Showing {visibleRows.length} of {data.rows.length} on this page · {pageStart}–{pageEnd} of {data.total} matching activities
+			Showing {visibleRows.length} visible of {data.rows.length} on this page · {pageStart}–{pageEnd} of {data.total} matching activities
 		</p>
 		<div class="activity-routine-toggle">
 			<label>
@@ -389,24 +391,75 @@
 
 <style>
 	.activity-page {
-		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-3);
+		gap: 16px;
 		min-width: 0;
 	}
 
-	.activity-export {
+	.activity-filter-toolbar {
+		grid-column: 1 / -1;
 		display: flex;
-		justify-content: flex-end;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		min-width: 0;
+		margin-bottom: 4px;
+	}
+
+	.activity-filter-toolbar h2 {
+		margin: 0;
+		color: #26372f;
+		font-size: 14px;
+		font-weight: 600;
+	}
+
+	.activity-export-button {
+		display: inline-flex;
+		min-height: 40px;
+		flex: 0 0 auto;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		padding: 0 14px;
+		border: 1px solid #176b3d;
+		border-radius: 8px;
+		background: #176b3d;
+		color: #fff;
+		font-size: 13px;
+		font-weight: 600;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.activity-export-button:hover {
+		background: #145b35;
 	}
 
 	.activity-filter-form {
 		display: grid;
-		grid-template-columns: repeat(6, minmax(0, 1fr));
+		grid-template-columns: repeat(12, minmax(0, 1fr));
 		align-items: end;
-		gap: 12px;
+		gap: 16px;
 		min-width: 0;
+	}
+
+	.activity-filter-from,
+	.activity-filter-to {
+		grid-column: span 2;
+	}
+
+	.activity-filter-person {
+		grid-column: span 4;
+	}
+
+	.activity-filter-role,
+	.activity-filter-action {
+		grid-column: span 2;
+	}
+
+	.activity-filter-search {
+		grid-column: span 5;
 	}
 
 	.activity-filter-form label {
@@ -421,11 +474,11 @@
 	.activity-filter-form select {
 		display: block;
 		box-sizing: border-box;
-		height: 42px;
-		min-height: 42px;
+		height: 44px;
+		min-height: 44px;
 		width: 100%;
 		margin-top: 4px;
-		padding: 0 10px;
+		padding: 0 12px;
 		border: 1px solid #d7e1da;
 		border-radius: 8px;
 		background: #fff;
@@ -433,42 +486,75 @@
 		font-size: 13px;
 	}
 
+	.activity-filter-form input:focus-visible,
+	.activity-filter-form select:focus-visible,
+	.activity-filter-form button:focus-visible,
+	.activity-filter-form a:focus-visible {
+		outline: 2px solid #176b3d;
+		outline-offset: 2px;
+		box-shadow: 0 0 0 3px rgb(23 107 61 / 18%);
+	}
+
 	.activity-filter-actions {
-		grid-column: 1 / -1;
-		display: flex;
-		flex-wrap: wrap;
+		grid-column: 6 / -1;
+		display: grid;
+		grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
 		align-items: center;
 		gap: 8px;
+		min-width: 0;
+	}
+
+	.activity-submit-actions {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 8px;
+		min-width: 0;
 	}
 
 	.activity-quick-ranges {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-		margin-right: auto;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 8px;
+		min-width: 0;
 	}
 
 	.activity-quick-ranges button,
 	.activity-clear,
-	.activity-empty-clear {
-		min-height: 40px;
+	.activity-empty-clear,
+	.activity-submit-actions :global(button) {
 		display: inline-flex;
+		min-width: 0;
+		min-height: 44px;
 		align-items: center;
 		justify-content: center;
+		padding: 0 10px;
 		border-radius: 8px;
+		font-size: 13px;
+		line-height: 1.2;
+		text-align: center;
+		white-space: normal;
 	}
 
 	.activity-quick-ranges button {
-		padding: 0 10px;
 		border: 1px solid #d5e1d9;
 		background: #fff;
 		color: #28583d;
-		font-size: 13px;
 		font-weight: 600;
+		overflow-wrap: anywhere;
 	}
 
-	.activity-filter-actions :global(button) {
-		min-height: 40px;
+	.activity-quick-ranges button,
+	.activity-clear,
+	.activity-submit-actions :global(button) {
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	.activity-clear {
+		border: 1px solid #d5e1d9;
+		background: #fff;
+		color: #28583d;
+		font-weight: 600;
 	}
 
 	.activity-active-filters {
@@ -821,11 +907,24 @@
 	}
 
 	@media (max-width: 1100px) {
-		.activity-filter-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+		.activity-filter-form { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+		.activity-filter-from,
+		.activity-filter-to,
+		.activity-filter-role,
+		.activity-filter-action { grid-column: span 3; }
+		.activity-filter-person,
+		.activity-filter-search { grid-column: 1 / -1; }
+		.activity-filter-actions { grid-column: 1 / -1; }
 	}
 
 	@media (max-width: 767px) {
-		.activity-filter-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.activity-filter-form { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+		.activity-filter-from,
+		.activity-filter-to,
+		.activity-filter-role,
+		.activity-filter-action { grid-column: span 3; }
+		.activity-filter-person,
+		.activity-filter-search { grid-column: 1 / -1; }
 		.activity-table-wrap { display: none; }
 		.activity-mobile-list { display: grid; }
 		.activity-skeleton { padding: 0; }
@@ -844,13 +943,28 @@
 	}
 
 	@media (max-width: 480px) {
-		.activity-filter-form { grid-template-columns: minmax(0, 1fr); }
-		.activity-filter-actions { align-items: stretch; }
-		.activity-quick-ranges { width: 100%; margin-right: 0; }
-		.activity-quick-ranges button { flex: 1 1 auto; }
-		.activity-filter-actions :global(button),
-		.activity-clear { flex: 1 1 auto; }
+		.activity-page { gap: 8px; }
+		.activity-filter-form { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+		.activity-filter-toolbar { gap: 8px; }
+		.activity-filter-toolbar h2 { font-size: 13px; }
+		.activity-export-button { min-height: 40px; padding-inline: 10px; font-size: 12px; }
+		.activity-filter-from,
+		.activity-filter-to,
+		.activity-filter-role,
+		.activity-filter-action { grid-column: span 3; }
+		.activity-filter-person,
+		.activity-filter-search,
+		.activity-filter-actions { grid-column: 1 / -1; }
+		.activity-filter-actions { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+		.activity-quick-ranges { gap: 6px; }
+		.activity-quick-ranges button { padding-inline: 4px; font-size: 11px; }
+		.activity-submit-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 		.activity-pagination { gap: 6px; }
 		.activity-pagination a { padding-inline: 10px; }
+	}
+
+	@media (max-width: 359px) {
+		.activity-filter-from,
+		.activity-filter-to { grid-column: 1 / -1; }
 	}
 </style>

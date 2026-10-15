@@ -32,9 +32,14 @@
 	--space-2: 0.5rem;
 	--space-3: 0.75rem;
 	--space-4: 1rem;
+	--space-5: 1.25rem;
 	--space-6: 1.5rem;
 	--space-8: 2rem;
 	--space-12: 3rem;
+	--page-section-gap: 24px;
+	--page-content-gap: 16px;
+	--page-content-width: 1200px;
+	--page-inline-padding: 32px;
 	--radius-control: 0.5rem;
 	--radius-card: 0.9rem;
 	--radius-panel: 1rem;
@@ -68,6 +73,20 @@
 	--warning: var(--color-warning);
 	--danger: var(--color-danger);
 	--info: var(--color-info);
+}
+
+@media (max-width: 1023px) {
+	:root {
+		--page-section-gap: 20px;
+		--page-inline-padding: 24px;
+	}
+}
+
+@media (max-width: 767px) {
+	:root {
+		--page-section-gap: 16px;
+		--page-inline-padding: 16px;
+	}
 }
 
 @theme {
@@ -318,21 +337,46 @@ textarea,
   transition: margin-left var(--motion-fast);
 }
 
+.page-container {
+	width: 100%;
+	max-width: calc(var(--page-content-width) + var(--page-inline-padding) + var(--page-inline-padding));
+	margin-inline: auto;
+	box-sizing: border-box;
+}
+
+.page-layout {
+	display: flex;
+	flex-direction: column;
+	gap: var(--page-section-gap);
+	width: 100%;
+	min-width: 0;
+}
+
+.page-header,
+.page-body {
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+}
+
+.page-main {
+  padding-block: var(--space-8);
+  padding-inline: var(--page-inline-padding);
+}
+
 .portal-main {
   flex: 1;
-  width: 100%;
+  margin-top: 64px;
+}
+
+.portal-main > * {
   min-width: 0;
-  max-width: 1280px;
-  margin: 64px auto 0;
-  padding: var(--space-8);
 }
 
-.staff-portal .portal-main {
-  display: grid;
-  gap: 1rem;
-}
-
-.staff-portal .portal-main > * {
+.page-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--page-content-gap);
   min-width: 0;
 }
 
@@ -400,7 +444,6 @@ textarea,
 }
 
 .staff-portal .portal-main .staff-filter-bar,
-.staff-portal .portal-main .activity-filter-form,
 .staff-portal .portal-main .report-toolbar,
 .staff-portal .portal-main .notification-toolbar {
   display: flex;
@@ -421,10 +464,6 @@ textarea,
 }
 
 @media (max-width: 639px) {
-  .staff-portal .portal-main {
-    gap: 0.75rem;
-  }
-
   .staff-portal .portal-main .staff-page-actions,
   .staff-portal .portal-main .activity-filter-form,
   .staff-portal .portal-main .report-page-header,
@@ -439,7 +478,7 @@ textarea,
 }
 
 @media (max-width: 639px) {
-  .portal-main { margin-top: 48px; padding: var(--space-4); }
+  .portal-main { margin-top: 48px; padding-block: var(--space-4); }
 }
 
 /* Shared surfaces used throughout both portals. */
@@ -795,6 +834,119 @@ tbody tr:hover {
 .profile-header {
 	border-radius: var(--radius-panel) !important;
 	background: linear-gradient(135deg, var(--color-surface), var(--color-primary-soft));
+}
+
+.account-profile-page {
+	width: 100%;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-5);
+}
+
+.account-profile-page > *,
+.account-profile-page :is(.profile-content-grid, .profile-main-sections, .profile-settings, .profile-section) {
+	width: 100%;
+	min-width: 0;
+}
+
+.account-profile-page .profile-content-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	align-items: start;
+	gap: var(--space-5);
+}
+
+.account-profile-page .profile-header,
+.account-profile-page .profile-section {
+	min-width: 0;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-card);
+	background: var(--color-surface);
+	box-shadow: var(--shadow-card);
+}
+
+.account-profile-page .profile-header {
+	border-radius: var(--radius-panel);
+	background: linear-gradient(110deg, var(--color-primary-soft), var(--color-surface) 78%);
+}
+
+.account-profile-page .profile-header > div {
+	min-width: 0;
+	flex-wrap: wrap;
+}
+
+.account-profile-page .profile-header h2,
+.account-profile-page .profile-header p,
+.account-profile-page .profile-data-grid > div {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.account-profile-page .profile-section-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-width: 0;
+	gap: var(--space-3);
+	padding: var(--space-4) var(--space-5);
+	border-bottom: 1px solid var(--color-border);
+}
+
+.account-profile-page .profile-section-heading > :is(button, a, .ui-button) {
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+
+.account-profile-page .profile-section-heading h3 {
+	min-width: 0;
+	margin: 0;
+	color: var(--color-text);
+	font-size: var(--font-size-body);
+	font-weight: var(--font-weight-semibold);
+}
+
+.account-profile-page .profile-section-content {
+	min-width: 0;
+	padding: var(--space-5);
+}
+
+.account-profile-page .profile-data-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--space-4);
+}
+
+.account-profile-page .profile-settings .profile-section-content {
+	display: grid;
+	gap: var(--space-2);
+}
+
+@media (min-width: 1024px) {
+	.account-profile-page .profile-content-grid {
+		grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+	}
+}
+
+@media (max-width: 767px) {
+	.account-profile-page .profile-header {
+		padding: var(--space-5);
+	}
+
+	.account-profile-page .profile-section-heading,
+	.account-profile-page .profile-section-content {
+		padding: var(--space-4);
+	}
+}
+
+@media (max-width: 639px) {
+	.account-profile-page .profile-data-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.account-profile-page .profile-data-grid > .col-span-2 {
+		grid-column: 1 / -1;
+	}
 }
 
 .profile-data-grid > div > p:first-child {
@@ -1237,12 +1389,6 @@ table button[title] {
 }
 
 /* Staff management pages use wide data tables and consistent controls. */
-.staff-portal .portal-main {
-  width: 100%;
-  max-width: 1280px;
-  padding: 24px;
-}
-.staff-portal .portal-main > .portal-page-header { margin-bottom: 24px; }
 .staff-portal .portal-main :is(.staff-page-actions, .report-page-header) {
   display: flex;
   align-items: center;
@@ -1424,7 +1570,6 @@ table button[title] {
 }
 .staff-portal .portal-main .row-actions > :is(button, [role='button']) { min-width: 36px; }
 @media (max-width: 767px) {
-  .staff-portal .portal-main { padding: 16px; }
   .staff-portal .portal-main .student-filter-controls { grid-template-columns: 1fr; }
   .staff-portal .portal-main .staff-page-actions { flex-wrap: wrap; }
   .staff-portal .portal-main .staff-filter-bar > label { min-width: min(100%, 220px); flex: 1 1 220px; }
@@ -1461,16 +1606,6 @@ table button[title] {
   	radial-gradient(ellipse at 78% 0%, color-mix(in srgb, var(--color-primary-soft) 62%, transparent), transparent 34rem),
   	var(--color-bg);
 }
-
-.portal-main {
-  max-width: 1280px;
-}
-
-.portal-page-header {
-  margin-bottom: var(--space-6);
-}
-
-.staff-portal .portal-main > .portal-page-header.dashboard { margin-bottom: 0.5rem; }
 
 .portal-main :is(.ui-card, .bg-white.rounded-xl.border, .bg-white.rounded-2xl.border, .bg-white.rounded-xl.shadow-sm, .bg-white.rounded-2xl.shadow-sm) {
   border-color: var(--color-border);
@@ -1662,11 +1797,7 @@ table button[title] {
 
 @media (max-width: 639px) {
   .portal-main {
-  	padding: var(--space-4);
-  }
-
-  .portal-page-header {
-  	margin-bottom: var(--space-4);
+    padding-block: var(--space-4);
   }
 
   .portal-main .ui-stat-grid {

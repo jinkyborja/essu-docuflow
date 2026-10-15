@@ -335,9 +335,12 @@
 	const activeFilterCount = $derived(
 		Number(!!filterProgram) + Number(!!filterType) + Number(dateRange !== 'any')
 	);
-	const filtersActive = $derived(
+	const hasAdditionalFilters = $derived(
 		!!search.trim() || !!filterType || !!filterProgram || dateRange !== 'any' ||
-		dateType !== 'registered' || sortOrder !== 'newest' || statusTab !== 'all'
+		dateType !== 'registered' || sortOrder !== 'newest'
+	);
+	const filtersActive = $derived(
+		hasAdditionalFilters || statusTab !== 'all'
 	);
 	const filtered = $derived.by(() => {
 		const q = search.trim().toLowerCase();
@@ -377,19 +380,19 @@
 	<p class="text-sm text-gray-500 max-w-xs">This page is only accessible to administrators. Contact your admin if you need access.</p>
 </div>
 {:else}
-<div class="space-y-5">
+<div class="student-management-page space-y-5">
 	{#if data.role === 'Admin'}<div class="staff-page-actions flex flex-wrap justify-end gap-3"><Button variant="secondary" icon="fa-solid fa-list-check" onclick={() => masterlistOpen = true}>Masterlist</Button></div>{/if}
 	{#if usageError}<LoadError message="We couldn’t check linked requests. Please try again." onretry={() => void loadRequestUsage()} />{:else if !usageLoaded}<p role="status" class="flex items-center gap-2 text-sm text-gray-600"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Checking linked requests…</p>{/if}
 	<!-- Search / Filter -->
-	<div class="staff-filter-bar space-y-3">
-		<div class="student-search-row flex flex-col gap-3 lg:flex-row lg:items-center">
-			<div class="student-status-tabs flex flex-wrap items-center gap-1">
-				{#each [{key:'pending',label:'Pending'},{key:'verified',label:'Verified'},{key:'rejected',label:'Rejected'},{key:'all',label:'All'}] as tab}
-					<button aria-pressed={statusTab === tab.key} onclick={() => { statusTab = tab.key as typeof statusTab; syncQuery(); }} class="rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-essu-green/50 {statusTab === tab.key ? 'bg-essu-green text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">{tab.label} ({tabCounts[tab.key as keyof typeof tabCounts]})</button>
+	<div class="staff-filter-bar">
+		<div class="student-search-row">
+			<div class="student-status-tabs" role="group" aria-label="Filter students by ID status">
+				{#each [{key:'all',label:'All'},{key:'pending',label:'Pending'},{key:'verified',label:'Verified'},{key:'rejected',label:'Rejected'}] as tab}
+					<button type="button" aria-pressed={statusTab === tab.key} onclick={() => { statusTab = tab.key as typeof statusTab; syncQuery(); }} class:active={statusTab === tab.key} class="student-status-tab">
+						<span class="student-status-label">{tab.label}</span>
+						<span class="student-status-count">{tabCounts[tab.key as keyof typeof tabCounts]}</span>
+					</button>
 				{/each}
-				<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20 whitespace-nowrap shrink-0">
-					{filtered.length} of {students.length} students
-				</span>
 			</div>
 			<div class="student-search relative flex-1 min-w-0">
 				<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
@@ -402,14 +405,20 @@
 				/>
 			</div>
 		</div>
-		<div class="flex items-center justify-between gap-3">
-			<button type="button" aria-expanded={showMobileFilters} aria-controls="student-filters" onclick={() => showMobileFilters = !showMobileFilters} class="md:hidden inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-essu-green/50">
-				<i class="fa-solid fa-sliders" aria-hidden="true"></i> Filters
-				{#if activeFilterCount}<span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-essu-green px-1.5 text-xs text-white">{activeFilterCount}</span>{/if}
-			</button>
-			{#if filtersActive}
-				<button type="button" onclick={clearFilters} class="ml-auto px-3 py-2 text-sm text-essu-green hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-essu-green/50">Clear filters</button>
-			{/if}
+		<div class="student-results-toolbar">
+			<p class="student-result-count" aria-live="polite">
+				{filtered.length} {statusTab === 'all' ? '' : `${statusTab} `}{pluralize(filtered.length, 'student')}
+				{#if statusTab === 'all' && filtered.length !== students.length} of {students.length}{/if}
+			</p>
+			<div class="student-result-actions">
+				<button type="button" aria-expanded={showMobileFilters} aria-controls="student-filters" onclick={() => showMobileFilters = !showMobileFilters} class="student-filter-toggle md:hidden">
+					<i class="fa-solid fa-sliders" aria-hidden="true"></i> Filters
+					{#if activeFilterCount}<span class="student-filter-count">{activeFilterCount}</span>{/if}
+				</button>
+				{#if filtersActive}
+					<button type="button" onclick={clearFilters} class="student-clear-filters">Clear filters</button>
+				{/if}
+			</div>
 		</div>
 		<div id="student-filters" class="student-filter-controls" class:filters-expanded={showMobileFilters}>
 			<label class="filter-control-label">Program
@@ -457,13 +466,12 @@
 	<!-- Table -->
 	<div class="student-results bg-white rounded-xl border border-gray-100 shadow-sm">
 		{#if filtered.length === 0}
-			<div class="p-16 text-center">
-				<i class="fa-solid fa-users text-4xl text-gray-200 mb-4 block"></i>
-				<p class="text-gray-500 text-sm">
-					{filtersActive ? 'No students match the current filters.' : 'No students in this view. Choose All to see every account.'}
-				</p>
+			<div class="student-empty-state">
+				<i class="fa-solid fa-users text-4xl text-gray-200" aria-hidden="true"></i>
+				<h2>{filtersActive && search.trim() ? 'No matching students' : statusTab === 'all' ? 'No student records yet' : `No ${statusTab} students`}</h2>
+				<p>{hasAdditionalFilters ? 'Try adjusting your search or filters to see student records.' : statusTab === 'all' ? 'Student accounts will appear here when they are registered.' : `There are no student accounts with ${statusTab} status right now.`}</p>
 			</div>
-			<div class="flex justify-center pb-6"><Button variant="secondary" onclick={clearFilters}>Clear filters</Button></div>
+			{#if filtersActive}<div class="student-empty-actions"><Button variant="secondary" onclick={clearFilters}>Clear filters</Button></div>{/if}
 		{:else}
 			<div class="student-cards space-y-3 p-3 lg:hidden">
 				{#each filtered as s}
@@ -813,7 +821,191 @@
 	}
 
 	.student-filter-controls {
+		width: 100%;
+		min-width: 0;
+		display: grid;
+		gap: 12px;
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+	}
+
+	:global(.staff-portal .portal-main .student-management-page .staff-filter-bar) {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		align-items: stretch;
+		gap: 12px;
+	}
+
+	.student-search-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 14px;
+		min-width: 0;
+	}
+
+	.student-status-tabs {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 6px;
+		min-width: 0;
+	}
+
+	.student-status-tab {
+		display: flex;
+		min-width: 0;
+		min-height: 56px;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 2px;
+		padding: 6px 4px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-control);
+		background: var(--color-surface);
+		color: var(--color-text-muted);
+		font-size: 12px;
+		font-weight: var(--font-weight-medium);
+		line-height: 1.25;
+		text-align: center;
+	}
+
+	.student-status-tab:hover:not(.active) {
+		background: var(--color-bg);
+		color: var(--color-text);
+	}
+
+	.student-status-tab.active {
+		border-color: var(--color-primary);
+		background: var(--color-primary);
+		color: var(--color-surface);
+	}
+
+	.student-status-label {
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.student-status-count {
+		font-size: 15px;
+		font-weight: var(--font-weight-semibold);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.student-search input {
+		box-sizing: border-box;
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.student-search input::placeholder {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.student-results-toolbar {
+		display: flex;
+		min-width: 0;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+	}
+
+	.student-result-count {
+		min-width: 0;
+		margin: 0;
+		color: var(--color-text-muted);
+		font-size: 13px;
+		overflow-wrap: anywhere;
+	}
+
+	.student-result-actions {
+		display: flex;
+		flex: 0 0 auto;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 8px;
+	}
+
+	.student-filter-toggle {
+		display: inline-flex;
+		min-height: 40px;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		padding: 0 12px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-control);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font-size: 13px;
+		font-weight: var(--font-weight-medium);
+		white-space: nowrap;
+	}
+
+	@media (min-width: 768px) {
+		.student-filter-toggle {
+			display: none;
+		}
+	}
+
+	.student-filter-count {
+		display: inline-flex;
+		min-width: 20px;
+		height: 20px;
+		align-items: center;
+		justify-content: center;
+		padding: 0 5px;
+		border-radius: 999px;
+		background: var(--color-primary);
+		color: var(--color-surface);
+		font-size: 11px;
+	}
+
+	.student-clear-filters {
+		min-height: 40px;
+		padding: 0 8px;
+		color: var(--color-primary);
+		font-size: 13px;
+		font-weight: var(--font-weight-medium);
+		white-space: nowrap;
+	}
+
+	.student-empty-state {
+		display: grid;
+		justify-items: center;
+		gap: 8px;
+		padding: clamp(28px, 6vw, 56px) 16px;
+		text-align: center;
+	}
+
+	.student-empty-state h2,
+	.student-empty-state p {
+		max-width: 100%;
+		margin: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.student-empty-state h2 {
+		color: var(--color-text);
+		font-size: 16px;
+		font-weight: var(--font-weight-semibold);
+	}
+
+	.student-empty-state p {
+		color: var(--color-text-muted);
+		font-size: 13px;
+	}
+
+	.student-empty-actions {
+		display: flex;
+		justify-content: center;
+		padding: 0 16px 16px;
+	}
+
+	:global(.staff-portal .portal-main .student-management-page .student-filter-controls) {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
 
 	.student-cards {
@@ -969,6 +1161,16 @@
 		box-shadow: 0 0 0 3px rgb(24 128 75 / 18%);
 	}
 
+	@media (max-width: 1023px) {
+		.student-search-row {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		:global(.staff-portal .portal-main .student-management-page .student-filter-controls) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
 	@media (max-width: 767px) {
 		.staff-page-actions {
 			flex-wrap: wrap;
@@ -980,11 +1182,17 @@
 		}
 
 		.student-search-row {
+			grid-template-columns: minmax(0, 1fr);
 			align-items: stretch;
 		}
 
 		.student-status-tabs {
-			min-width: 0;
+			gap: 4px;
+		}
+
+		.student-status-tab {
+			min-height: 52px;
+			font-size: 11px;
 		}
 
 		.student-search {
@@ -998,6 +1206,15 @@
 
 		.student-filter-controls.filters-expanded {
 			display: grid !important;
+			grid-template-columns: minmax(0, 1fr) !important;
+		}
+
+		.student-results-toolbar {
+			align-items: center;
+		}
+
+		.student-result-count {
+			font-size: 12px;
 		}
 
 		.student-card-footer {
