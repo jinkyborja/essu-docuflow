@@ -94,7 +94,7 @@
 			if (!res.ok) {
 				error = data.error ?? 'Login failed. Please try again.';
 			} else {
-				await goto(data.role === 'student' ? '/student/dashboard' : '/staff/dashboard', { invalidateAll: true });
+				await goto(data.role === 'Student' ? '/student/dashboard' : '/staff/dashboard', { invalidateAll: true });
 			}
 		} catch {
 			error = 'Network error. Please try again.';

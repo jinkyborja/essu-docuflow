@@ -7,7 +7,7 @@
 		'/student/dashboard': 'Your requests, updates and next steps, all in one place.',
 		'/student/documents': 'Track progress, update requirements and collect your documents.',
 		'/student/request': 'Choose your documents. We will guide you through the requirements.',
-		'/student/forms': 'Find official forms to download, complete and submit with your request.',
+		'/student/forms': 'Preview official forms before downloading, completing and submitting them with your request.',
 		'/student/notifications': 'Stay up to date with decisions and messages from the office.',
 		'/student/profile': 'Keep your personal and academic information up to date.',
 		'/staff/dashboard': 'See what needs attention and keep document requests moving.',

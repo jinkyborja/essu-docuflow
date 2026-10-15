@@ -20,10 +20,10 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	} catch { redirect(302, '/login'); }
 
 	const [rows] = await pool.execute(
-		'SELECT document_id, name FROM documents ORDER BY name ASC'
+		'SELECT document_id, name, template_path, template_name FROM documents ORDER BY name ASC'
 	);
 
-	const docs = rows as Array<{ document_id: number; name: string; requirements?: RequirementItem[] }>;
+	const docs = rows as Array<{ document_id: number; name: string; template_path: string | null; template_name: string | null; requirements?: RequirementItem[] }>;
 	const reqMap = await fetchDocumentRequirements(docs.map((d) => d.document_id));
 	for (const d of docs) d.requirements = reqMap.get(d.document_id) ?? [];
 

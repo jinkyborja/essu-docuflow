@@ -4,6 +4,7 @@
 	import { showToast } from '$lib/stores/toasts';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import { statusLabel, requestStatusKey } from '$lib/request-status';
+	import { downloadStudentFile } from '$lib/student-files';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -38,6 +39,7 @@
 	let submitting = $state(false);
 	let actionError = $state('');
 	let deliveryConfirm = $state(false);
+	let downloadingPath = $state<string | null>(null);
 
 	// Action form state
 	let adminMessage = $state('');
@@ -88,6 +90,28 @@
 		preview.opener = null;
 		try { const url = await getSignedUrl('requirements', path); if (!url) throw new Error('Could not open this file.'); preview.location.replace(url); showToast('File opened.'); }
 		catch (error) { preview.close(); showToast((error as Error).message, 'error'); }
+	}
+
+	async function downloadFile(path: string, name: string) {
+		if (downloadingPath) return;
+		downloadingPath = path;
+		try {
+			const url = await getSignedUrl('requirements', path);
+			if (!url) throw new Error('Could not download this file.');
+			await downloadStudentFile(url, name);
+			showToast('File downloaded.');
+		} catch (error) { showToast(error instanceof Error ? error.message : 'Could not download this file.', 'error'); }
+		finally { downloadingPath = null; }
+	}
+
+	async function downloadFormFile(url: string, name: string) {
+		if (downloadingPath) return;
+		downloadingPath = url;
+		try {
+			await downloadStudentFile(url, name);
+			showToast('Form downloaded.');
+		} catch (error) { showToast(error instanceof Error ? error.message : 'Could not download this form.', 'error'); }
+		finally { downloadingPath = null; }
 	}
 
 	async function submitAction(action: 'approve' | 'reject' | 'correction') {
@@ -209,7 +233,7 @@
 								</div>
 								{#if r.form_id}
 									<div class="mt-1 flex flex-wrap gap-2">
-										{#each r.form_files ?? [] as file}<a href={file.public_url} target="_blank" rel="noopener noreferrer" class="text-xs text-essu-green hover:underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">{r.form_title}: {file.name}</a>{/each}
+										{#each r.form_files ?? [] as file}<div class="flex flex-wrap items-center gap-2"><a href={file.public_url} target="_blank" rel="noopener noreferrer" class="text-xs text-essu-green hover:underline focus:outline-none focus:ring-2 focus:ring-essu-green/30">{r.form_title}: {file.name}</a><button type="button" onclick={() => void downloadFormFile(file.public_url, file.name)} disabled={!!downloadingPath && downloadingPath !== file.public_url} class="text-xs text-essu-green hover:underline disabled:cursor-wait disabled:opacity-60"><i class="fa-solid {downloadingPath === file.public_url ? 'fa-circle-notch fa-spin' : 'fa-download'}"></i> Download</button></div>{/each}
 									</div>
 								{/if}
 								{#if r.signature_note}<p class="mt-1 text-xs text-gray-600">{r.signature_note}</p>{:else if r.needs_signature}<p class="mt-1 text-xs text-gray-600">Signatures required.</p>{/if}
@@ -230,6 +254,13 @@
 								>
 									<i class="fa-solid fa-eye"></i> View
 								</button>
+								<button
+									onclick={() => void downloadFile(r.file_path!, r.file_name ?? r.name)}
+									disabled={!!downloadingPath && downloadingPath !== r.file_path}
+									class="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-essu-green hover:bg-essu-green/5 transition-colors disabled:cursor-wait disabled:opacity-60"
+								>
+									<i class="fa-solid {downloadingPath === r.file_path ? 'fa-circle-notch fa-spin' : 'fa-download'}"></i> Download
+								</button>
 							{/if}
 						</div>
 					{/each}
@@ -243,12 +274,21 @@
 			{#if req.approved_file_path}
 				<div class="bg-white rounded-xl border border-essu-green/30 shadow-sm p-5">
 					<p class="text-sm font-semibold text-essu-green mb-2"><i class="fa-solid fa-circle-check mr-2"></i>Approved Document</p>
-					<button
-						onclick={() => openFile(req.approved_file_path!)}
-						class="text-sm text-essu-green hover:underline flex items-center gap-2"
-					>
-						<i class="fa-solid fa-download"></i> {req.approved_file_name ?? 'Download document'}
-					</button>
+					<div class="flex flex-wrap gap-3">
+						<button
+							onclick={() => openFile(req.approved_file_path!)}
+							class="text-sm text-essu-green hover:underline flex items-center gap-2"
+						>
+							<i class="fa-solid fa-eye"></i> View
+						</button>
+						<button
+							onclick={() => void downloadFile(req.approved_file_path!, req.approved_file_name ?? 'document')}
+							disabled={!!downloadingPath && downloadingPath !== req.approved_file_path}
+							class="text-sm text-essu-green hover:underline flex items-center gap-2 disabled:cursor-wait disabled:opacity-60"
+						>
+							<i class="fa-solid {downloadingPath === req.approved_file_path ? 'fa-circle-notch fa-spin' : 'fa-download'}"></i> Download {req.approved_file_name ?? 'document'}
+						</button>
+					</div>
 				</div>
 			{/if}
 		</div>

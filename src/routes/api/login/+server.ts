@@ -22,7 +22,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		return json({ error: 'Invalid email or password' }, { status: 401 });
 	}
 
-	const user = users[0];
+	const user = users[0] as Record<string, unknown>;
+	const roleName = typeof user.role === 'string' ? user.role : '';
 
 	const passwordHash = createHash('sha256').update(password).digest('hex');
 	if (user.password_hash !== passwordHash) {
@@ -35,7 +36,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 	const sessionDuration = rememberMe ? 86400 * 30 : 86400;
 	const token = signJwt(
-		{ userId: user.user_id, email: user.email, role: user.role, purpose: 'session', authVersion: Number(user.auth_version) },
+		{ userId: user.user_id, email: user.email, role: roleName, purpose: 'session', authVersion: Number(user.auth_version) },
 		JWT_SECRET,
 		sessionDuration
 	);
@@ -55,9 +56,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		.join('')
 		.toUpperCase();
 
-	if (user.role === 'Student') {
+	if (roleName === 'Student') {
 		return json({
-			role: 'student',
+			role: 'Student',
 			profile: {
 				id: (user.student_id as string) ?? String(user.user_id),
 				name: fullName,
@@ -71,7 +72,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	}
 
 	return json({
-		role: 'staff',
+		role: roleName,
 		profile: {
 			id: String(user.user_id),
 			name: fullName,

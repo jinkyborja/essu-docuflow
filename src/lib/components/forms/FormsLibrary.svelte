@@ -28,7 +28,8 @@
 	let downloadFor = $state<number | null>(null);
 	let pdfBusy = $state<number | null>(null), pdfErrorFor = $state<number | null>(null), pdfError = $state('');
 	let pdfPreview = $state(''), pdfPreviewLoading = $state(false), pdfPreviewError = $state('');
-	onDestroy(() => { if (pdfPreview) URL.revokeObjectURL(pdfPreview); });
+	let previewRequest = 0;
+	onDestroy(() => { previewRequest++; if (pdfPreview) URL.revokeObjectURL(pdfPreview); });
 	let title = $state(''); let categoryValue = $state(''); let newCategory = $state(''); let code = $state(''); let description = $state('');
 	let initialTitle = $state(''); let initialDownloadName = $state(''); let editorAttempted = $state(false);
 	let dragging = $state(false); let activeUploadName = $state(''); let titleInput = $state<HTMLInputElement>(); let editorTrigger = $state<HTMLElement | null>(null);
@@ -41,7 +42,17 @@
 	const resolvedCategory = $derived(categoryValue === '__new' ? newCategory.trim() : categoryValue.trim());
 	const editorDirty = $derived(editing ? hasChanges() : !!(title || categoryValue || newCategory || code || description || draftFiles.length));
 	const hasPdf = $derived(draftFiles.some(file => isPdfName(file.name) || (!file.storage_path && bundledFormPdf(file.public_url))));
-	const editorValid = $derived(!!title.trim() && !!resolvedCategory && !!description.trim() && description.length <= 4000 && draftFiles.length >= 1 && draftFiles.length <= 5 && hasPdf && (!editing || editorDirty));
+	function editorValidationError() {
+		if (!title.trim()) return 'Enter a title.';
+		if (!resolvedCategory) return 'Choose or enter a category.';
+		if (!description.trim()) return 'Enter a description.';
+		if (description.length > 4000) return 'Description must be at most 4,000 characters.';
+		if (draftFiles.length < 1) return 'Add at least one file.';
+		if (draftFiles.length > 5) return 'A form can have up to 5 files.';
+		if (!hasPdf) return 'Include a PDF version for student preview and download.';
+		if (editing && !editorDirty) return 'Make a change before saving.';
+		return '';
+	}
 	onMount(() => { void refresh(); });
 	async function refresh() {
 		loading = true; loadError = '';
@@ -94,7 +105,8 @@
 	async function save() {
 		editorAttempted = true;
 		const realCategory = resolvedCategory;
-		if (!editorValid) { inlineError = 'Complete the required fields and include a PDF version among 1 to 5 files.'; return; }
+		const validationError = editorValidationError();
+		if (validationError) { inlineError = validationError; return; }
 		saving = true; progress = 0; inlineError = '';
 		try {
 			const nextFiles = draftFiles.map((f) => ({ page_no: isPreview(f.name) ? f.page_no : 0, storage_path: f.storage_path, public_url: f.public_url, name: f.name, type: f.type, size: f.file?.size ?? f.size }));
@@ -147,15 +159,28 @@
 		finally { pdfBusy = null; }
 	}
 	async function viewForm(form: FormRecord) {
-		selected = form; viewOpen = true;
-		if (canManage) return;
+		const request = ++previewRequest;
 		if (pdfPreview) URL.revokeObjectURL(pdfPreview);
-		pdfPreview = ''; pdfPreviewLoading = true; pdfPreviewError = '';
+		pdfPreview = ''; pdfPreviewError = '';
+		selected = form; viewOpen = true;
+		if (canManage) { pdfPreviewLoading = false; return; }
+		pdfPreviewLoading = true;
 		try {
 			const blob = await formPdf(form);
-			if (viewOpen && selected?.form_id === form.form_id) pdfPreview = URL.createObjectURL(blob);
-		} catch (problem) { pdfPreviewError = problem instanceof Error ? problem.message : 'Could not preview the PDF.'; }
-		finally { pdfPreviewLoading = false; }
+			const previewUrl = URL.createObjectURL(blob);
+			if (request === previewRequest && viewOpen && selected?.form_id === form.form_id) pdfPreview = previewUrl;
+			else URL.revokeObjectURL(previewUrl);
+		} catch (problem) {
+			if (request === previewRequest && viewOpen) pdfPreviewError = problem instanceof Error ? problem.message : 'Could not preview the PDF.';
+		} finally {
+			if (request === previewRequest) pdfPreviewLoading = false;
+		}
+	}
+	function closePreview() {
+		previewRequest++;
+		viewOpen = false; pdfPreviewLoading = false; pdfPreviewError = '';
+		if (pdfPreview) URL.revokeObjectURL(pdfPreview);
+		pdfPreview = '';
 	}
 
 </script>
@@ -176,7 +201,7 @@
 			<h3 class="library-title">{form.title}</h3><p class="library-description">{form.description}</p>{#if pdfErrorFor === form.form_id}<p role="alert" class="mt-2 text-sm text-red-700">{pdfError}</p>{/if}
 			{#if previewPages(form).length}<p class="library-meta">{previewPages(form).length} {previewPages(form).length === 1 ? 'preview page' : 'preview pages'}</p>{/if}
 			{#snippet footer()}
-				<div class="library-footer-actions"><div class="library-file-actions"><Button variant="secondary" onclick={() => void viewForm(form)} icon="fa-solid fa-eye">View</Button>{#if !canManage}<Button variant="secondary" loading={pdfBusy === form.form_id} disabled={pdfBusy !== null && pdfBusy !== form.form_id} onclick={() => void downloadPdf(form)} icon="fa-solid fa-download">Download <span class="library-file-type">PDF</span></Button>{:else}{#each editableFilesFor(form) as file}<Button variant="secondary" title={file.name} onclick={() => downloadEditable(form, file)} icon="fa-solid fa-download">Download <span class="library-file-type">{extension(file.name).toUpperCase()}</span></Button>{/each}{#if previewPages(form).length}<Button variant="secondary" onclick={() => downloadPreview(form)} icon="fa-solid fa-download">Download preview <span class="library-file-type">{[...new Set(previewPages(form).map(file => extension(file.name).toUpperCase()))].join(' / ')}</span></Button>{/if}{/if}</div>
+				<div class="library-footer-actions"><div class="library-file-actions"><Button variant="secondary" onclick={() => void viewForm(form)} icon="fa-solid fa-eye">{canManage ? 'View' : 'Preview form'}</Button><Button variant="secondary" loading={pdfBusy === form.form_id} disabled={pdfBusy !== null && pdfBusy !== form.form_id} onclick={() => void downloadPdf(form)} icon="fa-solid fa-download">Download <span class="library-file-type">PDF</span></Button>{#if canManage}{#each editableFilesFor(form) as file}<Button variant="secondary" title={file.name} onclick={() => downloadEditable(form, file)} icon="fa-solid fa-download">Download <span class="library-file-type">{extension(file.name).toUpperCase()}</span></Button>{/each}{#if previewPages(form).length}<Button variant="secondary" onclick={() => downloadPreview(form)} icon="fa-solid fa-download">Download preview <span class="library-file-type">{[...new Set(previewPages(form).map(file => extension(file.name).toUpperCase()))].join(' / ')}</span></Button>{/if}{/if}</div>
 				{#if canManage}<RowMenu label={'Actions for ' + form.title} items={[{label: 'Edit', onselect: () => openEditor(form)}, {label: 'Delete', danger: true, onselect: () => { deleting = form; deleteOpen = true; }}]} />{/if}</div>
 			{/snippet}
 		</Card>
@@ -220,14 +245,14 @@
 			</section>
 		</form>
 	{/snippet}
-	{#snippet footer()}<Button variant="secondary" onclick={requestCloseEditor} disabled={saving} class="rounded-[10px]">Cancel</Button><Button onclick={() => void save()} disabled={!editorValid || saving} loading={saving} class="rounded-[10px]">{editing ? 'Save changes' : 'Add form'}</Button>{/snippet}
+	{#snippet footer()}<Button variant="secondary" onclick={requestCloseEditor} disabled={saving} class="rounded-[10px]">Cancel</Button><Button onclick={() => void save()} disabled={saving} loading={saving} class="rounded-[10px]">{editing ? 'Save changes' : 'Add form'}</Button>{/snippet}
 </Modal>
 <ConfirmDialog open={discardOpen} title="Discard changes?" message="Your unsaved changes will be lost." confirmLabel="Discard changes" cancelLabel="Keep editing" onclose={cancelDiscard} onconfirm={closeEditor} />
 <ConfirmDialog open={deleteOpen} title="Delete form" message={'Delete “' + (deleting?.title ?? 'this form') + '”? Its files will be removed. This cannot be undone.'} confirmLabel="Delete form" loading={saving} onclose={() => deleteOpen = false} onconfirm={() => void deleteForm()} />
 {/if}
-<Modal open={viewOpen} title={selected?.title ?? 'View form'} size="xl" onclose={() => viewOpen = false}>
-	{#snippet body()}<div class="space-y-4">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}{#if !canManage}{#if pdfPreviewLoading}<p role="status">Loading PDF preview?</p>{:else if pdfPreviewError}<LoadError message={pdfPreviewError} onretry={() => selected && void viewForm(selected)} />{:else if pdfPreview}<iframe src={pdfPreview} title={selected?.title ?? 'Form preview'} class="h-[65dvh] w-full rounded-lg border border-gray-200"></iframe>{/if}{:else}{#if selected && previewPages(selected).length === 0}<div class="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">Preview isn't available for Word files. Download the editable version to open it.</div>{/if}{#each selected ? previewPages(selected) : [] as file}<div><p class="mb-2 text-sm font-medium">Page {file.page_no}</p>{#if extension(file.name) === 'pdf'}<div class="flex items-center gap-3 rounded-lg bg-gray-50 p-6"><i class="fa-solid fa-file-pdf text-3xl text-red-500"></i><a href={file.public_url} target="_blank" rel="noopener" class="text-essu-green underline">Open PDF</a></div>{:else}<img src={file.public_url} alt={`${selected?.title} page ${file.page_no}`} class="mx-auto max-h-[65vh] rounded border border-gray-200 object-contain" />{/if}</div>{/each}{/if}</div>{/snippet}
-	{#snippet footer()}<Button variant="secondary" onclick={() => viewOpen = false}>Close</Button>{#if selected}{#if !canManage}<Button onclick={() => selected && void downloadPdf(selected)} loading={pdfBusy === selected.form_id} icon="fa-solid fa-download">Download PDF</Button>{:else}{#each editableFilesFor(selected) as file}<Button onclick={() => downloadEditable(selected!, file)} icon="fa-solid fa-download">{editableLabel(file)}</Button>{/each}{#if previewPages(selected).length}<Button onclick={() => downloadPreview(selected!)} icon="fa-solid fa-download">Download preview</Button>{/if}{/if}{/if}{/snippet}
+<Modal open={viewOpen} title={selected?.title ?? (canManage ? 'View form' : 'Preview form')} size="xl" onclose={closePreview}>
+	{#snippet body()}<div class="space-y-4">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}{#if !canManage}<p class="text-sm text-gray-500">Review the official form below before downloading it.</p>{#if pdfPreviewLoading}<p role="status">Loading form preview…</p>{:else if pdfPreviewError}<LoadError message={pdfPreviewError} onretry={() => selected && void viewForm(selected)} />{:else if pdfPreview}<iframe src={pdfPreview} title={`${selected?.title ?? 'Form'} preview`} class="h-[65dvh] w-full rounded-lg border border-gray-200"></iframe>{/if}{:else}{#if selected && previewPages(selected).length === 0}<div class="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">Preview isn't available for Word files. Download the editable version to open it.</div>{/if}{#each selected ? previewPages(selected) : [] as file}<div><p class="mb-2 text-sm font-medium">Page {file.page_no}</p>{#if extension(file.name) === 'pdf'}<div class="flex items-center gap-3 rounded-lg bg-gray-50 p-6"><i class="fa-solid fa-file-pdf text-3xl text-red-500"></i><a href={file.public_url} target="_blank" rel="noopener" class="text-essu-green underline">Open PDF</a></div>{:else}<img src={file.public_url} alt={`${selected?.title} page ${file.page_no}`} class="mx-auto max-h-[65vh] rounded border border-gray-200 object-contain" />{/if}</div>{/each}{/if}</div>{/snippet}
+	{#snippet footer()}<Button variant="secondary" onclick={closePreview}>Close</Button>{#if selected}<Button onclick={() => selected && void downloadPdf(selected)} loading={pdfBusy === selected.form_id} disabled={pdfBusy !== null && pdfBusy !== selected.form_id} icon="fa-solid fa-download">Download PDF</Button>{#if canManage}{#each editableFilesFor(selected) as file}<Button onclick={() => downloadEditable(selected!, file)} icon="fa-solid fa-download">{editableLabel(file)}</Button>{/each}{#if previewPages(selected).length}<Button onclick={() => downloadPreview(selected!)} icon="fa-solid fa-download">Download preview</Button>{/if}{/if}{/if}{/snippet}
 </Modal>
 
 

@@ -97,7 +97,7 @@
 	<div class="requirement-file-row">
 		<div class="min-w-0 flex-1 basis-40"><p class="text-sm font-medium text-gray-800">{item.name}</p><p class="mt-1 break-words text-xs text-gray-500">{item.in_person ? 'Submit in person at the Graduate School' : item.file_name ?? 'No file uploaded'}</p></div>
 		<StatusChip kind="file" value={item.needs_correction ? 'needs_correction' : item.in_person ? 'in_person' : item.file_path ? 'uploaded' : 'missing'} />
-		{#if !item.in_person}<div class="file-actions"><Button variant="ghost" icon="fa-solid fa-eye" disabled={!item.file_path} disabledReason={!item.file_path ? 'No file uploaded yet' : undefined} onclick={() => item.file_path && openFile(item.file_path, item.file_name ?? item.name)}>View</Button>{#if editable}<Button variant="ghost" icon="fa-solid fa-arrow-up-from-bracket" onclick={() => openResubmit(req, item.name)}>Replace</Button>{/if}</div>{/if}
+		{#if !item.in_person}<div class="file-actions"><Button variant="ghost" icon="fa-solid fa-eye" disabled={!item.file_path} disabledReason={!item.file_path ? 'No file uploaded yet' : undefined} onclick={() => item.file_path && openFile(item.file_path, item.file_name ?? item.name)}>View</Button><Button variant="ghost" icon="fa-solid fa-download" loading={downloadBusy === item.file_path} disabled={!item.file_path || (!!downloadBusy && downloadBusy !== item.file_path)} disabledReason={!item.file_path ? 'No file uploaded yet' : undefined} onclick={() => item.file_path && downloadFile(item.file_path, item.file_name ?? item.name)}>Download</Button>{#if editable}<Button variant="ghost" icon="fa-solid fa-arrow-up-from-bracket" onclick={() => openResubmit(req, item.name)}>Replace</Button>{/if}</div>{/if}
 	</div>
 {/snippet}
 

@@ -14,7 +14,7 @@
 	import type { PageData } from './$types';
 	const { data }: { data: PageData } = $props();
 	type Requirement = { form_id?: number | null; needs_signature?: boolean | null; signature_note?: string | null; form_title?: string | null; form_files?: Array<{ public_url: string; name: string; page_no: number }>; name: string; description: string; in_person: boolean };
-	type DocOption = { document_id: number; name: string; requirements: Requirement[] };
+	type DocOption = { document_id: number; name: string; template_path: string | null; template_name: string | null; requirements: Requirement[] };
 	const documents = data.documents as DocOption[];
 	const steps = [{ label: 'Select Document', icon: 'fa-solid fa-file' }, { label: 'Submit Requirements', icon: 'fa-solid fa-upload' }, { label: 'Review & Submit', icon: 'fa-solid fa-eye' }];
 	let currentStep = $state(1);
@@ -50,6 +50,18 @@
 		downloading = file.public_url;
 		try { await downloadStudentFile(file.public_url, file.name); showToast('Form downloaded.'); }
 		catch (error) { showToast(error instanceof Error ? error.message : 'Could not download the form.', 'error'); }
+		finally { downloading = null; }
+	}
+	async function downloadDocumentTemplate(doc: DocOption) {
+		if (!doc.template_path || downloading) return;
+		downloading = `template-${doc.document_id}`;
+		try {
+			const response = await fetch('/api/storage?bucket=templates&path=' + encodeURIComponent(doc.template_path));
+			const result = await response.json();
+			if (!response.ok || !result.url) throw new Error(result.error ?? 'Could not download this document.');
+			await downloadStudentFile(result.url, doc.template_name ?? `${doc.name} template`);
+			showToast('Document downloaded.');
+		} catch (error) { showToast(error instanceof Error ? error.message : 'Could not download this document.', 'error'); }
 		finally { downloading = null; }
 	}
 	async function submitRequest() {
@@ -94,10 +106,13 @@
 						{#each documents as doc}
 							{@const selected = selectedDocs.some(item => item.document_id === doc.document_id)}
 							{@const limitReached = !selected && selectedDocs.length >= 5}
-							<label title={limitReached ? 'Select up to 5 documents' : undefined} class="ui-document-option cursor-pointer rounded-xl border-2 p-4 transition-colors {selected ? 'border-essu-green bg-essu-green/5' : limitReached ? 'border-gray-200 opacity-50' : 'border-gray-200 hover:border-essu-green/50'}">
-								<div class="flex items-start gap-3"><input type="checkbox" checked={selected} disabled={limitReached} onchange={() => toggleDoc(doc)} aria-label={doc.name} class="mt-0.5 h-5 w-5 shrink-0 accent-essu-green" /><span class="flex-1 text-sm font-semibold text-gray-800">{doc.name}</span>{#if selected}<i class="fa-solid fa-circle-check text-essu-green" aria-hidden="true"></i>{/if}</div>
+							<div class="ui-document-option rounded-xl border-2 p-4 transition-colors {selected ? 'border-essu-green bg-essu-green/5' : limitReached ? 'border-gray-200 opacity-50' : 'border-gray-200 hover:border-essu-green/50'}">
+								<label title={limitReached ? 'Select up to 5 documents' : undefined} class="flex cursor-pointer items-start gap-3">
+									<input type="checkbox" checked={selected} disabled={limitReached} onchange={() => toggleDoc(doc)} aria-label={doc.name} class="mt-0.5 h-5 w-5 shrink-0 accent-essu-green" /><span class="flex-1 text-sm font-semibold text-gray-800">{doc.name}</span>{#if selected}<i class="fa-solid fa-circle-check text-essu-green" aria-hidden="true"></i>{/if}
+								</label>
 								{#if doc.requirements?.length}<ul class="mt-3 list-disc space-y-1 pl-9 text-xs text-gray-600">{#each doc.requirements as req}<li>{req.name}{req.in_person ? ' (in person)' : ''}</li>{/each}</ul>{:else}<p class="mt-3 pl-8 text-xs text-gray-500">No requirements</p>{/if}
-							</label>
+								{#if doc.template_path}<div class="mt-3 flex justify-end"><Button variant="secondary" size="sm" icon="fa-solid fa-download" loading={downloading === `template-${doc.document_id}`} disabled={!!downloading && downloading !== `template-${doc.document_id}`} onclick={() => void downloadDocumentTemplate(doc)}>Download {doc.template_name ?? 'document template'}</Button></div>{/if}
+							</div>
 						{/each}
 					</div>
 				{/if}
