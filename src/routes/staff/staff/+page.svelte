@@ -147,6 +147,10 @@
 		Admin: 'bg-purple-100 text-purple-700 border border-purple-200',
 		Staff: 'bg-blue-100 text-blue-700 border border-blue-200'
 	};
+	function positionLabel(member: StaffMember) {
+		const position = member.position?.trim();
+		return position && position.toLocaleLowerCase() !== member.role.toLocaleLowerCase() ? position : '';
+	}
 </script>
 
 {#if !data.allowed}
@@ -158,110 +162,100 @@
 	<p class="text-sm text-gray-500 max-w-xs">This page is only accessible to administrators. Contact your admin if you need access.</p>
 </div>
 {:else}
-<div class="staff-management-page space-y-5">
-	<div class="staff-page-actions flex flex-wrap items-center justify-between gap-3">
+<div class="staff-management-page space-y-4">
+	<div class="staff-page-actions flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
 		<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20">
 			{staffList.length} {pluralize(staffList.length, 'member')}
 		</span>
 		<Button onclick={openInvite} icon="fa-solid fa-paper-plane">Invite staff</Button>
 	</div>
 
-	<!-- Table -->
-	<div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-visible">
-		{#if staffList.length === 0}
-			<div class="p-16 text-center">
+	{#if staffList.length === 0}
+		<div class="rounded-xl border border-gray-100 bg-white p-10 text-center shadow-sm">
 				<i class="fa-solid fa-user-tie text-4xl text-gray-200 mb-4 block"></i>
 				<p class="text-gray-500 text-sm">No staff members yet. Invite someone to get started.</p>
-			</div>
-		{:else}
-			<!-- Mobile card list -->
-			<div class="space-y-3 p-3 md:hidden">
-				{#each staffList as member}
-					<article class="staff-member-card rounded-xl border border-gray-100 bg-white p-4 flex flex-wrap items-center gap-3">
-						<div class="w-10 h-10 rounded-xl bg-essu-green/10 text-essu-green flex items-center justify-center text-sm font-bold shrink-0">
-							{member.first_name[0]}{member.last_name[0]}
-						</div>
-						<div class="flex-1 min-w-0">
-							<div class="flex flex-wrap items-center gap-2">
-								<p class="font-medium text-gray-800 text-sm break-words" title={formatName(member.first_name, member.middle_name, member.last_name)}>{formatName(member.first_name, member.middle_name, member.last_name)}</p>
-								<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">
-									{member.role}
-								</span>
+		</div>
+	{:else}
+		<div class="staff-card-grid">
+			{#each staffList as member (member.user_id)}
+				<article class="staff-member-card">
+					<div class="staff-member-main">
+						<div class="staff-avatar" aria-hidden="true">{member.first_name[0]}{member.last_name[0]}</div>
+						<div class="staff-identity">
+							<div class="staff-name-row">
+								<h2 class="staff-name" title={formatName(member.first_name, member.middle_name, member.last_name)}>{formatName(member.first_name, member.middle_name, member.last_name)}</h2>
+								<span class="staff-role {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">{member.role}</span>
 							</div>
-							<p class="text-xs text-gray-500 break-words" title={member.email}>{member.email}</p>
-							{#if member.position}
-								<p class="text-xs text-gray-500 mt-0.5">{member.position}</p>
-							{/if}
+							<p class="staff-email" title={member.email}>{member.email}</p>
+							{#if positionLabel(member)}<p class="staff-position" title={positionLabel(member)}>{positionLabel(member)}</p>{/if}
 						</div>
-						<div class="w-full border-t border-gray-100 pt-3">
-							<p class="mb-3 text-xs text-gray-500">Joined {new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
-							<div class="flex justify-end">
-								<RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={staffMenuItems(member)} />
-							</div>
-						</div>
-					</article>
-				{/each}
-			</div>
-			<!-- Desktop table -->
-			<div class="admin-table-wrap staff-table-wrap hidden md:block">
-				<table class="admin-table admin-table--staff">
-					<colgroup>
-						<col class="staff-col-name" />
-						<col class="staff-col-position" />
-						<col class="staff-col-role" />
-						<col class="staff-col-joined" />
-						<col class="staff-col-actions" />
-					</colgroup>
-					<thead>
-						<tr>
-							<th scope="col">Name</th>
-							<th scope="col">Position</th>
-							<th scope="col">Role</th>
-							<th scope="col">Joined</th>
-							<th scope="col" class="actions-header">Actions</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each staffList as member}
-							<tr>
-								<td>
-									<div class="flex items-center gap-3">
-										<div class="w-8 h-8 rounded-lg bg-essu-green/10 text-essu-green flex items-center justify-center text-xs font-bold shrink-0">
-											{member.first_name[0]}{member.last_name[0]}
-										</div>
-										<div>
-											<p class="font-medium text-gray-800">{formatName(member.first_name, member.middle_name, member.last_name)}</p>
-											<p class="staff-email text-xs text-gray-400">{member.email}</p>
-										</div>
-									</div>
-								</td>
-								<td class="staff-position">
-									{#if member.position}
-										{member.position}
-									{:else}
-										<span class="text-gray-400">—</span>
-									{/if}
-								</td>
-								<td>
-									<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">
-										{member.role}
-									</span>
-								</td>
-								<td class="staff-joined">
-									{new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
-								</td>
-								<td class="actions-cell">
-									<RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={staffMenuItems(member)} />
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
-	</div>
+					</div>
+					<div class="staff-card-footer">
+						<p class="staff-joined"><i class="fa-regular fa-calendar" aria-hidden="true"></i>Joined {new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
+						<RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={staffMenuItems(member)} />
+					</div>
+				</article>
+			{/each}
+		</div>
+	{/if}
 </div>
 {/if}
+
+<style>
+	.staff-card-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--space-3);
+	}
+	.staff-member-card {
+		display: flex;
+		min-width: 0;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: var(--space-3);
+		padding: var(--space-4);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-card);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-sm, 0 1px 2px rgb(0 0 0 / 5%));
+	}
+	.staff-member-main {
+		display: flex;
+		min-width: 0;
+		align-items: flex-start;
+		gap: var(--space-3);
+	}
+	.staff-avatar {
+		display: grid;
+		width: 2.75rem;
+		height: 2.75rem;
+		flex: 0 0 2.75rem;
+		place-items: center;
+		border-radius: var(--radius-control);
+		background: var(--color-primary-soft);
+		color: var(--color-primary);
+		font-size: var(--font-size-body);
+		font-weight: var(--font-weight-semibold);
+	}
+	.staff-identity { min-width: 0; flex: 1; }
+	.staff-name-row { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+	.staff-name { min-width: 0; margin: 0; color: var(--color-text); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); line-height: 1.35; overflow-wrap: anywhere; }
+	.staff-role { display: inline-flex; flex: 0 0 auto; align-items: center; border-radius: 999px; padding: 0.15rem 0.55rem; font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); }
+	.staff-email, .staff-position { margin: var(--space-1) 0 0; font-size: var(--font-size-helper); line-height: 1.4; overflow-wrap: anywhere; }
+	.staff-email { color: var(--color-text-muted); }
+	.staff-position { color: var(--color-text); }
+	.staff-card-footer { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-border); }
+	.staff-joined { display: flex; min-width: 0; align-items: center; gap: var(--space-2); margin: 0; color: var(--color-text-muted); font-size: var(--font-size-helper); }
+	.staff-joined i { flex: 0 0 auto; }
+	.staff-card-footer :global(.button-tooltip) { flex: 0 0 auto; }
+	@media (min-width: 640px) {
+		.staff-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+		.staff-member-card { min-height: 9.5rem; }
+	}
+	@media (min-width: 1024px) {
+		.staff-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	}
+</style>
 
 <!-- Edit Modal -->
 <Modal open={editOpen} title="Edit Staff Member" size="sm" onclose={() => { if (!editSaving) editOpen = false; }}>

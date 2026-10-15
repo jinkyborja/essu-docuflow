@@ -252,7 +252,7 @@ try {
 		await waitFor(`window.fixtureRun === ${JSON.stringify(run)} && ` + (view === 'login' ? "!!document.querySelector('.system-title')" : `document.querySelector('h1')?.textContent === ${JSON.stringify(view)}`));
 		await evaluate('document.fonts.ready');
 	}
-	for (const width of [320, 768, 1440]) {
+	for (const width of [320, 375, 390, 430, 768, 1440]) {
 		await command('Emulation.setDeviceMetricsOverride', {width,height:900,deviceScaleFactor:1,mobile:false});
 		await loadRevision('login');
 		assert(await evaluate(`(() => {
@@ -272,10 +272,29 @@ try {
 		await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('Document unavailable')");
 		await key('Escape');
 		await loadRevision('forms'); await waitFor("!!document.querySelector('.form-library-card')");
-		assert(await evaluate("document.querySelector('.library-file-actions').textContent.includes('PDF') && !document.querySelector('.library-file-actions').textContent.includes('DOCX')"));
-		await evaluate("[...document.querySelectorAll('.library-file-actions button')].find(button => button.textContent.includes('Download')).click()");
+		assert(await evaluate("(() => { const actions = [...document.querySelectorAll('.library-primary-actions .ui-button, .library-primary-actions .row-menu-trigger')]; const rects = actions.map(button => button.getBoundingClientRect()); const formats = document.querySelector('.library-format-list').textContent; return formats.includes('PDF') && formats.includes('Preview PDF') && !formats.includes('DOCX') && rects.length === 2 && Math.abs(rects[0].width - rects[1].width) < 1 && Math.abs(rects[0].height - rects[1].height) < 1 && document.querySelectorAll('.library-secondary-actions .row-menu-trigger').length === 0; })()"));
+		await evaluate("document.querySelector('.library-download-trigger').click()");
+		await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Download PDF').click()");
 		await waitFor("window.fixtureDownload?.endsWith('.pdf')");
-		await evaluate("[...document.querySelectorAll('.library-file-actions button')].find(button => button.textContent.trim() === 'View').click()");
+		await evaluate("document.querySelector('.library-download-trigger').click()");
+		assert(await evaluate("![...document.querySelectorAll('[role=menuitem]')].some(item => item.textContent.includes('DOCX'))"), 'Student download options do not expose editable DOCX files');
+		await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Download Preview PDF').click()");
+		await waitFor("window.fixtureDownload?.endsWith('.pdf')");
+		await evaluate("document.querySelector('.library-view-button').click()");
+		await waitFor("!!document.querySelector('[role=dialog] iframe[src^=blob]')");
+		assert(await evaluate("window.fixtureCalls.some(call => call.url === '/api/forms/4/download?preview=1')"), 'View requests the PDF preview endpoint');
+		await key('Escape');
+		await evaluate("window.fixtureMissingPdf = true; document.querySelector('.library-view-button').click()");
+		await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('PDF preview unavailable')");
+		assert(await evaluate("!document.querySelector('[role=dialog] iframe')"), 'A missing PDF preview does not display the DOCX file');
+		await key('Escape');
+		await evaluate("window.fixtureMissingPdf = false");
+		await loadRevision('forms-admin'); await waitFor("!!document.querySelector('.form-library-card')");
+		assert(await evaluate("document.querySelectorAll('.library-secondary-actions .row-menu-trigger').length === 1"), 'Admin actions remain in their separate three-dot menu');
+		await evaluate("document.querySelector('.library-download-trigger').click()");
+		await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Download DOCX').click()");
+		await waitFor("window.fixtureDownload?.endsWith('.docx')");
+		await evaluate("document.querySelector('.library-view-button').click()");
 		await waitFor("!!document.querySelector('[role=dialog] iframe[src^=blob]')");
 		await key('Escape');
 		assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `Forms overflow at ${width}`);

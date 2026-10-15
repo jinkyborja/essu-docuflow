@@ -5,6 +5,7 @@
 	import Card from '$lib/components/ui/Card.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import RowMenu from '$lib/components/ui/RowMenu.svelte';
+	import type { RowMenuItem } from '$lib/components/ui/RowMenu.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { showToast } from '$lib/stores/toasts';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -24,8 +25,6 @@
 	let modalOpen = $state(false); let deleteOpen = $state(false); let viewOpen = $state(false); let discardOpen = $state(false);
 	let editing = $state<FormRecord | null>(null); let selected = $state<FormRecord | null>(null);
 	let deleting = $state<FormRecord | null>(null); let saving = $state(false); let progress = $state(0);
-	let searchField = $state('');
-	let downloadFor = $state<number | null>(null);
 	let pdfBusy = $state<number | null>(null), pdfErrorFor = $state<number | null>(null), pdfError = $state('');
 	let pdfPreview = $state(''), pdfPreviewLoading = $state(false), pdfPreviewError = $state('');
 	let previewRequest = 0;
@@ -101,7 +100,6 @@
 	function removeFile(file: DraftFile) { const remaining = draftFiles.filter((item) => item !== file); draftFiles = [...remaining.filter((item) => isPreview(item.name)).map((item, index) => ({ ...item, page_no: index + 1 })), ...remaining.filter((item) => !isPreview(item.name))]; }
 	function outputName(form: FormRecord, file: FormFile) { return `ESSU-${form.title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'form'}.${extension(file.name)}`; }
 	function categoryClass(value: string) { return value === 'Prospectus' ? 'border border-amber-200 bg-amber-100 text-amber-900' : ''; }
-	function editableLabel(file: FormFile) { const suffix = extension(file.name).toUpperCase(); return `Download ${suffix}`; }
 	async function save() {
 		editorAttempted = true;
 		const realCategory = resolvedCategory;
@@ -132,17 +130,50 @@
 	async function deleteForm() { if (!deleting) return; saving = true; try { const response = await fetch(`/api/forms/${deleting.form_id}`, { method: 'DELETE' }); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not delete form.'); deleteOpen = false; toast('Form deleted.'); await refresh(); } catch (e) { toast((e as Error).message, true); } finally { saving = false; } }
 	async function download(url: string, name: string) { try { const response = await fetch(url); if (!response.ok) throw new Error('Could not download ' + name + '.'); const objectUrl = URL.createObjectURL(await response.blob()); const a = document.createElement('a'); a.href = objectUrl; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); toast('Download started: ' + name); } catch (error) { toast((error as Error).message, true); } }
 	function previewPages(form: FormRecord) { return form.files.filter((file) => isPreview(file.name)); }
+	function previewPdfSources(form: FormRecord) {
+		const sources = form.files.flatMap((file) => {
+			if (isPdfName(file.name)) return [{ file, url: file.public_url }];
+			const bundledPdf = !file.storage_path ? bundledFormPdf(file.public_url) : null;
+			return bundledPdf ? [{ file, url: bundledPdf }] : [];
+		});
+		return [...new Map(sources.map((source) => [source.url, source])).values()];
+	}
+	function previewImageFiles(form: FormRecord) { return previewPages(form).filter((file) => file.type.startsWith('image/')); }
 	function editableFilesFor(form: FormRecord) { return form.files.filter((file) => !isPreview(file.name)); }
+	function hasPdfDownload(form: FormRecord) { return form.files.some((file) => isPdfName(file.name) || (!file.storage_path && bundledFormPdf(file.public_url))); }
+	function availableFormats(form: FormRecord) {
+		return [...new Set([
+			...(hasPdfDownload(form) ? ['PDF'] : []),
+			...(previewPdfSources(form).length ? ['Preview PDF'] : []),
+			...(canManage ? editableFilesFor(form).map((file) => extension(file.name).toUpperCase()) : []),
+			...(canManage && previewImageFiles(form).length ? ['Preview images'] : [])
+		])];
+	}
 	function downloadEditable(form: FormRecord, file: FormFile) { download(file.public_url, outputName(form, file)); }
-	function downloadPreview(form: FormRecord) { for (const file of previewPages(form)) download(file.public_url, outputName(form, file)); }
-	function downloadChoice(form: FormRecord, pageNo: number | 'all') {
-		if (pageNo === 'all') previewPages(form).forEach((file) => download(file.public_url, outputName(form, file)));
-		else { const file = previewPages(form).find((item) => item.page_no === pageNo); if (file) download(file.public_url, outputName(form, file)); }
-		downloadFor = null;
+	function downloadPreviewPdfs(form: FormRecord) {
+		for (const source of previewPdfSources(form)) void download(source.url, outputName(form, { ...source.file, name: 'form.pdf' }));
+	}
+	function downloadPreviewImages(form: FormRecord) { for (const file of previewImageFiles(form)) void download(file.public_url, outputName(form, file)); }
+	function downloadItems(form: FormRecord): RowMenuItem[] {
+		const items: RowMenuItem[] = [];
+		if (hasPdfDownload(form)) items.push({ label: 'Download PDF', icon: 'fa-solid fa-file-pdf', onselect: () => void downloadPdf(form) });
+		const editable = canManage ? editableFilesFor(form) : [];
+		for (const file of editable) {
+			const format = extension(file.name).toUpperCase();
+			const sameFormat = editable.filter((item) => extension(item.name) === extension(file.name)).length > 1;
+			items.push({
+				label: `Download ${format}${sameFormat ? ` · ${file.name}` : ''}`,
+				icon: format === 'DOCX' || format === 'DOC' ? 'fa-solid fa-file-word' : 'fa-solid fa-file-excel',
+				onselect: () => downloadEditable(form, file)
+			});
+		}
+		if (previewPdfSources(form).length) items.push({ label: 'Download Preview PDF', icon: 'fa-solid fa-file-pdf', onselect: () => downloadPreviewPdfs(form) });
+		if (canManage && previewImageFiles(form).length) items.push({ label: 'Download Preview Images', icon: 'fa-solid fa-file-image', onselect: () => downloadPreviewImages(form) });
+		return items;
 	}
 	function cancelDiscard() { discardOpen = false; void tick().then(() => document.getElementById('form-title')?.focus()); }
-	async function formPdf(form: FormRecord): Promise<Blob> {
-		const response = await fetch('/api/forms/' + form.form_id + '/download');
+	async function formPdf(form: FormRecord, preview = false): Promise<Blob> {
+		const response = await fetch('/api/forms/' + form.form_id + '/download' + (preview ? '?preview=1' : ''));
 		if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.error ?? 'Could not load the PDF. Please try again.'); }
 		const bytes = await response.arrayBuffer();
 		if (new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error('The file is not a valid PDF. Please contact the Graduate School office.');
@@ -163,10 +194,9 @@
 		if (pdfPreview) URL.revokeObjectURL(pdfPreview);
 		pdfPreview = ''; pdfPreviewError = '';
 		selected = form; viewOpen = true;
-		if (canManage) { pdfPreviewLoading = false; return; }
 		pdfPreviewLoading = true;
 		try {
-			const blob = await formPdf(form);
+			const blob = await formPdf(form, true);
 			const previewUrl = URL.createObjectURL(blob);
 			if (request === previewRequest && viewOpen && selected?.form_id === form.form_id) pdfPreview = previewUrl;
 			else URL.revokeObjectURL(previewUrl);
@@ -189,20 +219,29 @@
 
 <svelte:head><title>Forms | Portal</title></svelte:head>
 <div class="space-y-5">
+	{#snippet downloadTrigger()}<span class="library-download-label"><i class="fa-solid fa-download" aria-hidden="true"></i>Download<i class="fa-solid fa-chevron-down library-download-chevron" aria-hidden="true"></i></span>{/snippet}
 	{#if canManage}<header class="page-toolbar flex flex-wrap items-center justify-between gap-4"><p class="text-sm text-gray-500">Official forms library</p><Button onclick={() => openEditor()} icon="fa-solid fa-plus">Add form</Button></header>{/if}
-	<div class="flex flex-col gap-3 sm:flex-row"><label class="relative min-w-0 flex-1"><span class="sr-only">Search forms</span><i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i><input bind:value={query} class="h-11 w-full rounded-lg border border-gray-200 px-3 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" placeholder="Search forms" /></label><label class="sm:w-56"><span class="sr-only">Filter by category</span><select bind:value={category} class="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30">{#each categories as item}<option>{item}</option>{/each}</select></label></div>
-	{#if loading}<div class="grid gap-4 xl:grid-cols-2" aria-live="polite">{#each [1, 2, 3, 4] as _}<Card><Skeleton variant="text" lines={3} label="Loading form" /></Card>{/each}</div>
+	<div class="library-filters"><label class="library-search"><span class="sr-only">Search forms</span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input bind:value={query} placeholder="Search forms" /></label><label class="library-category-filter"><span class="sr-only">Filter by category</span><select bind:value={category}>{#each categories as item}<option>{item}</option>{/each}</select></label></div>
+	{#if loading}<div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3" aria-live="polite">{#each [1, 2, 3, 4] as _}<Card><Skeleton variant="text" lines={3} label="Loading form" /></Card>{/each}</div>
 	{:else if loadError}<LoadError message="We couldn’t load the forms. Please try again." onretry={refresh} />
 	{:else if forms.length === 0 && canManage}<EmptyState message="No forms yet" description="Add a form to make it available to staff." icon="fa-solid fa-file-circle-plus" /><div class="-mt-12 pb-8 flex justify-center"><Button onclick={() => openEditor()} icon="fa-solid fa-plus">Add form</Button></div>
 	{:else if filtered.length === 0}<EmptyState message={forms.length ? 'No forms found' : 'No forms available yet'} description={forms.length ? 'Try another search or category.' : 'Check back later or contact the Graduate School office.'} /><div class="flex justify-center pb-6">{#if forms.length}<Button variant="secondary" onclick={() => { query = ''; category = 'All categories'; }}>Clear filters</Button>{:else}<Button variant="secondary" onclick={refresh}>Try again</Button>{/if}</div>
-	{:else}<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">{#each filtered as form (form.form_id)}
+	{:else}<div class="library-grid grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">{#each filtered as form (form.form_id)}
 		<Card class="form-library-card" hover>
 			<div class="library-card-heading"><span class="library-category">{form.category}</span>{#if form.code}<span class="library-code">{form.code}</span>{/if}</div>
 			<h3 class="library-title">{form.title}</h3><p class="library-description">{form.description}</p>{#if pdfErrorFor === form.form_id}<p role="alert" class="mt-2 text-sm text-red-700">{pdfError}</p>{/if}
-			{#if previewPages(form).length}<p class="library-meta">{previewPages(form).length} {previewPages(form).length === 1 ? 'preview page' : 'preview pages'}</p>{/if}
+			<p class="library-meta">{hasPdfDownload(form) ? 'PDF preview available' : 'PDF preview unavailable'}</p>
 			{#snippet footer()}
-				<div class="library-footer-actions"><div class="library-file-actions"><Button variant="secondary" onclick={() => void viewForm(form)} icon="fa-solid fa-eye">{canManage ? 'View' : 'Preview form'}</Button><Button variant="secondary" loading={pdfBusy === form.form_id} disabled={pdfBusy !== null && pdfBusy !== form.form_id} onclick={() => void downloadPdf(form)} icon="fa-solid fa-download">Download <span class="library-file-type">PDF</span></Button>{#if canManage}{#each editableFilesFor(form) as file}<Button variant="secondary" title={file.name} onclick={() => downloadEditable(form, file)} icon="fa-solid fa-download">Download <span class="library-file-type">{extension(file.name).toUpperCase()}</span></Button>{/each}{#if previewPages(form).length}<Button variant="secondary" onclick={() => downloadPreview(form)} icon="fa-solid fa-download">Download preview <span class="library-file-type">{[...new Set(previewPages(form).map(file => extension(file.name).toUpperCase()))].join(' / ')}</span></Button>{/if}{/if}</div>
-				{#if canManage}<RowMenu label={'Actions for ' + form.title} items={[{label: 'Edit', onselect: () => openEditor(form)}, {label: 'Delete', danger: true, onselect: () => { deleting = form; deleteOpen = true; }}]} />{/if}</div>
+				<div class="library-card-footer">
+					<div class="library-primary-actions">
+						<Button variant="secondary" onclick={() => void viewForm(form)} icon="fa-solid fa-eye" class="library-view-button">View</Button>
+						<RowMenu label={'Download options for ' + form.title} items={downloadItems(form)} triggerContent={downloadTrigger} triggerClass="library-download-trigger" loading={pdfBusy === form.form_id} disabled={downloadItems(form).length === 0} />
+					</div>
+					<div class="library-secondary-actions">
+						<div class="library-format-list" aria-label="Available file formats">{#each availableFormats(form) as format}<span class="library-file-type">{format}</span>{/each}</div>
+						{#if canManage}<RowMenu label={'Administrative actions for ' + form.title} items={[{label: 'Edit', onselect: () => openEditor(form)}, {label: 'Delete', danger: true, onselect: () => { deleting = form; deleteOpen = true; }}]} />{/if}
+					</div>
+				</div>
 			{/snippet}
 		</Card>
 	{/each}</div>{/if}
@@ -250,24 +289,43 @@
 <ConfirmDialog open={discardOpen} title="Discard changes?" message="Your unsaved changes will be lost." confirmLabel="Discard changes" cancelLabel="Keep editing" onclose={cancelDiscard} onconfirm={closeEditor} />
 <ConfirmDialog open={deleteOpen} title="Delete form" message={'Delete “' + (deleting?.title ?? 'this form') + '”? Its files will be removed. This cannot be undone.'} confirmLabel="Delete form" loading={saving} onclose={() => deleteOpen = false} onconfirm={() => void deleteForm()} />
 {/if}
-<Modal open={viewOpen} title={selected?.title ?? (canManage ? 'View form' : 'Preview form')} size="xl" onclose={closePreview}>
-	{#snippet body()}<div class="space-y-4">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}{#if !canManage}<p class="text-sm text-gray-500">Review the official form below before downloading it.</p>{#if pdfPreviewLoading}<p role="status">Loading form preview…</p>{:else if pdfPreviewError}<LoadError message={pdfPreviewError} onretry={() => selected && void viewForm(selected)} />{:else if pdfPreview}<iframe src={pdfPreview} title={`${selected?.title ?? 'Form'} preview`} class="h-[65dvh] w-full rounded-lg border border-gray-200"></iframe>{/if}{:else}{#if selected && previewPages(selected).length === 0}<div class="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">Preview isn't available for Word files. Download the editable version to open it.</div>{/if}{#each selected ? previewPages(selected) : [] as file}<div><p class="mb-2 text-sm font-medium">Page {file.page_no}</p>{#if extension(file.name) === 'pdf'}<div class="flex items-center gap-3 rounded-lg bg-gray-50 p-6"><i class="fa-solid fa-file-pdf text-3xl text-red-500"></i><a href={file.public_url} target="_blank" rel="noopener" class="text-essu-green underline">Open PDF</a></div>{:else}<img src={file.public_url} alt={`${selected?.title} page ${file.page_no}`} class="mx-auto max-h-[65vh] rounded border border-gray-200 object-contain" />{/if}</div>{/each}{/if}</div>{/snippet}
-	{#snippet footer()}<Button variant="secondary" onclick={closePreview}>Close</Button>{#if selected}<Button onclick={() => selected && void downloadPdf(selected)} loading={pdfBusy === selected.form_id} disabled={pdfBusy !== null && pdfBusy !== selected.form_id} icon="fa-solid fa-download">Download PDF</Button>{#if canManage}{#each editableFilesFor(selected) as file}<Button onclick={() => downloadEditable(selected!, file)} icon="fa-solid fa-download">{editableLabel(file)}</Button>{/each}{#if previewPages(selected).length}<Button onclick={() => downloadPreview(selected!)} icon="fa-solid fa-download">Download preview</Button>{/if}{/if}{/if}{/snippet}
+<Modal open={viewOpen} title={selected?.title ?? 'View form'} size="xl" onclose={closePreview}>
+	{#snippet body()}<div class="library-preview-content">{#if selected?.description}<p class="text-gray-700">{selected.description}</p>{/if}<p class="text-sm text-gray-500">Preview is available as a PDF. Other file formats remain available from Download.</p>{#if pdfPreviewLoading}<p role="status">Loading PDF preview…</p>{:else if pdfPreviewError}<LoadError message={pdfPreviewError} onretry={() => selected && void viewForm(selected)} />{:else if pdfPreview}<iframe src={pdfPreview} title={`${selected?.title ?? 'Form'} PDF preview`} class="library-preview-frame"></iframe>{:else}<div class="library-preview-unavailable">PDF preview is unavailable for this form. You can still download any available files.</div>{/if}</div>{/snippet}
+	{#snippet footer()}<Button variant="secondary" onclick={closePreview}>Close</Button>{/snippet}
 </Modal>
 
 
 <style>
-	:global(.form-library-card.ui-card) { display: flex; flex-direction: column; }
-	:global(.form-library-card > .card-footer) { justify-content: space-between; margin-top: auto; padding-top: var(--space-4); }
+	:global(.form-library-card.ui-card) { display: flex; min-height: 0; flex-direction: column; padding: var(--space-5); border-radius: var(--radius-card); }
+	:global(.form-library-card > .card-footer) { display: block; margin-top: auto; padding-top: var(--space-4); }
+	.library-filters { display: grid; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); }
+	.library-search, .library-category-filter { position: relative; display: flex; min-width: 0; align-items: center; }
+	.library-search i { position: absolute; left: var(--space-3); color: var(--color-text-muted); }
+	.library-search input, .library-category-filter select { width: 100%; height: 48px; min-width: 0; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); padding: 0 var(--space-3); color: var(--color-text); font-size: var(--font-size-input); outline: none; }
+	.library-search input { padding-left: 40px; }
+	.library-search input:focus, .library-category-filter select:focus { border-color: var(--color-primary); box-shadow: var(--focus-ring); }
+	.library-grid { align-items: stretch; }
+	.library-grid > :global(.form-library-card) { min-width: 0; }
 	.library-card-heading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
-	.library-category, .library-file-type { display: inline-flex; align-items: center; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-primary-soft); color: var(--color-primary); font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); line-height: var(--line-height); }
+	.library-category, .library-file-type { display: inline-flex; max-width: 100%; align-items: center; overflow-wrap: anywhere; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-primary-soft); color: var(--color-primary); font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); line-height: var(--line-height); }
 	.library-code, .library-meta { color: var(--color-text-muted); font-size: var(--font-size-helper); }
-	.library-title { margin: 0; color: var(--color-text); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); line-height: var(--line-height); }
-	.library-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; margin: var(--space-3) 0; color: var(--color-text-muted); font-size: var(--font-size-body); line-height: var(--line-height); }
+	.library-title { min-width: 0; margin: 0; color: var(--color-text); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); line-height: var(--line-height); overflow-wrap: anywhere; }
+	.library-description { display: -webkit-box; min-width: 0; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; margin: var(--space-3) 0; color: var(--color-text-muted); font-size: var(--font-size-body); line-height: var(--line-height); }
 	.library-meta { margin: 0 0 var(--space-4); }
-	.library-footer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); width: 100%; }
-	.library-file-actions { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding-top: var(--space-4); }
+	.library-card-footer { display: grid; gap: var(--space-3); width: 100%; }
+	.library-primary-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); width: 100%; }
+	.library-primary-actions :global(.button-tooltip), .library-primary-actions :global(.row-menu) { display: flex; min-width: 0; width: 100%; }
+	.library-primary-actions :global(.ui-button), .library-primary-actions :global(.row-menu-trigger) { width: 100%; height: 46px; min-width: 0; min-height: 46px; padding-inline: var(--space-2); border-radius: var(--radius-control); font-size: var(--font-size-body); white-space: nowrap; }
+	.library-primary-actions :global(.library-download-trigger) { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-surface); }
+	.library-primary-actions :global(.library-download-trigger:hover:not(:disabled)) { border-color: var(--color-primary-hover); background: var(--color-primary-hover); }
+	.library-download-label { display: flex; min-width: 0; align-items: center; justify-content: center; gap: var(--space-2); }
+	.library-download-chevron { margin-left: auto; font-size: 0.7em; }
+	.library-secondary-actions { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--space-2); }
+	.library-format-list { display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-1); }
 	.library-file-type { padding-block: 0; background: var(--color-bg); color: var(--color-text-muted); }
+	.library-preview-content { display: grid; min-width: 0; gap: var(--space-3); }
+	.library-preview-frame { display: block; width: 100%; height: 65dvh; min-height: 300px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-bg); }
+	.library-preview-unavailable { border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-bg); padding: var(--space-4); color: var(--color-text-muted); font-size: var(--font-size-body); }
 	.form-label { display: block; margin-bottom: 6px; color: var(--color-text); font-size: var(--font-size-body); font-weight: 600; }
 	.form-control { display: block; width: 100%; height: 44px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); padding: 0 var(--space-3); color: var(--color-text); font-size: var(--font-size-input); line-height: var(--line-height); outline: none; transition: border-color var(--motion-fast), box-shadow var(--motion-fast); }
 	.form-control:hover { border-color: var(--line-strong); }
@@ -294,12 +352,17 @@
 	:global(.ui-modal-panel:has(.form-editor-body) > div:first-child button:focus-visible) { outline: 2px solid var(--color-primary-hover); outline-offset: 2px; }
 	:global(.ui-modal-panel:has(.form-editor-body) > div:nth-child(2)) { overscroll-behavior: contain; padding: 20px 24px; }
 	:global(.ui-modal-panel:has(.form-editor-body) > div:last-child) { position: sticky; bottom: 0; z-index: 2; background: var(--color-surface); border-radius: 0 0 16px 16px; }
+	@media (min-width: 640px) {
+		.library-filters { grid-template-columns: minmax(0, 1fr) minmax(12rem, 16rem); align-items: center; padding: var(--space-4); }
+	}
+	@media (max-width: 380px) {
+		:global(.form-library-card.ui-card) { padding: var(--space-4); }
+		.library-primary-actions { gap: var(--space-2); }
+		.library-primary-actions :global(.ui-button), .library-primary-actions :global(.row-menu-trigger) { padding-inline: var(--space-1); font-size: var(--font-size-helper); }
+	}
 	@media (max-width: 599px) {
-		.library-footer-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
-		.library-file-actions { min-width: 0; padding-top: 0; }
-		.library-file-actions :global(.ui-button) { min-width: 0; flex: 1 1 8rem; }
-		.library-footer-actions :global(.row-menu) { grid-column: 2; grid-row: 1; align-self: end; }
-		.library-footer-actions :global(.row-menu-trigger) { min-height: 44px; }
+		.library-filters { grid-template-columns: minmax(0, 1fr); }
+		.library-preview-frame { height: 62dvh; min-height: 260px; }
 		:global(.ui-modal-backdrop:has(.form-editor-body)) { align-items: flex-end; padding: 0; }
 		:global(.ui-modal-panel:has(.form-editor-body)) { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 16px 16px 0 0; }
 		:global(.ui-modal-panel:has(.form-editor-body) > div:first-child) { border-radius: 16px 16px 0 0; padding-right: 18px; padding-left: 18px; }

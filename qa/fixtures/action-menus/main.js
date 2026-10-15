@@ -51,7 +51,9 @@ window.fetch = async (input, init) => {
 		await new Promise(resolve => setTimeout(resolve, window.fixturePreviewDelay ?? 0));
 		return Response.json({url:'/qa/final.pdf'});
 	}
-	if (url === '/qa/final.pdf' || url === '/api/forms/4/download') return new Response(window.fixtureInvalidPdf ? 'PKdocx' : samplePdf(), {headers:{'Content-Type':'application/pdf'}});
+	if (url.startsWith('/api/forms/4/download') && window.fixtureMissingPdf) return Response.json({error:'PDF preview unavailable'}, {status:409});
+	if (url === '/qa/final.pdf' || url.startsWith('/api/forms/4/download') || url === '/forms/Prospectus-MAIT.pdf') return new Response(window.fixtureInvalidPdf ? 'PKdocx' : samplePdf(), {headers:{'Content-Type':'application/pdf'}});
+	if (url === '/forms/Prospectus-MAIT.docx') return new Response('fixture docx', {headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}});
 	if (url === '/api/forms') return Response.json([{form_id:4, title:'Prospectus', category:'Prospectus', code:null, description:'Official program prospectus', fields:[], download_name:'ESSU-Prospectus', files:[{page_no:1,storage_path:null,public_url:'/forms/Prospectus-MAIT.docx',name:'Prospectus-MAIT.docx',type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}]}]);
 	if (/^\/api\/students\/\d+$/.test(url)) return Response.json(students.find(student => student.user_id === Number(url.split('/').pop())));
 	throw new Error(`Unexpected fixture request: ${method} ${url}`);

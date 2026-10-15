@@ -3,6 +3,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import ActivityDetails from '$lib/components/activity/ActivityDetails.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -52,69 +53,6 @@
 			: new Intl.DateTimeFormat('en-US', {
 				hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila'
 			}).format(date);
-	}
-
-	function requestHrefFromId(value: string): string | null {
-		return /^REQ-\d{4}-\d{3}$/i.test(value)
-			? `/staff/requests/${encodeURIComponent(value)}`
-			: null;
-	}
-
-	type ActivityDetails = { changedFields?: unknown[]; ids?: unknown[] };
-	function parsedDetails(value: unknown): ActivityDetails | null {
-		let details = value;
-		if (typeof details === 'string') {
-			try { details = JSON.parse(details); }
-			catch { return null; }
-		}
-		if (!details || typeof details !== 'object' || Array.isArray(details)) return null;
-		return details as ActivityDetails;
-	}
-
-	const fieldLabels: Record<string, string> = {
-		verified: 'Email verification status',
-		email: 'Email',
-		password: 'Password',
-		id_status: 'Student ID status',
-		id_verified_at: 'ID verification date',
-		id_reject_reason: 'ID rejection reason',
-		id_verification_note: 'ID review note',
-		id_photo_path: 'ID photo',
-		id_photo_uploaded_at: 'ID photo upload date',
-		id_photo: 'ID photo',
-		'student account': 'Student account',
-		requests: 'Requests',
-		'request history': 'Request history',
-		first_name: 'First name',
-		middle_name: 'Middle name',
-		last_name: 'Last name',
-		suffix: 'Name suffix',
-		date_of_birth: 'Date of birth',
-		student_id: 'Student ID',
-		program: 'Program',
-		student_type: 'Student type',
-		last_school_year: 'Last school year',
-		campus: 'Campus',
-		position: 'Position',
-		role: 'Role',
-		staff: 'Staff account',
-		invitation: 'Invitation',
-		requirements: 'Requirements',
-		status: 'Status',
-		document: 'Document',
-		template: 'Template',
-		form: 'Form',
-		'form fields': 'Form fields',
-		files: 'Files',
-		'masterlist entry': 'Masterlist entry',
-		'masterlist entries': 'Masterlist entries'
-	};
-
-	function readableField(value: unknown): string {
-		const key = String(value);
-		if (fieldLabels[key]) return fieldLabels[key];
-		const words = key.split('_').join(' ');
-		return words ? words[0].toUpperCase() + words.slice(1) : words;
 	}
 
 	function roleIcon(role: string): string {
@@ -297,13 +235,10 @@
 					</thead>
 					<tbody>
 						{#each visibleRows as row (row.id)}
-							{@const details = parsedDetails(row.details)}
 							{@const summaryHasEntityId = !!row.entity_id && containsWholeIdentifier(row.summary, String(row.entity_id))}
 							{@const isRequest = row.entity_type === 'request'}
 							{@const entityHref = isRequest && row.entity_exists ? `/staff/requests/${encodeURIComponent(String(row.entity_id))}` : null}
-							{@const friendlyFields = Array.isArray(details?.changedFields) ? details.changedFields.map(readableField) : []}
-							{@const relatedIds = Array.isArray(details?.ids) ? details.ids.map(String).filter((id, index, ids) => id !== String(row.entity_id ?? '') && !containsWholeIdentifier(row.summary, id) && ids.indexOf(id) === index) : []}
-							{@const extras = [...(friendlyFields.length ? [`Changed: ${friendlyFields.join(', ')}`] : []), ...(row.entity_id && !summaryHasEntityId && !isRequest && row.entity_type ? [`${row.entity_type} · ${row.entity_id}`] : []), ...(isRequest && row.entity_id && !summaryHasEntityId ? [`Request ${row.entity_id}`] : [])]}
+							{@const extras = [...(row.entity_id && !summaryHasEntityId && !isRequest && row.entity_type ? [`${row.entity_type} · ${row.entity_id}`] : []), ...(isRequest && row.entity_id && !summaryHasEntityId ? [`Request ${row.entity_id}`] : [])]}
 							{@const isLowImportance = row.action === 'notifications.read'}
 							<tr class:low-importance={isLowImportance}>
 								<td class="activity-date" data-label="When">
@@ -325,14 +260,8 @@
 								<td class="activity-details" data-label="Details">
 									{#if entityHref && summaryHasEntityId}<a href={entityHref} class="activity-summary">{row.summary}</a>
 									{:else}<p class="activity-summary">{row.summary}</p>{/if}
-									{#if extras.length}<p class="activity-details-meta">{#each extras as line, index}{#if index}<span aria-hidden="true"> · </span>{/if}{#if isRequest && row.entity_id && !summaryHasEntityId && line === `Request ${row.entity_id}` && entityHref}<a href={entityHref}>{line}</a>{:else}{line}{/if}{/each}</p>{/if}
-									{#if relatedIds.length}<p class="activity-details-meta">Related IDs: {#each relatedIds as id, index}{#if index}<span aria-hidden="true">, </span>{/if}{#if requestHrefFromId(id)}<a href={requestHrefFromId(id)!}>{id}</a>{:else}{id}{/if}{/each}</p>{/if}
-									{#if row.details}
-										<details class="activity-technical">
-											<summary>Technical details</summary>
-											<pre>{typeof row.details === 'string' ? row.details : JSON.stringify(row.details, null, 2)}</pre>
-										</details>
-									{/if}
+									{#if extras.length}<p class="activity-details-meta">{#each extras as line, index}{#if index}<span aria-hidden="true"> · </span>{/if}{#if isRequest && row.entity_id && !summaryHasEntityId && entityHref}<a href={entityHref}>{line}</a>{:else}{line}{/if}{/each}</p>{/if}
+									<ActivityDetails action={row.action} summary={row.summary} entityId={row.entity_id} metadata={row.details} />
 								</td>
 							</tr>
 						{/each}
@@ -341,13 +270,10 @@
 			</div>
 			<div class="activity-mobile-list">
 				{#each visibleRows as row (row.id)}
-					{@const details = parsedDetails(row.details)}
 					{@const summaryHasEntityId = !!row.entity_id && containsWholeIdentifier(row.summary, String(row.entity_id))}
 					{@const isRequest = row.entity_type === 'request'}
 					{@const entityHref = isRequest && row.entity_exists ? `/staff/requests/${encodeURIComponent(String(row.entity_id))}` : null}
-					{@const friendlyFields = Array.isArray(details?.changedFields) ? details.changedFields.map(readableField) : []}
-					{@const relatedIds = Array.isArray(details?.ids) ? details.ids.map(String).filter((id, index, ids) => id !== String(row.entity_id ?? '') && !containsWholeIdentifier(row.summary, id) && ids.indexOf(id) === index) : []}
-					{@const extras = [...(friendlyFields.length ? [`Changed: ${friendlyFields.join(', ')}`] : []), ...(row.entity_id && !summaryHasEntityId && !isRequest && row.entity_type ? [`${row.entity_type} · ${row.entity_id}`] : []), ...(isRequest && row.entity_id && !summaryHasEntityId ? [`Request ${row.entity_id}`] : [])]}
+					{@const extras = [...(row.entity_id && !summaryHasEntityId && !isRequest && row.entity_type ? [`${row.entity_type} · ${row.entity_id}`] : []), ...(isRequest && row.entity_id && !summaryHasEntityId ? [`Request ${row.entity_id}`] : [])]}
 					<article class="activity-mobile-card" class:low-importance={row.action === 'notifications.read'}>
 						<div class="activity-mobile-time"><span>{localDate(row.created_at)}</span><time>{localTime(row.created_at)}</time></div>
 						<div class="activity-person">
@@ -361,14 +287,8 @@
 						<div class="activity-details">
 							{#if entityHref && summaryHasEntityId}<a href={entityHref} class="activity-summary">{row.summary}</a>
 							{:else}<p class="activity-summary">{row.summary}</p>{/if}
-							{#if extras.length}<p class="activity-details-meta">{#each extras as line, index}{#if index}<span aria-hidden="true"> · </span>{/if}{#if isRequest && row.entity_id && !summaryHasEntityId && line === `Request ${row.entity_id}` && entityHref}<a href={entityHref}>{line}</a>{:else}{line}{/if}{/each}</p>{/if}
-							{#if relatedIds.length}<p class="activity-details-meta">Related IDs: {#each relatedIds as id, index}{#if index}<span aria-hidden="true">, </span>{/if}{#if requestHrefFromId(id)}<a href={requestHrefFromId(id)!}>{id}</a>{:else}{id}{/if}{/each}</p>{/if}
-							{#if row.details}
-								<details class="activity-technical">
-									<summary>Technical details</summary>
-									<pre>{typeof row.details === 'string' ? row.details : JSON.stringify(row.details, null, 2)}</pre>
-								</details>
-							{/if}
+							{#if extras.length}<p class="activity-details-meta">{#each extras as line, index}{#if index}<span aria-hidden="true"> · </span>{/if}{#if isRequest && row.entity_id && !summaryHasEntityId && entityHref}<a href={entityHref}>{line}</a>{:else}{line}{/if}{/each}</p>{/if}
+							<ActivityDetails action={row.action} summary={row.summary} entityId={row.entity_id} metadata={row.details} />
 						</div>
 					</article>
 				{/each}
@@ -815,28 +735,6 @@
 		font-size: 12px;
 		line-height: 1.45;
 		overflow-wrap: anywhere;
-	}
-
-	.activity-technical {
-		margin-top: 7px;
-		color: #46574c;
-		font-size: 11px;
-	}
-
-	.activity-technical summary {
-		width: fit-content;
-		cursor: pointer;
-		font-weight: 600;
-	}
-
-	.activity-technical pre {
-		max-width: 100%;
-		margin: 6px 0 0;
-		overflow: auto;
-		white-space: pre-wrap;
-		overflow-wrap: anywhere;
-		color: #37483e;
-		font-size: 11px;
 	}
 
 	.activity-mobile-list {

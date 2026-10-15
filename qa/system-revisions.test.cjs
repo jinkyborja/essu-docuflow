@@ -124,6 +124,19 @@ test('Form downloads authenticate, use actual PDF bytes and correct headers; mis
 	assert.equal((await pdfFixture([{ title: 'Bad PDF', storage_path: null, public_url: '/forms/bad.pdf' }], 'PK\x03\x04docx').invoke()).status, 502);
 });
 
+test('Form PDF preview selects the PDF file and never serves the editable DOCX', async () => {
+	const fixture = pdfFixture([
+		{ title: 'Editable form', storage_path: 'forms/qa/editable.docx', public_url: 'https://unused.example.invalid/docx' },
+		{ title: 'Preview form', storage_path: 'forms/qa/preview.pdf', public_url: 'https://unused.example.invalid/pdf' }
+	]);
+	const response = await fixture.invoke('Student', true);
+	assert.equal(response.status, 200);
+	assert.equal(response.headers.get('content-type'), 'application/pdf');
+	assert.match(response.headers.get('content-disposition'), /^inline/);
+	assert.match(await response.text(), /^%PDF-/);
+	assert.deepEqual(fixture.calls, ['forms/qa/preview.pdf']);
+});
+
 test('Uploaded PDF versions are read from the existing forms storage bucket', async () => {
 	const fixture = pdfFixture([{ title: 'Uploaded', storage_path: 'forms/qa/form.pdf', public_url: 'https://unused.example.invalid' }]);
 	assert.equal((await fixture.invoke()).status, 200); assert.deepEqual(fixture.calls, ['forms/qa/form.pdf']);

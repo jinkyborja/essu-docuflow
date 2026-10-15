@@ -6,6 +6,7 @@
 	import UserMenu from '../../../src/lib/components/layout/UserMenu.svelte';
 	import Documents from '../../../src/routes/student/documents/+page.svelte';
 	import Forms from '../../../src/routes/student/forms/+page.svelte';
+	import AdminForms from '../../../src/routes/staff/forms/+page.svelte';
 	import Login from '../../../src/routes/login/+page.svelte';
 	let { view, role, students, requests } = $props();
 	const staff = $derived(students.map(student => ({ ...student, role: 'Staff', position: 'Registrar' })));
@@ -28,6 +29,8 @@
 				<Documents data={{ requests }} />
 			{:else if view === 'forms'}
 				<Forms />
+			{:else if view === 'forms-admin'}
+				<AdminForms />
 			{:else}
 				<button id="before-menu">Before menu</button>
 				<RowMenu label="Keyboard sample" items={[
