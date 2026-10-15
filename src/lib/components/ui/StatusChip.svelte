@@ -3,9 +3,9 @@
 	let { value, kind = 'request', size = 'md' }: { value: string | boolean | number; kind?: 'request' | 'id' | 'email' | 'file'; size?: 'sm' | 'md' } = $props();
 	const key = $derived(typeof value === 'boolean' || typeof value === 'number' ? value ? 'verified' : 'pending' : String(value).trim().toLowerCase().replace(/\s+/g, '_'));
 	const status = $derived(kind === 'request' ? requestStatusKey(key) : null);
-	const labels: Record<string, string> = { missing: 'Missing', uploaded: 'Uploaded', needs_correction: 'Needs correction', in_person: 'In person' };
+	const labels: Record<string, string> = { missing: 'Missing', selected: 'Selected', uploaded: 'Uploaded', needs_correction: 'Needs correction', in_person: 'In person' };
 	const label = $derived(labels[key] ?? (kind === 'request' && key === 'completed' ? 'Released' : statusLabel(key)));
-	const icons: Record<string, string> = { missing: 'fa-circle-minus', uploaded: 'fa-circle-check', needs_correction: 'fa-triangle-exclamation', in_person: 'fa-building', pending: 'fa-clock', correction_requested: 'fa-rotate-left', approved: 'fa-circle-check', verified: 'fa-circle-check', rejected: 'fa-circle-xmark', cancelled: 'fa-ban', processing: 'fa-gears', ready_for_pickup: 'fa-box', released: 'fa-handshake', completed: 'fa-circle-check', unverified: 'fa-envelope' };
+	const icons: Record<string, string> = { missing: 'fa-circle-minus', selected: 'fa-file-circle-check', uploaded: 'fa-circle-check', needs_correction: 'fa-triangle-exclamation', in_person: 'fa-building', pending: 'fa-clock', correction_requested: 'fa-rotate-left', approved: 'fa-circle-check', verified: 'fa-circle-check', rejected: 'fa-circle-xmark', cancelled: 'fa-ban', processing: 'fa-gears', ready_for_pickup: 'fa-box', released: 'fa-handshake', completed: 'fa-circle-check', unverified: 'fa-envelope' };
 	const requestTones: Record<string, string> = { pending: 'warning', correction_requested: 'warning', approved: 'success', processing: 'info', ready_for_pickup: 'info', released: 'success', rejected: 'danger', cancelled: 'neutral' };
 	const tone = $derived(status ? requestTones[status] : ['verified', 'uploaded', 'completed'].includes(key) ? kind === 'email' ? 'info' : 'success' : key === 'rejected' ? 'danger' : ['pending', 'needs_correction'].includes(key) ? 'warning' : key === 'in_person' ? 'info' : 'neutral');
 </script>

@@ -7,10 +7,16 @@
 	import Documents from '../../../src/routes/student/documents/+page.svelte';
 	import Forms from '../../../src/routes/student/forms/+page.svelte';
 	import AdminForms from '../../../src/routes/staff/forms/+page.svelte';
+	import RequestWizard from '../../../src/routes/student/request/+page.svelte';
 	import Login from '../../../src/routes/login/+page.svelte';
 	import Pagination from '../../../src/lib/components/ui/Pagination.svelte';
 	let { view, role, students, requests } = $props();
-	const staff = $derived(students.map(student => ({ ...student, role: 'Staff', position: 'Registrar' })));
+	const staff = $derived(students.map((student, index) => ({
+		...student,
+		email: index === 0 ? 'a-very-long-staff-address-for-responsive-layout-checks@example.invalid' : student.email,
+		role: index === 2 ? 'Admin' : 'Staff',
+		position: index === 2 ? 'Administrator' : 'Registrar'
+	})));
 	let selected = $state('');
 </script>
 
@@ -35,6 +41,20 @@
 				<Forms />
 			{:else if view === 'forms-admin'}
 				<AdminForms />
+			{:else if view === 'request-wizard'}
+				<RequestWizard data={{ idStatus: 'verified', documents: [
+					{ document_id: 1, name: 'Certificate of Enrollment', template_path: null, template_name: null, requirements: [
+						{ name: 'Clearance Form', description: 'Student clearance form', in_person: false, needs_signature: false }
+					] },
+					{ document_id: 2, name: 'Comprehensive Exam Certificate', template_path: null, template_name: null, requirements: [
+						{ name: 'Clearance Form', description: 'Student clearance form', in_person: false, needs_signature: false },
+						{ name: 'Valid ID', description: 'Additional required document', in_person: false, needs_signature: false }
+					] },
+					{ document_id: 3, name: 'Transcript of Records', template_path: null, template_name: null, requirements: [] },
+					{ document_id: 4, name: 'Certificate of Graduation', template_path: null, template_name: null, requirements: [] },
+					{ document_id: 5, name: 'Certificate of Good Moral Character', template_path: null, template_name: null, requirements: [] },
+					{ document_id: 6, name: 'A very long document title that wraps safely on narrow mobile screens without causing horizontal overflow', template_path: null, template_name: null, requirements: [] }
+				] }} />
 			{:else}
 				<button id="before-menu">Before menu</button>
 				<RowMenu label="Keyboard sample" items={[

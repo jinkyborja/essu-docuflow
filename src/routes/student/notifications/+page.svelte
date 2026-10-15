@@ -55,7 +55,7 @@
 		};
 	}
 
-	let notifications = $state(data.history.map(mapHistory));
+	let notifications = $state<Notif[]>([]);
 
 	$effect(() => {
 		const loadedHistory = data.history.map(mapHistory);

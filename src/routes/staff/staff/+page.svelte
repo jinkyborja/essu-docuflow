@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { deserialize } from '$app/forms';
 	import { formatName, pluralize } from '$lib/formatting';
 	import Modal from '$lib/components/ui/Modal.svelte';
@@ -22,8 +23,8 @@
 		date_registered: string;
 	};
 
-	let staffList = $state(data.staff as StaffMember[]);
-	const currentUserId = data.currentUserId as number;
+	let staffList = $state<StaffMember[]>(untrack(() => data.staff as StaffMember[]));
+	const currentUserId = untrack(() => data.currentUserId as number);
 
 	let inviteOpen = $state(false);
 	let inviteEmail = $state('');
@@ -162,98 +163,104 @@
 	<p class="text-sm text-gray-500 max-w-xs">This page is only accessible to administrators. Contact your admin if you need access.</p>
 </div>
 {:else}
-<div class="staff-management-page space-y-4">
-	<div class="staff-page-actions flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-		<span class="inline-flex items-center rounded-full text-xs px-2.5 py-1 font-medium bg-essu-green/10 text-essu-green border border-essu-green/20">
-			{staffList.length} {pluralize(staffList.length, 'member')}
-		</span>
+<section class="staff-directory" aria-labelledby="staff-directory-title">
+	<header class="staff-directory-header">
+		<div class="staff-directory-heading">
+			<h1 id="staff-directory-title">Staff Directory</h1>
+			<p>{staffList.length} {pluralize(staffList.length, 'member')}</p>
+		</div>
 		<Button onclick={openInvite} icon="fa-solid fa-paper-plane">Invite staff</Button>
-	</div>
+	</header>
 
-	{#if staffList.length === 0}
-		<div class="rounded-xl border border-gray-100 bg-white p-10 text-center shadow-sm">
-				<i class="fa-solid fa-user-tie text-4xl text-gray-200 mb-4 block"></i>
-				<p class="text-gray-500 text-sm">No staff members yet. Invite someone to get started.</p>
+	{#if staffList.length > 0}
+		<div class="staff-table" role="table" aria-label="Staff directory members">
+			<div class="staff-table-header" role="row">
+				<span role="columnheader">Staff member</span>
+				<span role="columnheader">Role</span>
+				<span role="columnheader">Date joined</span>
+				<span class="staff-actions-heading" role="columnheader">Actions</span>
+			</div>
+			<div class="staff-directory-rows" role="rowgroup">
+				{#each staffList as member (member.user_id)}
+					<div class="staff-row" role="row">
+						<div class="staff-member-cell" role="cell">
+							<div class="staff-avatar" aria-hidden="true">{member.first_name[0]}{member.last_name[0]}</div>
+							<div class="staff-identity">
+								<h2 class="staff-name" title={formatName(member.first_name, member.middle_name, member.last_name)}>{formatName(member.first_name, member.middle_name, member.last_name)}</h2>
+								<p class="staff-email" title={member.email}>{member.email}</p>
+								{#if positionLabel(member)}<p class="staff-position" title={positionLabel(member)}>{positionLabel(member)}</p>{/if}
+							</div>
+						</div>
+						<div class="staff-role-cell" role="cell"><span class="staff-mobile-label">Role</span><span class="staff-role {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">{member.role}</span></div>
+						<div class="staff-joined" role="cell"><span class="staff-mobile-label">Joined</span>{new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</div>
+						<div class="staff-row-actions" role="cell"><RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={staffMenuItems(member)} /></div>
+					</div>
+				{/each}
+			</div>
 		</div>
 	{:else}
-		<div class="staff-card-grid">
-			{#each staffList as member (member.user_id)}
-				<article class="staff-member-card">
-					<div class="staff-member-main">
-						<div class="staff-avatar" aria-hidden="true">{member.first_name[0]}{member.last_name[0]}</div>
-						<div class="staff-identity">
-							<div class="staff-name-row">
-								<h2 class="staff-name" title={formatName(member.first_name, member.middle_name, member.last_name)}>{formatName(member.first_name, member.middle_name, member.last_name)}</h2>
-								<span class="staff-role {roleColors[member.role] ?? 'bg-gray-100 text-gray-600'}">{member.role}</span>
-							</div>
-							<p class="staff-email" title={member.email}>{member.email}</p>
-							{#if positionLabel(member)}<p class="staff-position" title={positionLabel(member)}>{positionLabel(member)}</p>{/if}
-						</div>
-					</div>
-					<div class="staff-card-footer">
-						<p class="staff-joined"><i class="fa-regular fa-calendar" aria-hidden="true"></i>Joined {new Date(member.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</p>
-						<RowMenu label={'Actions for ' + formatName(member.first_name, member.middle_name, member.last_name)} items={staffMenuItems(member)} />
-					</div>
-				</article>
-			{/each}
+		<div class="staff-directory-empty">
+			<i class="fa-solid fa-user-tie" aria-hidden="true"></i>
+			<p>No staff members yet. Invite someone to get started.</p>
 		</div>
 	{/if}
-</div>
+</section>
 {/if}
 
 <style>
-	.staff-card-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-		gap: var(--space-3);
-	}
-	.staff-member-card {
-		display: flex;
-		min-width: 0;
-		flex-direction: column;
-		justify-content: space-between;
-		gap: var(--space-3);
-		padding: var(--space-4);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-card);
-		background: var(--color-surface);
-		box-shadow: var(--shadow-sm, 0 1px 2px rgb(0 0 0 / 5%));
-	}
-	.staff-member-main {
-		display: flex;
-		min-width: 0;
-		align-items: flex-start;
-		gap: var(--space-3);
-	}
+	.staff-directory { min-width: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-card); }
+	.staff-directory-header { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
+	.staff-directory-heading { min-width: 0; }
+	.staff-directory-heading h1 { margin: 0; color: var(--color-text); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); line-height: 1.35; }
+	.staff-directory-heading p { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--font-size-helper); }
+	.staff-table-header, .staff-row { display: grid; grid-template-columns: minmax(0, 1fr) 6rem 9rem var(--control-height); align-items: center; column-gap: var(--space-4); }
+	.staff-table-header { padding: var(--space-2) var(--space-5); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text-muted); font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); }
+	.staff-actions-heading { text-align: center; }
+	.staff-directory-rows { min-width: 0; }
+	.staff-row { min-width: 0; padding: var(--space-3) var(--space-5); }
+	.staff-row + .staff-row { border-top: 1px solid var(--color-border); }
+	.staff-member-cell { display: flex; min-width: 0; align-items: center; gap: var(--space-3); }
 	.staff-avatar {
 		display: grid;
-		width: 2.75rem;
-		height: 2.75rem;
-		flex: 0 0 2.75rem;
+		width: 2.5rem;
+		height: 2.5rem;
+		flex: 0 0 2.5rem;
 		place-items: center;
 		border-radius: var(--radius-control);
 		background: var(--color-primary-soft);
 		color: var(--color-primary);
-		font-size: var(--font-size-body);
+		font-size: var(--font-size-helper);
 		font-weight: var(--font-weight-semibold);
 	}
 	.staff-identity { min-width: 0; flex: 1; }
-	.staff-name-row { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 	.staff-name { min-width: 0; margin: 0; color: var(--color-text); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); line-height: 1.35; overflow-wrap: anywhere; }
 	.staff-role { display: inline-flex; flex: 0 0 auto; align-items: center; border-radius: 999px; padding: 0.15rem 0.55rem; font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); }
 	.staff-email, .staff-position { margin: var(--space-1) 0 0; font-size: var(--font-size-helper); line-height: 1.4; overflow-wrap: anywhere; }
 	.staff-email { color: var(--color-text-muted); }
 	.staff-position { color: var(--color-text); }
-	.staff-card-footer { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-border); }
-	.staff-joined { display: flex; min-width: 0; align-items: center; gap: var(--space-2); margin: 0; color: var(--color-text-muted); font-size: var(--font-size-helper); }
-	.staff-joined i { flex: 0 0 auto; }
-	.staff-card-footer :global(.button-tooltip) { flex: 0 0 auto; }
-	@media (min-width: 640px) {
-		.staff-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
-		.staff-member-card { min-height: 9.5rem; }
+	.staff-role-cell { min-width: 0; }
+	.staff-mobile-label { display: none; }
+	.staff-joined { min-width: 0; margin: 0; color: var(--color-text-muted); font-size: var(--font-size-helper); }
+	.staff-row-actions { display: flex; justify-content: flex-end; }
+	.staff-directory-empty { display: grid; justify-items: center; gap: var(--space-2); border-top: 1px solid var(--color-border); padding: var(--space-8) var(--space-4); color: var(--color-text-muted); text-align: center; }
+	.staff-directory-empty i { color: var(--line-strong); font-size: 1.75rem; }
+	.staff-directory-empty p { margin: 0; font-size: var(--font-size-body); }
+	@media (max-width: 767px) {
+		.staff-directory-header { padding: var(--space-4); }
+		.staff-directory-header :global(.ui-button) { flex: 0 0 auto; }
+		.staff-table-header { display: none; }
+		.staff-row { grid-template-columns: minmax(0, 1fr) var(--control-height); align-items: start; column-gap: var(--space-2); row-gap: var(--space-1); padding: var(--space-3) var(--space-4); }
+		.staff-member-cell { grid-column: 1; grid-row: 1; align-items: flex-start; }
+		.staff-identity { padding-top: 1px; }
+		.staff-role-cell { display: flex; grid-column: 1; grid-row: 2; align-items: center; gap: var(--space-2); padding-left: calc(2.5rem + var(--space-3)); }
+		.staff-mobile-label { display: inline; color: var(--color-text-muted); font-size: var(--font-size-helper); }
+		.staff-joined { grid-column: 1; grid-row: 3; padding-left: calc(2.5rem + var(--space-3)); }
+		.staff-row-actions { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
 	}
-	@media (min-width: 1024px) {
-		.staff-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	@media (max-width: 380px) {
+		.staff-directory-header { padding: var(--space-3); }
+		.staff-row { padding-inline: var(--space-3); }
+		.staff-table-header, .staff-row { column-gap: var(--space-2); }
 	}
 </style>
 
@@ -271,8 +278,8 @@
 				<TextField label="Last Name" bind:value={editMember.last_name} required />
 				<TextField label="Position" bind:value={editPosition} placeholder="e.g. Registrar Staff" />
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></label>
-					<div class="grid grid-cols-2 gap-3">
+					<p class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></p>
+					<div class="grid grid-cols-2 gap-3" role="group" aria-label="Staff member role">
 						{#each ['Staff', 'Admin'] as r}
 							<button
 								type="button"
@@ -325,8 +332,8 @@
 				<TextField label="Email address" bind:value={inviteEmail} type="email" required placeholder="staff@essu.edu.ph" error={inviteError} />
 
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></label>
-					<div class="grid grid-cols-2 gap-3">
+					<p class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></p>
+					<div class="grid grid-cols-2 gap-3" role="group" aria-label="Invitation role">
 						{#each ['Staff', 'Admin'] as r}
 							<button
 								type="button"

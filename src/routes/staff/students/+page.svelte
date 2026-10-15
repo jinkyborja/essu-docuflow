@@ -482,6 +482,7 @@
 							<p class="student-email text-xs text-gray-400" title={s.email}>{@html highlight(s.email, search.trim())}</p>
 						</div>
 						<div class="student-card-program">
+							<span class="student-detail-label">Program</span>
 							<span class="program-value text-sm text-gray-700" title={s.program ?? ''}>{@html highlight(s.program, search.trim())}</span>
 							<div class="student-card-meta">
 								{#if s.student_type}
@@ -491,12 +492,16 @@
 							</div>
 						</div>
 						<div class="student-card-statuses">
+							<span class="student-detail-label">Status</span>
 							<div><span class="text-xs text-gray-500">Email</span><StatusChip value={s.verified} kind="email" size="sm" /></div>
 							<div><span class="text-xs text-gray-500">ID</span><StatusChip value={s.id_status} kind="id" size="sm" /></div>
 						</div>
+						<div class="student-card-registered">
+							<span class="student-detail-label">Registered</span>
+							<time datetime={s.date_registered}>{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</time>
+						</div>
 						<div class="student-card-footer">
-							<span class="text-xs text-gray-500">{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span>
-							<ActionMenu items={rowItems(s)} label={'Actions for ' + fullName(s)}><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button></ActionMenu>
+							<ActionMenu items={rowItems(s)} label={'Actions for ' + fullName(s)}><Button size="sm" icon="fa-solid fa-eye" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View student' : 'Review student'}</Button></ActionMenu>
 						</div>
 					</article>
 				{/each}
@@ -523,12 +528,12 @@
 						{#each filtered as s}
 							<tr>
 								<td>
-									<p class="font-medium text-gray-800">{@html highlight(fullName(s), search.trim())}</p>
+									<p class="student-name font-medium text-gray-800">{@html highlight(fullName(s), search.trim())}</p>
 									<p class="student-table-id font-mono text-xs text-gray-500">{@html highlight(s.student_id, search.trim())}</p>
 									<p class="student-email text-xs text-gray-400" title={s.email}>{@html highlight(s.email, search.trim())}</p>
 								</td>
 								<td class="program-column">
-									<span class="student-program program-value text-gray-700">{@html highlight(s.program, search.trim())}</span>
+									<span class="student-program program-value text-gray-700" title={s.program ?? ''}>{@html highlight(s.program, search.trim())}</span>
 									<div class="student-program-meta">
 										{#if s.student_type}
 											<span class="inline-flex items-center rounded-full text-xs px-2 py-0.5 font-medium {typeColors[s.student_type] ?? 'bg-gray-100 text-gray-600 border border-gray-200'}">{s.student_type}</span>
@@ -543,7 +548,7 @@
 									</div>
 								</td>
 								<td class="registered">
-									{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}
+									<time datetime={s.date_registered}>{new Date(s.date_registered).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</time>
 								</td>
 								<td class="actions-cell">
 									<ActionMenu items={rowItems(s)} label={'Actions for ' + fullName(s)}><Button size="sm" onclick={() => void openReview(s)}>{s.id_status === 'verified' ? 'View' : 'Review'}</Button></ActionMenu>
@@ -643,10 +648,11 @@
 				<!-- Name row 1: First, Middle -->
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
+						<label for="edit-student-first-name" class="block text-sm font-medium text-gray-700 mb-1.5">
 							First Name <span class="text-red-500">*</span>
 						</label>
 						<input
+							id="edit-student-first-name"
 							bind:value={editStudent.first_name}
 							type="text"
 							required
@@ -654,10 +660,11 @@
 						/>
 					</div>
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
+						<label for="edit-student-middle-name" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Middle Name <span class="text-xs text-gray-400 font-normal">(optional)</span>
 						</label>
 						<input
+							id="edit-student-middle-name"
 							bind:value={editStudent.middle_name}
 							type="text"
 							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"
@@ -668,10 +675,11 @@
 				<!-- Name row 2: Last, Suffix -->
 				<div class="grid grid-cols-3 gap-3">
 					<div class="col-span-2">
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
+						<label for="edit-student-last-name" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Last Name <span class="text-red-500">*</span>
 						</label>
 						<input
+							id="edit-student-last-name"
 							bind:value={editStudent.last_name}
 							type="text"
 							required
@@ -679,8 +687,9 @@
 						/>
 					</div>
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">Suffix</label>
+						<label for="edit-student-suffix" class="block text-sm font-medium text-gray-700 mb-1.5">Suffix</label>
 						<select
+							id="edit-student-suffix"
 							bind:value={editStudent.suffix}
 							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white"
 						>
@@ -697,10 +706,11 @@
 				<!-- Student ID + Email -->
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
+						<label for="edit-student-id" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Student ID <span class="text-red-500">*</span>
 						</label>
 						<input
+							id="edit-student-id"
 							bind:value={editStudent.student_id}
 							type="text"
 							required
@@ -708,10 +718,11 @@
 						/>
 					</div>
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
+						<label for="edit-student-email" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Email <span class="text-red-500">*</span>
 						</label>
 						<input
+							id="edit-student-email"
 							bind:value={editStudent.email}
 							type="email"
 							required
@@ -723,10 +734,11 @@
 				<!-- Program + Student Type -->
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
+						<label for="edit-student-program" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Program <span class="text-red-500">*</span>
 						</label>
 						<input
+							id="edit-student-program"
 							bind:value={editStudent.program}
 							type="text"
 							placeholder="e.g. Master of IT"
@@ -742,10 +754,11 @@
 						</select>
 					</div>
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1.5">
+						<label for="edit-student-type" class="block text-sm font-medium text-gray-700 mb-1.5">
 							Student Type <span class="text-red-500">*</span>
 						</label>
 						<select
+							id="edit-student-type"
 							bind:value={editStudent.student_type}
 							required
 							class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30 bg-white"
@@ -760,10 +773,11 @@
 
 				<!-- Last School Year -->
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">
+					<label for="edit-student-last-school-year" class="block text-sm font-medium text-gray-700 mb-1.5">
 						Last School Year <span class="text-red-500">*</span>
 					</label>
 					<input
+						id="edit-student-last-school-year"
 						bind:value={editStudent.last_school_year}
 						type="number"
 						min={editStudent.student_type === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN}
@@ -1024,6 +1038,12 @@
 		min-width: 0;
 	}
 
+	.student-name {
+		margin: 0;
+		overflow-wrap: anywhere;
+		line-height: 1.4;
+	}
+
 	.student-identity > p:first-child {
 		overflow-wrap: anywhere;
 	}
@@ -1031,18 +1051,15 @@
 	.student-card-id,
 	.student-table-id {
 		margin-top: 2px;
-		white-space: nowrap;
-		overflow-wrap: normal;
+		overflow-wrap: anywhere;
 	}
 
 	.student-email {
 		display: block;
 		min-width: 0 !important;
 		margin-top: 2px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap !important;
-		overflow-wrap: normal !important;
+		overflow-wrap: anywhere;
+		word-break: break-word;
 	}
 
 	.student-card-meta,
@@ -1054,11 +1071,31 @@
 		margin-top: 6px;
 	}
 
+	.student-detail-label {
+		display: block;
+		margin-bottom: 4px;
+		color: var(--color-text-muted);
+		font-size: 10px;
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
+	.student-card-program .program-value {
+		display: block;
+		max-width: none;
+		overflow-wrap: anywhere;
+		white-space: normal;
+		line-height: 1.45;
+	}
+
 	.student-card-statuses,
 	.student-status-list {
 		display: grid;
 		gap: 6px;
 	}
+
+	.student-card-statuses > .student-detail-label { margin: 0; }
 
 	.student-card-statuses > div,
 	.student-status-list > div {
@@ -1090,14 +1127,23 @@
 		font-size: 10px;
 	}
 
+	.student-card-registered {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-helper);
+	}
+
+	.student-card-registered .student-detail-label { margin: 0; }
+
 	.student-card-footer {
 		display: flex;
-		flex-wrap: wrap;
+		min-width: 0;
 		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-		padding-top: 10px;
-		border-top: 1px solid #edf1ee;
+		justify-content: flex-end;
+		padding-top: 12px;
+		border-top: 1px solid var(--color-border);
 	}
 
 	.student-table-wrap {
@@ -1131,11 +1177,16 @@
 		min-height: 64px;
 	}
 
+	:global(.student-table-wrap .admin-table--students td:first-child .student-name) {
+		line-height: 1.4;
+	}
+
 	:global(.student-table-wrap .admin-table--students .student-email),
 	:global(.student-table-wrap .admin-table--students .student-table-id) {
 		min-width: 0 !important;
-		white-space: nowrap !important;
-		overflow-wrap: normal !important;
+		white-space: normal !important;
+		overflow-wrap: anywhere !important;
+		word-break: break-word;
 	}
 
 	:global(.student-table-wrap .admin-table--students .program-value) {
@@ -1153,6 +1204,30 @@
 		white-space: nowrap;
 		overflow-wrap: normal;
 		font-size: 11px;
+	}
+
+	:global(.student-table-wrap .admin-table--students .actions-cell) {
+		padding-right: 18px;
+		padding-left: 10px;
+	}
+
+	:global(.student-table-wrap .admin-table--students .actions-cell .action-buttons) {
+		width: 100%;
+		gap: 12px;
+	}
+
+	:global(.student-table-wrap .admin-table--students .actions-cell .ui-button) {
+		width: 88px;
+		min-width: 76px;
+		height: 40px;
+		min-height: 40px;
+	}
+
+	:global(.student-table-wrap .admin-table--students .actions-cell .row-menu-trigger) {
+		width: 40px;
+		min-width: 40px;
+		height: 40px;
+		min-height: 40px;
 	}
 
 	:global(.student-results :is(button, input, select, a):focus-visible) {
@@ -1218,28 +1293,28 @@
 		}
 
 		.student-card-footer {
-			display: grid;
-			grid-template-columns: minmax(0, 1fr) auto;
-			align-items: center;
+			display: flex;
+			justify-content: stretch;
 		}
 		.student-card-footer :global(.action-buttons) {
-			width: auto;
+			width: 100%;
 			min-width: 0;
+			gap: 12px;
 		}
 
-		.student-card-footer :global(.action-buttons .ui-button),
-		.student-card-footer :global(.row-menu-trigger) {
+		.student-card-footer :global(.action-buttons .ui-button) {
+			width: auto;
+			min-width: 0;
+			flex: 1 1 auto;
+			height: 44px;
 			min-height: 44px;
 		}
 
-		.student-card .program-value {
-			display: block;
-			max-width: none;
-			overflow: visible;
-			overflow-wrap: anywhere;
-			white-space: normal;
-			text-overflow: clip;
+		.student-card-footer :global(.row-menu-trigger) {
+			width: 44px;
+			min-width: 44px;
+			height: 44px;
+			min-height: 44px;
 		}
-
 	}
 </style>

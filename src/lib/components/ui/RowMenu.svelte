@@ -15,6 +15,7 @@
 	let open = $state(false), active = $state(0);
 	let root: HTMLSpanElement, trigger: HTMLButtonElement;
 	let menu = $state<HTMLDivElement>()!;
+	let suppressTriggerClick = false;
 	const id = $props.id();
 	function close(restoreFocus = false) {
 		if (!open) return;
@@ -68,12 +69,28 @@
 		if (item.disabled) { event.preventDefault(); return; }
 		close(true); item.onselect?.();
 	}
+	function onTriggerPointerDown() {
+		if (!open) return;
+		suppressTriggerClick = true;
+		close(true);
+	}
+	function onDocumentPointerUp(event: PointerEvent) {
+		if (suppressTriggerClick && !trigger.contains(event.target as Node)) suppressTriggerClick = false;
+	}
+	function onTriggerClick() {
+		if (suppressTriggerClick) { suppressTriggerClick = false; return; }
+		if (open) close(true);
+		else void show();
+	}
 </script>
 
-<svelte:document onpointerdown={(event) => { if (open && !root.contains(event.target as Node)) close(); }} />
+<svelte:document
+	onpointerdown={(event) => { if (open && !root.contains(event.target as Node)) close(); }}
+	onpointerup={onDocumentPointerUp}
+/>
 <svelte:window onresize={position} />
 <span bind:this={root} class="row-menu">
-	<button bind:this={trigger} type="button" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} aria-controls={id} aria-busy={loading} disabled={disabled || loading} class="row-menu-trigger {triggerClass}" onclick={() => open ? close(true) : void show()} onkeydown={(event) => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); void show(event.key === 'ArrowUp' ? items.length - 1 : 0); } }}>
+	<button bind:this={trigger} type="button" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} aria-controls={id} aria-busy={loading} disabled={disabled || loading} class="row-menu-trigger {triggerClass}" onpointerdown={onTriggerPointerDown} onpointercancel={() => suppressTriggerClick = false} onclick={onTriggerClick} onkeydown={(event) => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); void show(event.key === 'ArrowUp' ? items.length - 1 : 0); } }}>
 		<span class="trigger-content" class:busy={loading}>{#if triggerContent}{@render triggerContent()}{:else}<span aria-hidden="true">⋯</span>{/if}</span>
 		{#if loading}<i class="fa-solid fa-circle-notch menu-spinner" aria-hidden="true"></i>{/if}
 	</button>

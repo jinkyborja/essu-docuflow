@@ -15,6 +15,7 @@ function load(filename, imports = {}, sourceOverride, globals = {}) {
 	const code = filename.endsWith('.svelte') ? compile(source, { filename, generate: 'server' }).js.code : source;
 	const resolver = name => {
 		if (Object.hasOwn(imports, name)) { const value = imports[name]; return value && Object.hasOwn(value, 'default') ? { __esModule: true, ...value } : value; }
+		if (name === 'pdfjs-dist/build/pdf.worker.min.mjs?url') return '/pdf.worker.min.mjs';
 		if (name === '@sveltejs/kit') return { json: (body, init = {}) => ({ body, status: init.status ?? 200 }) };
 		if (name.startsWith('$lib/')) { const target = name.replace('$lib/', 'src/lib/'); return load(path.extname(target) ? target : target + '.ts', imports, undefined, globals); }
 		if (name.startsWith('.')) { const target = path.resolve(path.dirname(filename), name); return load(path.extname(target) ? target : target + '.ts', imports, undefined, globals); }
@@ -90,16 +91,28 @@ test('Document chips show independent linked-form/signature icons; editing keeps
 	assert.match(html, /value="Adviser and Dean"/); assert.match(html, /value="Department head"/); assert.ok((html.match(/selected/g) ?? []).length >= 2);
 });
 
-test('Wizard retains form downloads and shows signer instructions only when signatures are needed', () => {
+test('Wizard omits form download controls, keeps accurate selection progress, and shows signer instructions only when needed', () => {
 	const filename = 'src/routes/student/request/+page.svelte';
 	const source = fs.readFileSync(filename, 'utf8').replace('let currentStep = $state(1);', 'let currentStep = $state(2);').replace('let selectedDocs = $state<DocOption[]>([]);', 'let selectedDocs = $state<DocOption[]>(documents);');
 	for (const needsSignature of [true, false]) {
 		const data = { idStatus: 'verified', documents: [{ document_id: 1, name: 'Transcript', requirements: [{ name: 'Clearance Form', in_person: false, form_id: 4, needs_signature: needsSignature, signature_note: 'Adviser and Dean', form_title: 'Graduate clearance', form_files: [{ public_url: 'https://forms.invalid/form.pdf', name: 'form.pdf' }] }] }] };
 		const html = render(load(filename, { '$app/navigation': { goto() {} } }, source).default, { props: { data } }).body;
-		assert.match(html, /Download form/); assert.match(html, /title="form.pdf"/); assert.match(source, /downloadStudentFile\(file.public_url, file.name\)/); assert.doesNotMatch(html, /multiple/);
+		assert.doesNotMatch(html, /Download form/); assert.doesNotMatch(html, /title="form\.pdf"/); assert.doesNotMatch(source, /downloadStudentFile/); assert.doesNotMatch(html, /multiple/);
+		assert.match(html, /aria-label="File status: Missing"/); assert.match(html, /aria-valuemax="1"/); assert.match(html, /aria-valuenow="0"/); assert.match(html, /0 of 1 required file selected/); assert.doesNotMatch(html, /Uploaded/);
 		if (needsSignature) assert.match(html, /Get this form signed by: Adviser and Dean, then upload a photo or PDF of the signed form\./);
 		else { assert.doesNotMatch(html, /Get this form signed by|Upload the signed form/); assert.match(html, /Upload Clearance Form/); }
 	}
+});
+
+test('Requirement file picker labels a chosen local file Selected instead of Uploaded', () => {
+	const filename = 'src/lib/components/ui/RequirementFilePicker.svelte';
+	const file = new File(['local selection'], 'clearance.pdf', { type: 'application/pdf' });
+	const html = render(load(filename).default, { props: { name: 'Clearance Form', file, onchange() {} } }).body;
+	assert.match(html, /File status: Selected/);
+	assert.doesNotMatch(html, /File status: Uploaded/);
+	assert.match(html, /clearance\.pdf/);
+	assert.match(html, /Replace file/);
+	assert.match(html, /Remove/);
 });
 
 test('Existing admin review displays linked form name and signature note beside the uploaded file', () => {

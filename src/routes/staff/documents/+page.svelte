@@ -1,13 +1,14 @@
 <script lang="ts">
 	import type { RequirementSettings } from '$lib/server/requirements';
 	import Modal from '$lib/components/ui/Modal.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import LoadError from '$lib/components/ui/LoadError.svelte';
 	import RowMenu from '$lib/components/ui/RowMenu.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import TextField from '$lib/components/forms/TextField.svelte';
 	import FileDrop from '$lib/components/forms/FileDrop.svelte';
+	import FilePreview from '$lib/components/ui/FilePreview.svelte';
 	import { showToast } from '$lib/stores/toasts';
 	import { fetchAdminRequests, documentHasRequests, type AdminRequest } from '$lib/admin-requests';
 	import type { PageData } from './$types';
@@ -20,7 +21,7 @@
 		upload_date: string; uploaded_by_name: string;
 	};
 
-	let documents = $state(data.documents as DocRow[]);
+	let documents = $state<DocRow[]>(untrack(() => data.documents as DocRow[]));
 
 	let requestUsage = $state<AdminRequest[]>([]), usageLoaded = $state(false), usageError = $state('');
 	let deleteTarget = $state<DocRow | null>(null), deleting = $state(false), deleteError = $state('');
@@ -39,6 +40,9 @@
 	let templateFiles = $state<File[]>([]);
 	let existingTemplateName = $state<string | null>(null);
 	let removeTemplate = $state(false);
+	let templatePreviewOpen = $state(false);
+	let templatePreviewPath = $state('');
+	let templatePreviewName = $state('');
 
 	type CustomReq = { name: string; description?: string; in_person: boolean; form_id: number | null; needs_signature: boolean; signature_note: string };
 	const forms = $derived(data.forms);
@@ -152,7 +156,13 @@
 	}
 
 	async function templateUrl(path: string) { const response = await fetch('/api/storage?bucket=templates&path=' + encodeURIComponent(path)); const result = await response.json(); if (!response.ok || !result.url) throw new Error(result.error ?? 'Could not open template.'); return result.url as string; }
-	async function openTemplate(path: string) {
+	async function openTemplate(path: string, name: string) {
+		if (/\.pdf$/i.test(name) || /\.pdf$/i.test(path)) {
+			templatePreviewPath = path;
+			templatePreviewName = name;
+			templatePreviewOpen = true;
+			return;
+		}
 		const preview = window.open('about:blank', '_blank');
 		if (!preview) { showToast('Allow pop-ups to view this template.', 'error'); return; }
 		preview.opener = null;
@@ -202,7 +212,7 @@
 						<div class="document-template document-template-mobile mt-3 flex flex-wrap items-center gap-2 text-xs bg-essu-green/5 border border-essu-green/20 rounded-lg px-3 py-2">
 							<i class="fa-solid fa-paperclip text-essu-green shrink-0"></i>
 							<span class="document-template-name flex-1 truncate text-essu-green font-medium">{doc.template_name}</span>
-							<div class="document-template-actions flex flex-wrap items-center gap-2"><Button variant="secondary" size="sm" onclick={() => void openTemplate(doc.template_path!)} icon="fa-solid fa-eye">View</Button>
+							<div class="document-template-actions flex flex-wrap items-center gap-2"><Button variant="secondary" size="sm" onclick={() => void openTemplate(doc.template_path!, doc.template_name ?? doc.name)} icon="fa-solid fa-eye">View</Button>
 							<Button variant="secondary" size="sm" onclick={() => void downloadTemplate(doc.template_path!, doc.template_name!)} icon="fa-solid fa-download">Download</Button></div>
 						</div>
 					{/if}
@@ -298,9 +308,9 @@
 			<TextField label="Document name" bind:value={docName} placeholder="e.g. Transcript of Records" required error={saveError.includes('name') ? saveError : ''} />
 
 			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1.5">
+				<p class="block text-sm font-medium text-gray-700 mb-1.5">
 					Template File <span class="text-gray-400 font-normal text-xs">(optional — PDF or Word)</span>
-				</label>
+				</p>
 
 				{#if existingTemplateName && !removeTemplate && !templateFile}
 					<div class="flex items-center gap-2 px-3 py-2.5 border border-essu-green/30 bg-essu-green/5 rounded-lg text-sm mb-2">
@@ -316,9 +326,9 @@
 			</div>
 
 			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-3">
+				<p class="block text-sm font-medium text-gray-700 mb-3">
 					Requirements <span class="text-gray-400 font-normal text-xs">(what students must submit)</span>
-				</label>
+				</p>
 				<div class="space-y-3">
 					{#each reqOptions as req, i}
 						<div class="border border-gray-100 rounded-lg p-3 {req.checked ? 'bg-essu-green/5 border-essu-green/30' : ''}">
@@ -407,5 +417,6 @@
 		<Button type="submit" form="doc-form" loading={saving}>{editingId !== null ? 'Save changes' : 'Add document'}</Button>
 	{/snippet}
 </Modal>
+<FilePreview open={templatePreviewOpen} path={templatePreviewPath} name={templatePreviewName} bucket="templates" onclose={() => templatePreviewOpen = false} />
 
 <ConfirmDialog open={!!deleteTarget} title="Delete document" message={'Delete “' + (deleteTarget?.name ?? 'this document') + '”? This cannot be undone.'} confirmLabel="Delete document" loading={deleting} error={deleteError} onclose={() => deleteTarget = null} onconfirm={() => void handleDelete()} />

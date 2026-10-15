@@ -14,6 +14,26 @@
 			],
 			"isBackground": true,
 			"problemMatcher": []
+		},
+		{
+			"label": "Run Svelte checks",
+			"type": "shell",
+			"command": "npm run check",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Build project",
+			"type": "shell",
+			"command": "cmd /c \"npm run build\"",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }

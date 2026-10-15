@@ -813,22 +813,30 @@ tbody tr:hover {
 }
 
 .ui-document-option {
-	min-height: 7rem;
-	border-color: var(--line-strong) !important;
+	min-width: 0;
+	padding: var(--space-4);
+	border: 1px solid var(--line-strong) !important;
 	border-radius: var(--radius-card) !important;
 	background: var(--color-surface);
 }
 
 .ui-document-option:hover {
-	transform: translateY(-1px);
 	border-color: var(--color-primary-hover) !important;
-	box-shadow: var(--shadow-card);
+	box-shadow: none;
 }
 
-.ui-document-option[class~='border-essu-green'] {
+.ui-document-option.is-selected {
 	border-color: var(--brand-green) !important;
 	background: var(--color-primary-soft) !important;
-	box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary-hover) 8%, transparent);
+	box-shadow: none !important;
+}
+
+.ui-document-option.is-limit-reached {
+	opacity: 0.62;
+}
+
+.ui-document-option.is-limit-reached .document-option-label {
+	cursor: not-allowed;
 }
 
 .profile-header {
@@ -1504,10 +1512,10 @@ table button[title] {
 .staff-portal .portal-main table.admin-table--requests col.request-col-document { width: calc((100% - var(--table-actions-width)) * .207); }
 .staff-portal .portal-main table.admin-table--requests col.request-col-date { width: calc((100% - var(--table-actions-width)) * .131); }
 .staff-portal .portal-main table.admin-table--requests col.request-col-status { width: calc((100% - var(--table-actions-width)) * .158); }
-.staff-portal .portal-main table.admin-table--students col.student-col-name { width: calc((100% - var(--table-actions-width)) * .30); }
-.staff-portal .portal-main table.admin-table--students col.student-col-program { width: calc((100% - var(--table-actions-width)) * .30); }
-.staff-portal .portal-main table.admin-table--students col.student-col-status { width: calc((100% - var(--table-actions-width)) * .23); }
-.staff-portal .portal-main table.admin-table--students col.student-col-registered { width: calc((100% - var(--table-actions-width)) * .17); }
+.staff-portal .portal-main table.admin-table--students col.student-col-name { width: calc((100% - var(--table-actions-width)) * .28); }
+.staff-portal .portal-main table.admin-table--students col.student-col-program { width: calc((100% - var(--table-actions-width)) * .34); }
+.staff-portal .portal-main table.admin-table--students col.student-col-status { width: calc((100% - var(--table-actions-width)) * .22); }
+.staff-portal .portal-main table.admin-table--students col.student-col-registered { width: calc((100% - var(--table-actions-width)) * .16); }
 .staff-portal .portal-main table.admin-table--staff col.staff-col-name { width: calc((100% - var(--table-actions-width)) * .36); }
 .staff-portal .portal-main table.admin-table--staff col.staff-col-position { width: calc((100% - var(--table-actions-width)) * .28); }
 .staff-portal .portal-main table.admin-table--staff col.staff-col-role { width: calc((100% - var(--table-actions-width)) * .17); }
@@ -1777,7 +1785,7 @@ table button[title] {
   background: linear-gradient(112deg, var(--color-primary), var(--color-primary-hover)) !important;
 }
 
-.portal-main .ui-document-option {
+.portal-main .ui-document-option:not(.is-selected) {
   border-radius: var(--radius-card);
   background: var(--color-surface);
 }

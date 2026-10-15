@@ -16,7 +16,7 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	let profile = $state({ ...data.profile });
+	let profile = $state({} as typeof data.profile);
 	$effect(() => { profile = { ...data.profile }; });
 	let photoFile = $state<File | null>(null);
 	let photoInput = $state<HTMLInputElement>();
@@ -397,25 +397,25 @@
 			{/if}
 			<div class="grid grid-cols-2 gap-3">
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">First Name</label>
-					<input bind:value={eFirstName} type="text" required
+					<label for="edit-first-name" class="block text-sm font-medium text-gray-700 mb-1.5">First Name</label>
+					<input id="edit-first-name" bind:value={eFirstName} type="text" required
 						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 				</div>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Middle Name <span class="text-gray-400 font-normal">(optional)</span></label>
-					<input bind:value={eMiddleName} type="text"
+					<label for="edit-middle-name" class="block text-sm font-medium text-gray-700 mb-1.5">Middle Name <span class="text-gray-400 font-normal">(optional)</span></label>
+					<input id="edit-middle-name" bind:value={eMiddleName} type="text"
 						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 				</div>
 			</div>
 			<div class="grid grid-cols-3 gap-3">
 				<div class="col-span-2">
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name</label>
-					<input bind:value={eLastName} type="text" required
+					<label for="edit-last-name" class="block text-sm font-medium text-gray-700 mb-1.5">Last Name</label>
+					<input id="edit-last-name" bind:value={eLastName} type="text" required
 						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 				</div>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Suffix <span class="text-gray-400 font-normal">(opt.)</span></label>
-					<select bind:value={eSuffix} class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
+					<label for="edit-suffix" class="block text-sm font-medium text-gray-700 mb-1.5">Suffix <span class="text-gray-400 font-normal">(opt.)</span></label>
+					<select id="edit-suffix" bind:value={eSuffix} class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-essu-green/30">
 						<option value="">—</option>
 						<option value="Jr.">Jr.</option>
 						<option value="Sr.">Sr.</option>
@@ -426,8 +426,8 @@
 				</div>
 			</div>
 			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth</label>
-				<input bind:value={eDateOfBirth} type="date" required
+				<label for="edit-date-of-birth" class="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth</label>
+				<input id="edit-date-of-birth" bind:value={eDateOfBirth} type="date" required
 					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 			</div>
 		</form>
@@ -454,25 +454,25 @@
 					</div>
 				{/if}
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Current Password</label>
+					<label for="current-password" class="block text-sm font-medium text-gray-700 mb-1.5">Current Password</label>
 					<div class="relative">
-						<input bind:value={currentPassword} type={showCurrent ? 'text' : 'password'} required
+						<input id="current-password" bind:value={currentPassword} type={showCurrent ? 'text' : 'password'} required
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 						<span class="password-toggle"><Button variant="ghost" ariaLabel={showCurrent ? 'Hide current password' : 'Show current password'} title={showCurrent ? 'Hide current password' : 'Show current password'} icon={'fa-solid ' + (showCurrent ? 'fa-eye-slash' : 'fa-eye')} onclick={() => (showCurrent = !showCurrent)} /></span>
 					</div>
 				</div>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
+					<label for="new-password" class="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
 					<div class="relative">
-						<input bind:value={newPassword} type={showNew ? 'text' : 'password'} required minlength="8"
+						<input id="new-password" bind:value={newPassword} type={showNew ? 'text' : 'password'} required minlength="8"
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 						<span class="password-toggle"><Button variant="ghost" ariaLabel={showNew ? 'Hide new password' : 'Show new password'} title={showNew ? 'Hide new password' : 'Show new password'} icon={'fa-solid ' + (showNew ? 'fa-eye-slash' : 'fa-eye')} onclick={() => (showNew = !showNew)} /></span>
 					</div>
 				</div>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Confirm New Password</label>
+					<label for="confirm-new-password" class="block text-sm font-medium text-gray-700 mb-1.5">Confirm New Password</label>
 					<div class="relative">
-						<input bind:value={confirmPassword} type={showConfirm ? 'text' : 'password'} required
+						<input id="confirm-new-password" bind:value={confirmPassword} type={showConfirm ? 'text' : 'password'} required
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 						<span class="password-toggle"><Button variant="ghost" ariaLabel={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} title={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'} icon={'fa-solid ' + (showConfirm ? 'fa-eye-slash' : 'fa-eye')} onclick={() => (showConfirm = !showConfirm)} /></span>
 					</div>
@@ -504,14 +504,14 @@
 					</div>
 				{/if}
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">New Email Address</label>
-					<input bind:value={newEmail} type="email" required autocomplete="off"
+					<label for="new-email-address" class="block text-sm font-medium text-gray-700 mb-1.5">New Email Address</label>
+					<input id="new-email-address" bind:value={newEmail} type="email" required autocomplete="off"
 						class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 				</div>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1.5">Confirm with Password</label>
+					<label for="email-confirm-password" class="block text-sm font-medium text-gray-700 mb-1.5">Confirm with Password</label>
 					<div class="relative">
-						<input bind:value={emailPassword} type={showEmailPassword ? 'text' : 'password'} required autocomplete="current-password"
+						<input id="email-confirm-password" bind:value={emailPassword} type={showEmailPassword ? 'text' : 'password'} required autocomplete="current-password"
 							class="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 						<span class="password-toggle"><Button variant="ghost" ariaLabel={showEmailPassword ? 'Hide password' : 'Show password'} title={showEmailPassword ? 'Hide password' : 'Show password'} icon={'fa-solid ' + (showEmailPassword ? 'fa-eye-slash' : 'fa-eye')} onclick={() => (showEmailPassword = !showEmailPassword)} /></span>
 					</div>
@@ -542,8 +542,8 @@
 					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 			</div>
 			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1.5">Program / Course</label>
-				<input bind:value={aProgram} type="text" required
+				<label for="academic-program" class="block text-sm font-medium text-gray-700 mb-1.5">Program / Course</label>
+				<input id="academic-program" bind:value={aProgram} type="text" required
 					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 			</div>
 			<div>
@@ -554,7 +554,7 @@
 				</select>
 			</div>
 			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1.5">Student Type</label>
+				<p class="block text-sm font-medium text-gray-700 mb-1.5">Student Type</p>
 				<div class="space-y-2">
 					{#each [
 						{ value: 'Enrolled', label: 'Currently Enrolled', description: 'You are actively taking classes and are currently enrolled this semester.' },
@@ -566,8 +566,8 @@
 				</div>
 			</div>
 			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1.5">Last School Year Attended</label>
-						<input bind:value={aLastSchoolYear} type="number" min={aStudentType === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN} max={SCHOOL_YEAR_MAX} step="1" required
+				<label for="academic-last-school-year" class="block text-sm font-medium text-gray-700 mb-1.5">Last School Year Attended</label>
+				<input id="academic-last-school-year" bind:value={aLastSchoolYear} type="number" min={aStudentType === 'Enrolled' ? ENROLLED_SCHOOL_YEAR_MIN : SCHOOL_YEAR_MIN} max={SCHOOL_YEAR_MAX} step="1" required
 					class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30" />
 			</div>
 		</form>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {invalidateAll} from '$app/navigation';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import FilePreview from '$lib/components/ui/FilePreview.svelte';
 	import { showToast } from '$lib/stores/toasts';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import { statusLabel, requestStatusKey } from '$lib/request-status';
@@ -40,6 +41,9 @@
 	let actionError = $state('');
 	let deliveryConfirm = $state(false);
 	let downloadingPath = $state<string | null>(null);
+	let filePreviewOpen = $state(false);
+	let filePreviewPath = $state('');
+	let filePreviewName = $state('');
 
 	// Action form state
 	let adminMessage = $state('');
@@ -84,12 +88,25 @@
 		return data.url ?? '';
 	}
 
-	async function openFile(path: string) {
+	async function openFile(path: string, name: string) {
+		if (/\.pdf$/i.test(name) || /\.pdf$/i.test(path)) {
+			filePreviewPath = path;
+			filePreviewName = name;
+			filePreviewOpen = true;
+			return;
+		}
 		const preview = window.open('about:blank', '_blank');
 		if (!preview) { showToast('Allow pop-ups to view this file.', 'error'); return; }
 		preview.opener = null;
-		try { const url = await getSignedUrl('requirements', path); if (!url) throw new Error('Could not open this file.'); preview.location.replace(url); showToast('File opened.'); }
-		catch (error) { preview.close(); showToast((error as Error).message, 'error'); }
+		try {
+			const url = await getSignedUrl('requirements', path);
+			if (!url) throw new Error('Could not open this file.');
+			preview.location.replace(url);
+			showToast('File opened.');
+		} catch (error) {
+			preview.close();
+			showToast((error as Error).message, 'error');
+		}
 	}
 
 	async function downloadFile(path: string, name: string) {
@@ -249,7 +266,7 @@
 							</div>
 							{#if !r.in_person && r.file_path}
 								<button
-									onclick={() => openFile(r.file_path!)}
+									onclick={() => openFile(r.file_path!, r.file_name ?? r.name)}
 									class="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-essu-green hover:bg-essu-green/5 transition-colors"
 								>
 									<i class="fa-solid fa-eye"></i> View
@@ -276,7 +293,7 @@
 					<p class="text-sm font-semibold text-essu-green mb-2"><i class="fa-solid fa-circle-check mr-2"></i>Approved Document</p>
 					<div class="flex flex-wrap gap-3">
 						<button
-							onclick={() => openFile(req.approved_file_path!)}
+							onclick={() => openFile(req.approved_file_path!, req.approved_file_name ?? 'Approved document')}
 							class="text-sm text-essu-green hover:underline flex items-center gap-2"
 						>
 							<i class="fa-solid fa-eye"></i> View
@@ -363,3 +380,4 @@
 </ConfirmDialog>
 <ConfirmDialog open={rejectOpen} title="Reject request" message={'Reject ' + req.request_id + ' for ' + req.student_name + '?'} requireReason minLength={10} confirmLabel="Reject request" loading={submitting} error={actionError} onclose={() => rejectOpen = false} onconfirm={reason => { adminMessage = reason; void submitAction('reject'); }} />
 <ConfirmDialog open={deliveryConfirm} title="Mark as released" message={'Confirm that ' + req.student_name + ' has collected every document for ' + req.request_id + '?'} variant="primary" confirmLabel="Mark as released" loading={submitting} error={actionError} onclose={() => deliveryConfirm = false} onconfirm={() => void recordDelivery()} />
+<FilePreview open={filePreviewOpen} path={filePreviewPath} name={filePreviewName} onclose={() => filePreviewOpen = false} />

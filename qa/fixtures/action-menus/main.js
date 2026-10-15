@@ -4,8 +4,8 @@ import Harness from './Harness.svelte';
 
 const students = Array.from({ length: 9 }, (_, index) => ({
 	user_id: index + 1, first_name: 'Student', middle_name: 'Middle', last_name: String(index + 1),
-	suffix: null, email: `student${index + 1}@example.invalid`, student_id: `QA-00${index + 1}`,
-	program: 'Master of Arts in Education', student_type: 'Enrolled', last_school_year: 2026,
+	suffix: null, email: index === 0 ? 'a-very-long-student-email-address-for-responsive-layout-checks@example.invalid' : `student${index + 1}@example.invalid`, student_id: `QA-00${index + 1}`,
+	program: index === 0 ? 'Master of Science in Hospitality Management and Sustainable Tourism' : 'Master of Arts in Education', student_type: 'Enrolled', last_school_year: 2026,
 	verified: true, id_status: index % 2 ? 'pending' : 'verified', id_verified_at: null,
 	id_reject_reason: null, date_of_birth: null, date_registered: `2026-10-${String(index + 1).padStart(2, '0')}T08:00:00Z`
 }));
@@ -67,7 +67,10 @@ window.fetch = async (input, init) => {
 	if (url.startsWith('/api/forms/4/download') && window.fixtureMissingPdf) return Response.json({error:'PDF preview unavailable'}, {status:409});
 	if (url === '/qa/final.pdf' || url.startsWith('/api/forms/4/download') || url === '/forms/Prospectus-MAIT.pdf') return new Response(window.fixtureInvalidPdf ? 'PKdocx' : samplePdf(), {headers:{'Content-Type':'application/pdf'}});
 	if (url === '/forms/Prospectus-MAIT.docx') return new Response('fixture docx', {headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}});
-	if (url === '/api/forms') return Response.json([{form_id:4, title:'Prospectus', category:'Prospectus', code:null, description:'Official program prospectus', fields:[], download_name:'ESSU-Prospectus', files:[{page_no:1,storage_path:null,public_url:'/forms/Prospectus-MAIT.docx',name:'Prospectus-MAIT.docx',type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}]}]);
+	if (url === '/api/forms') return Response.json([{form_id:4, title:'Prospectus', category:'Prospectus', code:null, description:'Official program prospectus', fields:[], download_name:'ESSU-Prospectus', files:[
+		{page_no:1,storage_path:null,public_url:'/forms/Prospectus-MAIT.pdf',name:'Prospectus-MAIT.pdf',type:'application/pdf'},
+		{page_no:0,storage_path:'qa/Prospectus-MAIT.docx',public_url:'/forms/Prospectus-MAIT.docx',name:'Prospectus-MAIT.docx',type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
+	]}]);
 	if (/^\/api\/students\/\d+$/.test(url)) return Response.json(students.find(student => student.user_id === Number(url.split('/').pop())));
 	throw new Error(`Unexpected fixture request: ${method} ${url}`);
 };

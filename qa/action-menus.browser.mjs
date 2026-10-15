@@ -1,4 +1,4 @@
-// Run with: node qa/action-menus.browser.mjs
+// Run with: node qa/action-menus.browser.mjs [--request-wizard-only]
 // Uses installed Vite/Svelte and headless Edge/Chrome, with no QA accounts or extra packages.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -9,6 +9,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 
 const root = process.cwd();
+const focusedRequestWizard = process.argv.includes('--request-wizard-only');
 const browserPath = process.env.QA_BROWSER_PATH ?? [
 	'C:/Program Files/Google/Chrome/Application/chrome.exe',
 	'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -19,9 +20,10 @@ const output = path.resolve('.svelte-kit/action-menu-qa');
 fs.mkdirSync(output, { recursive: true });
 const profile = fs.mkdtempSync(path.join(output, 'browser-profile-'));
 const navigation = path.resolve('qa/fixtures/action-menus/navigation.js');
+const forms = path.resolve('qa/fixtures/action-menus/forms.js');
 const server = await createServer({
 	configFile: false, root, plugins: [svelte(), tailwindcss()],
-	resolve: { alias: { '$lib': path.resolve('src/lib'), '$app/navigation': navigation, '$app/stores': navigation, '$app/environment': navigation } },
+	resolve: { alias: { '$lib': path.resolve('src/lib'), '$app/navigation': navigation, '$app/stores': navigation, '$app/environment': navigation, '$app/forms': forms } },
 	server: { host: '127.0.0.1', port: 0, watch: { ignored: ['**/.svelte-kit/**'] } }, logLevel: 'error'
 });
 await server.listen();
@@ -70,7 +72,7 @@ try {
 		return result.result.value;
 	}
 	async function waitFor(expression) {
-		for (let index = 0; index < 100; index++) {
+		for (let index = 0; index < 300; index++) {
 			if (await evaluate(expression)) return;
 			await new Promise(resolve => setTimeout(resolve, 100));
 		}
@@ -90,9 +92,15 @@ try {
 			windowsVirtualKeyCode: ({ Tab: 9, Enter: 13, Escape: 27, ' ': 32, Home: 36, End: 35, ArrowUp: 38, ArrowDown: 40 })[key] });
 		await command('Input.dispatchKeyEvent', { type: 'keyUp', key, modifiers });
 	}
+	async function mouseClick(selector, index = 0) {
+		const point = await evaluate(`(() => { const element = [...document.querySelectorAll(${JSON.stringify(selector)})].filter(item => item.getClientRects().length)[${index}]; const rect = element.getBoundingClientRect(); return {x:rect.left + rect.width / 2, y:rect.top + rect.height / 2}; })()`);
+		await command('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+		await command('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', buttons: 1, clickCount: 1 });
+		await command('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', buttons: 0, clickCount: 1 });
+	}
 	async function openRow(index) {
 		await evaluate(`(async () => {
-			window.qaTrigger = [...document.querySelectorAll('.action-buttons .row-menu-trigger')].filter(button => button.getClientRects().length)[${index}];
+			window.qaTrigger = [...document.querySelectorAll('.action-buttons .row-menu-trigger, .staff-row-actions .row-menu-trigger')].filter(button => button.getClientRects().length)[${index}];
 			qaTrigger.scrollIntoView({block: 'center', inline: 'center'});
 			await new Promise(requestAnimationFrame); qaTrigger.click();
 		})()`);
@@ -114,15 +122,74 @@ try {
 	}
 	await command('Page.enable'); await command('Runtime.enable');
 	let menuChecks = 0;
-	for (const width of [320, 375, 767, 768, 1024, 1280, 1440, 1920]) {
+	if (!focusedRequestWizard) {
+	for (const width of [320, 375, 390, 430, 767, 768, 1024, 1280, 1440, 1920]) {
 		await command('Emulation.setDeviceMetricsOverride', { width, height: 800, deviceScaleFactor: 1, mobile: false });
 		for (const view of ['staff', 'students', 'requests']) {
 			await load(view);
+			if (view === 'staff') {
+				const directory = await evaluate(`(() => {
+					const card = document.querySelector('.staff-directory');
+					const rows = [...document.querySelectorAll('.staff-row')];
+					return {
+						oneContainer: !!card && rows.length === 9 && rows.every(row => card.contains(row)),
+						noIndividualCards: !document.querySelector('.staff-member-card, .staff-card-grid'),
+						hasAdminAndStaff: [...document.querySelectorAll('.staff-role')].some(role => role.textContent.trim() === 'Admin') &&
+							[...document.querySelectorAll('.staff-role')].some(role => role.textContent.trim() === 'Staff'),
+						longEmailFits: rows[0]?.querySelector('.staff-email')?.scrollWidth <= rows[0]?.querySelector('.staff-email')?.clientWidth,
+						actionsFit: rows.every(row => {
+							const action = row.querySelector('.staff-row-actions .row-menu-trigger').getBoundingClientRect();
+							const rowRect = row.getBoundingClientRect();
+							return action.left >= rowRect.left && action.right <= rowRect.right;
+						}),
+						headerVisible: getComputedStyle(document.querySelector('.staff-table-header')).display !== 'none',
+						mobileLabelsVisible: getComputedStyle(document.querySelector('.staff-mobile-label')).display !== 'none',
+						pageOverflow: document.documentElement.scrollWidth > innerWidth
+					};
+				})()`);
+				assert(directory.oneContainer && directory.noIndividualCards, `Staff directory uses one shared container at ${width}`);
+				assert(directory.hasAdminAndStaff && directory.longEmailFits && directory.actionsFit, `Staff rows fit and retain account details at ${width}`);
+				assert(directory.headerVisible === (width >= 768) && directory.mobileLabelsVisible === (width < 768), `Staff columns adapt at ${width}`);
+				assert(!directory.pageOverflow, `Staff directory has no horizontal overflow at ${width}`);
+			}
 			if (view === 'students') {
 				await evaluate("window.qaFilterToggle = document.querySelector('.student-filter-toggle'); if (qaFilterToggle?.getClientRects().length) qaFilterToggle.click()");
 				await waitFor("!qaFilterToggle?.getClientRects().length || qaFilterToggle.getAttribute('aria-expanded') === 'true'");
 				const heights = await evaluate("[...document.querySelectorAll('.student-filter-controls select')].filter(control => control.getClientRects().length).map(control => control.getBoundingClientRect().height)");
 				assert(heights.length > 0 && heights.every(height => height >= 44), `Student filters meet touch sizing at ${width}: ${heights}`);
+				const records = await evaluate(`(() => {
+					const mobile = innerWidth < 1024;
+					const cards = [...document.querySelectorAll('.student-card')].filter(card => card.getClientRects().length);
+					const table = document.querySelector('.student-table-wrap');
+					const desktopVisible = table && getComputedStyle(table).display !== 'none';
+					const groups = [...document.querySelectorAll('.student-card-footer .action-buttons, .student-table-wrap .actions-cell .action-buttons')].filter(group => group.getClientRects().length);
+					const first = groups[0];
+					const primary = first?.querySelector('.ui-button').getBoundingClientRect();
+					const more = first?.querySelector('.row-menu-trigger').getBoundingClientRect();
+					return {
+						mobile,
+						cardsComplete: cards.length === 9 && cards.every(card => card.querySelector('.student-email') && card.querySelector('.student-card-program .program-value') &&
+							card.querySelector('.student-card-statuses [aria-label^="Email status"]') && card.querySelector('.student-card-statuses [aria-label^="ID status"]') &&
+							card.querySelector('.student-card-registered time') && card.querySelector('.student-card-footer .row-menu-trigger')),
+						emailWraps: mobile
+							? cards[0]?.querySelector('.student-email').scrollWidth <= cards[0]?.querySelector('.student-email').clientWidth
+							: [...table.querySelectorAll('.student-email')].every(email => email.scrollWidth <= email.clientWidth),
+						programWraps: mobile
+							? cards[0]?.querySelector('.student-card-program .program-value').scrollWidth <= cards[0]?.querySelector('.student-card-program .program-value').clientWidth
+							: [...table.querySelectorAll('.program-value')].every(program => program.scrollWidth <= program.clientWidth),
+						tableColumns: desktopVisible && table.querySelectorAll('thead th').length === 5 &&
+							[...table.querySelectorAll('thead th')].map(th => th.textContent.trim()).join('|') === 'Student|Program|Status|Registered|Actions',
+						actionSizing: !!primary && !!more && Math.abs(primary.width - 88) < 1 && Math.abs(more.width - 40) < 1 &&
+							Math.abs(more.left - primary.right - 12) < 1 && Math.abs(primary.height - more.height) < 1,
+						pageOverflow: document.documentElement.scrollWidth > innerWidth
+					};
+				})()`);
+				assert(records.cardsComplete === records.mobile, `Student mobile records preserve all details at ${width}`);
+				assert(records.emailWraps, `Student long email fits its card at ${width}`);
+				assert(records.programWraps, `Student long program name wraps at ${width}`);
+				assert(records.tableColumns === !records.mobile, `Student desktop table shows exactly five columns at ${width}`);
+				assert(records.actionSizing, `Student View/menu controls use the requested dimensions and 12px gap at ${width}`);
+				assert(!records.pageOverflow, `Student records do not cause page overflow at ${width}`);
 			}
 			const layout = await evaluate(`(() => {
 				const groups = [...document.querySelectorAll('.action-buttons')].filter(group => group.getClientRects().length);
@@ -138,7 +205,23 @@ try {
 			})()`);
 			assert(!layout.pageOverflow, `${view} ${width}: page overflow`);
 			assert(layout.columnWidths.every(value => Math.abs(value - 180) < 1), `${view} ${width}: column widths ${layout.columnWidths}`);
-			assert(layout.groups.every(group => group.height === group.moreHeight && group.gap === 8 && group.top === 0 && group.fits && group.aligned && group.height === (width < 768 ? 44 : 40)), `${view} ${width}: action alignment ${JSON.stringify(layout.groups)}`);
+			const expectedGap = view === 'students' ? 12 : 8;
+			assert(layout.groups.every(group => group.height === group.moreHeight && group.gap === expectedGap && group.top === 0 && group.fits && group.aligned && group.height === (width < 768 ? 44 : 40)), `${view} ${width}: action alignment ${JSON.stringify(layout.groups)}`);
+			await mouseClick('.row-menu-trigger');
+			await waitFor("document.querySelector('.row-menu-panel:popover-open') && [...document.querySelectorAll('.row-menu-trigger')].find(item => item.getClientRects().length).getAttribute('aria-expanded') === 'true'");
+			await mouseClick('.row-menu-trigger');
+			await waitFor("!document.querySelector('.row-menu-panel:popover-open') && [...document.querySelectorAll('.row-menu-trigger')].find(item => item.getClientRects().length).getAttribute('aria-expanded') === 'false'");
+			await mouseClick('.row-menu-trigger');
+			await waitFor("!!document.querySelector('.row-menu-panel:popover-open')");
+			await mouseClick('h1');
+			await waitFor("!document.querySelector('.row-menu-panel:popover-open')");
+			await mouseClick('.row-menu-trigger');
+			await waitFor("!!document.querySelector('.row-menu-panel:popover-open')");
+			await mouseClick('.row-menu-trigger', 1);
+			await waitFor("document.querySelectorAll('.row-menu-panel:popover-open').length === 1");
+			assert.equal(await evaluate("document.querySelectorAll('.row-menu-trigger[aria-expanded=true]').length"), 1, `${view} ${width}: opening another action menu closes the first`);
+			await key('Escape');
+			await waitFor("!document.querySelector('.row-menu-panel:popover-open')");
 			for (const index of [0, 4, 8]) {
 				await openRow(index); await assertMenu(`${view} ${width} row ${index}`); menuChecks++;
 				await key('Escape');
@@ -147,7 +230,7 @@ try {
 			}
 		}
 	}
-	console.log(`Passed ${menuChecks} first/middle/last-row menus across 8 widths; consistent columns, controls and no page/menu overflow.`);
+	console.log(`Passed ${menuChecks} first/middle/last-row menus across 10 widths; consistent columns, controls and no page/menu overflow.`);
 	await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 800, deviceScaleFactor: 1, mobile: false });
 	await load('students', 'Staff'); await openRow(0);
 	assert.deepEqual(await evaluate("[...document.querySelectorAll('[role=menuitem]')].filter(item => item.getAttribute('aria-disabled') === 'true').map(item => item.textContent.trim())"), ['Revoke verificationAdmin access required', 'DeleteAdmin access required']);
@@ -155,13 +238,15 @@ try {
 	assert(await evaluate("!!document.querySelector('.row-menu-panel:popover-open') && !document.querySelector('[role=dialog]')"));
 	await key('Escape');
 	await load('staff'); await openRow(0);
-	assert.equal(await evaluate("document.querySelector('[role=menuitem]').getAttribute('aria-disabled')"), 'true');
+	assert.deepEqual(await evaluate("[...document.querySelectorAll('[role=menuitem]')].map(item => item.textContent.trim())"), ['Edit'], 'Own staff account cannot be deleted from its row menu');
 	await key('Escape'); await openRow(4);
 	await evaluate("document.querySelector('[role=menuitem]').click()");
 	await waitFor("!!document.querySelector('[role=dialog]') && !document.querySelector('.row-menu-panel:popover-open')");
 	await load('staff');
-	await evaluate("[...document.querySelectorAll('.action-buttons .ui-button')].find(button => button.getClientRects().length).click()");
-	await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('Edit Staff Member')");
+	await evaluate("document.querySelector('.staff-directory-header .ui-button').click()");
+	await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('Invite Staff Member')");
+	await key('Escape');
+	await waitFor("!document.querySelector('[role=dialog]')");
 	await load('students'); await openRow(0);
 	await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent === 'Edit details').click()");
 	await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('Edit Student')");
@@ -242,6 +327,14 @@ try {
 	assert(await evaluate("(() => { const controls = [...document.querySelectorAll('.pagination-page, .pagination-arrow, .pagination-size')]; return controls.every(control => control.getBoundingClientRect().width >= 44 && control.getBoundingClientRect().height >= 44); })()"), 'Pagination controls meet touch sizing');
 	await evaluate("document.querySelector('.pagination-page[aria-label=\"Page 3\"]').click()");
 	assert.equal(await evaluate("document.querySelector('output').textContent"), 'page:3', 'Touch-sized pagination still responds to selection');
+	await load('requests');
+	const touchPoint = await evaluate("(() => { const trigger = [...document.querySelectorAll('.row-menu-trigger')].find(item => item.getClientRects().length); const rect = trigger.getBoundingClientRect(); return {x:rect.left + rect.width / 2,y:rect.top + rect.height / 2}; })()");
+	await command('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{...touchPoint, radiusX: 5, radiusY: 5, force: 1}] });
+	await command('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	await waitFor("!!document.querySelector('.row-menu-panel:popover-open')");
+	await command('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{...touchPoint, radiusX: 5, radiusY: 5, force: 1}] });
+	await command('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	await waitFor("!document.querySelector('.row-menu-panel:popover-open') && [...document.querySelectorAll('.row-menu-trigger')].find(item => item.getClientRects().length).getAttribute('aria-expanded') === 'false'");
 	await load('keyboard');
 	await evaluate("document.querySelector('[aria-label=\"Keyboard sample\"]').click()");
 	await assertMenu('Mobile long disabled reason');
@@ -257,14 +350,69 @@ try {
 	await evaluate("document.querySelector('.student-table-wrap').style.overflow = 'hidden'; document.querySelectorAll('tbody tr')[8].querySelector('.row-menu-trigger').scrollIntoView({block:'center'})");
 	await openRow(8); await assertMenu('Escapes clipped table container');
 	fs.writeFileSync(path.join(output, 'students-desktop.png'), Buffer.from((await command('Page.captureScreenshot')).data, 'base64'));
+	}
 	async function loadRevision(view) {
 		const run = String(Date.now()) + Math.random();
 		await command('Page.navigate', {url:`${origin}/qa/fixtures/action-menus/index.html?view=${view}&run=${run}`});
 		await waitFor(`window.fixtureRun === ${JSON.stringify(run)} && ` + (view === 'login' ? "!!document.querySelector('.system-title')" : `document.querySelector('h1')?.textContent === ${JSON.stringify(view)}`));
 		await evaluate('document.fonts.ready');
 	}
-	for (const width of [320, 375, 390, 430, 768, 1440]) {
+	for (const width of [320, 375, 390, 430, 768, 1024, 1280, 1440]) {
 		await command('Emulation.setDeviceMetricsOverride', {width,height:900,deviceScaleFactor:1,mobile:false});
+		await loadRevision('request-wizard');
+		const selectionStart = await evaluate(`(() => {
+			const cards = [...document.querySelectorAll('.ui-document-option')];
+			const last = cards.at(-1), footer = document.querySelector('.wizard-action-bar');
+			return {
+				cardCount: cards.length,
+				initialCount: document.querySelector('.document-selection-count')?.textContent.trim(),
+				oneBorder: cards.every(card => getComputedStyle(card).borderTopWidth === '1px'),
+				titleWraps: !!last && last.querySelector('.document-option-title').scrollWidth <= last.querySelector('.document-option-title').clientWidth,
+				requirementsShown: cards[0]?.textContent.includes('Clearance Form') && cards[1]?.textContent.includes('Valid ID'),
+				footerBelowCards: !!footer && footer.getBoundingClientRect().top >= cards.at(-1).getBoundingClientRect().bottom,
+				stepActive: document.querySelector('.ui-stepper li[aria-current="step"] .step-label')?.textContent.trim(),
+				pageOverflow: document.documentElement.scrollWidth > innerWidth
+			};
+		})()`);
+		assert.equal(selectionStart.initialCount, '0 of 5 selected', `Selection count starts at zero at ${width}`);
+		assert.equal(selectionStart.stepActive, 'Select Document', `Step 1 is active in the shared stepper at ${width}`);
+		assert(selectionStart.cardCount === 6 && selectionStart.oneBorder && selectionStart.titleWraps && selectionStart.requirementsShown && selectionStart.footerBelowCards && !selectionStart.pageOverflow,
+			`Step 1 cards and footer fit at ${width}: ${JSON.stringify(selectionStart)}`);
+		await evaluate("document.querySelector('.ui-document-option label').click()");
+		await waitFor("document.querySelector('.document-selection-count')?.textContent.trim() === '1 of 5 selected'");
+		await evaluate("[...document.querySelectorAll('.ui-document-option input[type=checkbox]')].filter(input => !input.checked).forEach(input => input.click())");
+		const selectionEnd = await evaluate(`(() => {
+			const cards = [...document.querySelectorAll('.ui-document-option')];
+			const selected = cards.filter(card => card.querySelector('input[type=checkbox]').checked);
+			return {
+				count: document.querySelector('.document-selection-count')?.textContent.trim(),
+				selectedCount: selected.length,
+				selectedConsistent: selected.every(card => card.classList.contains('is-selected')),
+				selectedSingleBorder: selected.every(card => getComputedStyle(card).borderTopWidth === '1px' && getComputedStyle(card).boxShadow === 'none'),
+				noDuplicateCheck: selected.every(card => !card.querySelector('.fa-circle-check')),
+				limitDisabled: cards.at(-1).querySelector('input[type=checkbox]').disabled,
+				footerClear: document.querySelector('.wizard-action-bar').getBoundingClientRect().top >= cards.at(-1).getBoundingClientRect().bottom,
+				pageOverflow: document.documentElement.scrollWidth > innerWidth
+			};
+		})()`);
+		assert(selectionEnd.count === '5 of 5 selected' && selectionEnd.selectedCount === 5 && selectionEnd.selectedConsistent && selectionEnd.selectedSingleBorder &&
+			selectionEnd.noDuplicateCheck && selectionEnd.limitDisabled && selectionEnd.footerClear && !selectionEnd.pageOverflow,
+			`Step 1 enforces the cap and keeps selection visuals clear at ${width}: ${JSON.stringify(selectionEnd)}`);
+		await evaluate("[...document.querySelectorAll('.wizard-action-bar .ui-button')].find(button => button.textContent.trim() === 'Next').click()");
+		await waitFor("document.body.innerText.includes('Submit Requirements') && document.querySelectorAll('.wizard-requirement').length === 2");
+		assert(await evaluate("document.querySelector('.ui-stepper li[aria-current=\"step\"] .step-label')?.textContent.trim() === 'Submit Requirements'"), `Step 2 is active in the shared stepper at ${width}`);
+		assert(await evaluate("(() => { const clearance = [...document.querySelectorAll('.wizard-requirement')].find(card => card.getAttribute('aria-label') === 'Clearance Form'); const needed = clearance?.querySelector('.requirement-needed-for')?.textContent ?? ''; const progress = document.querySelector('.wizard-progress-track'); return needed.includes('Certificate of Enrollment') && needed.includes('Comprehensive Exam Certificate') && progress?.getAttribute('aria-valuemax') === '2' && progress.getAttribute('aria-valuenow') === '0' && !!clearance?.querySelector('[aria-label=\"File status: Missing\"]') && !document.body.innerText.includes('Download form'); })()"), `Wizard keeps shared requirements unique with accurate initial progress at ${width}`);
+		const wizardLayout = await evaluate("(() => { const cards = [...document.querySelectorAll('.wizard-requirement')], picker = cards[0]?.querySelector('.picker-row'), footer = document.querySelector('.wizard-action-bar'), buttons = [...footer.querySelectorAll('.ui-button')].map(button => button.getBoundingClientRect()); return { overflow: document.documentElement.scrollWidth > innerWidth, cardCount: cards.length, pickerWidth: picker?.getBoundingClientRect().width, cardWidth: cards[0]?.getBoundingClientRect().width, buttonsSameHeight: buttons.length === 2 && buttons[0].height === buttons[1].height, buttonsSameRow: buttons.length === 2 && Math.abs(buttons[0].top - buttons[1].top) < 1 }; })()");
+		assert(wizardLayout.cardCount === 2 && wizardLayout.pickerWidth <= wizardLayout.cardWidth && wizardLayout.buttonsSameHeight && wizardLayout.buttonsSameRow && !wizardLayout.overflow, `Wizard requirement and navigation layout at ${width}: ${JSON.stringify(wizardLayout)}`);
+		await evaluate("(() => { const input = document.querySelector('.wizard-requirement input[type=file]'); const transfer = new DataTransfer(); transfer.items.add(new File(['valid sample'], 'clearance.jpg', {type:'image/jpeg'})); input.files = transfer.files; input.dispatchEvent(new Event('change', {bubbles:true})); })()");
+		await waitFor("document.querySelector('.wizard-progress-track')?.getAttribute('aria-valuenow') === '1'");
+		assert(await evaluate("document.body.innerText.includes('1 of 2 required files selected') && document.body.innerText.includes('1 remaining') && document.querySelector('.wizard-requirement [aria-label=\"File status: Selected\"]') && document.body.innerText.includes('clearance.jpg') && !document.body.innerText.includes('Uploaded')"), `Wizard selected-file state is not reported as uploaded at ${width}`);
+		await evaluate("(() => { const input = [...document.querySelectorAll('.wizard-requirement input[type=file]')][1]; const transfer = new DataTransfer(); transfer.items.add(new File(['valid sample'], 'id.jpg', {type:'image/jpeg'})); input.files = transfer.files; input.dispatchEvent(new Event('change', {bubbles:true})); })()");
+		await waitFor("document.querySelector('.wizard-progress-track')?.getAttribute('aria-valuenow') === '2'");
+		assert(await evaluate("!document.querySelector('.wizard-action-bar .wizard-next-button').disabled"), `Wizard enables Next after all requirement files are selected at ${width}`);
+		await evaluate("document.querySelector('.wizard-action-bar .wizard-next-button').click()");
+		await waitFor("document.querySelector('.ui-stepper li[aria-current=\"step\"] .step-label')?.textContent.trim() === 'Review & Submit'");
+		if (focusedRequestWizard) continue;
 		await loadRevision('login');
 		assert(await evaluate(`(() => {
 			const title = document.querySelector('.system-title'), tagline = document.querySelector('.story-copy h2');
@@ -311,8 +459,8 @@ try {
 		await waitFor("!document.body.innerText.includes('Loading document details')");
 		await evaluate("window.fixturePreviewDelay = 300; [...document.querySelectorAll('.request-header .ui-button')].find(button => button.textContent.trim() === 'View').click()");
 		await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('Loading document preview')");
-		await waitFor("!!document.querySelector('[role=dialog] iframe[src^=blob]')");
-		assert(await evaluate("document.querySelector('[role=dialog] iframe').getBoundingClientRect().width <= innerWidth"));
+		await waitFor("!!document.querySelector('[role=dialog] .pdf-viewer canvas')");
+		assert(await evaluate("(() => { const dialog = document.querySelector('[role=dialog]'), viewer = dialog.querySelector('.pdf-viewer'), canvas = viewer.querySelector('canvas'); return !viewer.querySelector('iframe,embed,object') && canvas.getBoundingClientRect().width <= viewer.clientWidth && viewer.scrollHeight >= viewer.clientHeight; })()"), 'Document PDF uses the in-app PDF.js viewer without native embed UI');
 		await key('Escape');
 		await evaluate("[...document.querySelectorAll('.request-header .ui-button')].find(button => button.textContent.trim() === 'Download document').click()");
 		await waitFor("window.fixtureDownload === 'Enrollment.pdf'");
@@ -320,7 +468,14 @@ try {
 		await waitFor("document.querySelector('[role=dialog]')?.textContent.includes('Document unavailable')");
 		await key('Escape');
 		await loadRevision('forms'); await waitFor("!!document.querySelector('.form-library-card')");
-		assert(await evaluate("(() => { const actions = [...document.querySelectorAll('.library-primary-actions .ui-button, .library-primary-actions .row-menu-trigger')]; const rects = actions.map(button => button.getBoundingClientRect()); const formats = document.querySelector('.library-format-list').textContent; return formats.includes('PDF') && formats.includes('Preview PDF') && !formats.includes('DOCX') && rects.length === 2 && Math.abs(rects[0].width - rects[1].width) < 1 && Math.abs(rects[0].height - rects[1].height) < 1 && document.querySelectorAll('.library-secondary-actions .row-menu-trigger').length === 0; })()"));
+		await evaluate("(() => { const input = document.querySelector('.library-search input'); input.value = 'no matching form'; input.dispatchEvent(new Event('input', {bubbles:true})); })()");
+		await waitFor("document.body.innerText.includes('No forms found')");
+		await evaluate("(() => { const input = document.querySelector('.library-search input'); input.value = ''; input.dispatchEvent(new Event('input', {bubbles:true})); const category = document.querySelector('.library-category-filter select'); category.value = 'Prospectus'; category.dispatchEvent(new Event('change', {bubbles:true})); })()");
+		await waitFor("!!document.querySelector('.form-library-card')");
+		assert(await evaluate("document.querySelectorAll('.form-library-card').length === 1 && (() => { const search = document.querySelector('.library-search input').getBoundingClientRect(), category = document.querySelector('.library-category-filter select').getBoundingClientRect(); return search.height === 48 && category.height === 48 && document.documentElement.scrollWidth <= innerWidth; })()"), `Forms search and category filters remain responsive at ${width}`);
+		await evaluate("document.querySelector('.library-category-filter select').value = 'All categories'; document.querySelector('.library-category-filter select').dispatchEvent(new Event('change', {bubbles:true}))");
+		await waitFor("!!document.querySelector('.form-library-card')");
+		assert(await evaluate("(() => { const actions = [...document.querySelectorAll('.library-primary-actions .ui-button, .library-primary-actions .row-menu-trigger')]; const rects = actions.map(button => button.getBoundingClientRect()); return !document.querySelector('.library-meta, .library-format-list, .library-file-type') && rects.length === 2 && Math.abs(rects[0].width - rects[1].width) < 1 && rects.every(rect => rect.height === 44 && Math.abs(rect.top - rects[0].top) < 1) && document.querySelector('.library-view-button').getAttribute('aria-label') === 'View PDF' && document.querySelectorAll('.library-management-trigger').length === 0; })()"), `Student form cards keep View/Download aligned at 44px at ${width}`);
 		await evaluate("document.querySelector('.library-download-trigger').click()");
 		await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Download PDF').click()");
 		await waitFor("window.fixtureDownload?.endsWith('.pdf')");
@@ -341,8 +496,15 @@ try {
 		await key('Escape');
 		await evaluate("window.fixtureMissingPdf = false");
 		await loadRevision('forms-admin'); await waitFor("!!document.querySelector('.form-library-card')");
-		assert(await evaluate("document.querySelectorAll('.library-secondary-actions .row-menu-trigger').length === 1"), 'Admin actions remain in their separate three-dot menu');
+		assert(await evaluate("document.querySelector('.page-toolbar')?.textContent.includes('Official forms library') && [...document.querySelectorAll('.page-toolbar .ui-button')].some(button => button.textContent.includes('Add form'))"), 'Admin Forms toolbar retains its heading and Add Form action');
+		assert(await evaluate("(() => { const actions = [...document.querySelectorAll('.library-primary-actions .ui-button, .library-primary-actions .row-menu-trigger')]; const rects = actions.map(button => button.getBoundingClientRect()); return actions.length === 3 && rects.every(rect => rect.height === 44 && Math.abs(rect.top - rects[0].top) < 1) && Math.abs(rects[2].width - 44) < 1 && Math.abs(rects[1].left - rects[0].right - 8) < 1 && Math.abs(rects[2].left - rects[1].right - 8) < 1 && document.querySelectorAll('.library-management-trigger').length === 1; })()"), `Admin View/Download/management actions share one 44px row at ${width}`);
+		await evaluate("document.querySelector('.library-management-trigger').click()");
+		await waitFor("!!document.querySelector('.row-menu-panel:popover-open')");
+		assert(await evaluate("[...document.querySelectorAll('[role=menuitem]')].some(item => item.textContent.trim() === 'Edit') && [...document.querySelectorAll('[role=menuitem]')].some(item => item.textContent.trim() === 'Delete') && ![...document.querySelectorAll('[role=menuitem]')].some(item => item.textContent.includes('Download'))"), 'Admin menu retains Edit/Delete and stays separate from downloads');
+		await key('Escape');
+		await waitFor("!document.querySelector('.row-menu-panel:popover-open')");
 		await evaluate("document.querySelector('.library-download-trigger').click()");
+		assert(await evaluate("![...document.querySelectorAll('[role=menuitem]')].some(item => ['Edit','Delete'].includes(item.textContent.trim()))"), 'Admin download dropdown excludes management actions');
 		await evaluate("[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Download DOCX').click()");
 		await waitFor("window.fixtureDownload?.endsWith('.docx')");
 		await evaluate("document.querySelector('.library-view-button').click()");
@@ -350,13 +512,17 @@ try {
 		await key('Escape');
 		assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `Forms overflow at ${width}`);
 	}
-	await command('Emulation.setDeviceMetricsOverride', {width:1440,height:900,deviceScaleFactor:1,mobile:false});
-	await loadRevision('archived'); await waitFor("!!document.querySelector('.request-table-wrap tbody tr')");
-	assert(await evaluate("document.body.innerText.includes('Archived Requests') && document.querySelector('.request-table-wrap .status-chip').textContent.includes('Rejected')"));
-	await openRow(0); assert.equal(await evaluate("document.querySelectorAll('[role=menuitem][aria-disabled=true]').length"),2);
-	console.log('Passed cancellation/archive confirmation, saved state and failure recovery; login placement and document/form preview/download at mobile, tablet and desktop; archived view retains the original status.');
+	if (!focusedRequestWizard) {
+		await command('Emulation.setDeviceMetricsOverride', {width:1440,height:900,deviceScaleFactor:1,mobile:false});
+		await loadRevision('archived'); await waitFor("!!document.querySelector('.request-table-wrap tbody tr')");
+		assert(await evaluate("document.body.innerText.includes('Archived Requests') && document.querySelector('.request-table-wrap .status-chip').textContent.includes('Rejected')"));
+		await openRow(0); assert.equal(await evaluate("document.querySelectorAll('[role=menuitem][aria-disabled=true]').length"),2);
+		console.log('Passed cancellation/archive confirmation, saved state and failure recovery; login placement and document/form preview/download at mobile, tablet and desktop; archived view retains the original status.');
+	} else {
+		console.log('Passed request wizard selection, requirement, footer and stepper checks at all configured widths.');
+	}
 	assert.equal(errors.length, 0, JSON.stringify(errors));
-	console.log('Passed keyboard arrows, Home/End, typeahead, Enter/Space, Tab/Shift+Tab, Escape/focus, outside click, one menu at a time, long labels, touch, scroll/resize and clipped-parent checks.');
+	if (!focusedRequestWizard) console.log('Passed keyboard arrows, Home/End, typeahead, Enter/Space, Tab/Shift+Tab, Escape/focus, outside click, one menu at a time, long labels, touch, scroll/resize and clipped-parent checks.');
 } finally {
 	socket?.close(); browser.kill(); await server.close();
 }

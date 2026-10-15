@@ -142,14 +142,6 @@
 	function previewImageFiles(form: FormRecord) { return previewPages(form).filter((file) => file.type.startsWith('image/')); }
 	function editableFilesFor(form: FormRecord) { return form.files.filter((file) => !isPreview(file.name)); }
 	function hasPdfDownload(form: FormRecord) { return form.files.some((file) => isPdfName(file.name) || (!file.storage_path && bundledFormPdf(file.public_url))); }
-	function availableFormats(form: FormRecord) {
-		return [...new Set([
-			...(hasPdfDownload(form) ? ['PDF'] : []),
-			...(previewPdfSources(form).length ? ['Preview PDF'] : []),
-			...(canManage ? editableFilesFor(form).map((file) => extension(file.name).toUpperCase()) : []),
-			...(canManage && previewImageFiles(form).length ? ['Preview images'] : [])
-		])];
-	}
 	function downloadEditable(form: FormRecord, file: FormFile) { download(file.public_url, outputName(form, file)); }
 	function downloadPreviewPdfs(form: FormRecord) {
 		for (const source of previewPdfSources(form)) void download(source.url, outputName(form, { ...source.file, name: 'form.pdf' }));
@@ -232,7 +224,7 @@
 
 <svelte:head><title>Forms | Portal</title></svelte:head>
 <div class="space-y-5">
-	{#snippet downloadTrigger()}<span class="library-download-label"><i class="fa-solid fa-download" aria-hidden="true"></i>Download<i class="fa-solid fa-chevron-down library-download-chevron" aria-hidden="true"></i></span>{/snippet}
+	{#snippet downloadTrigger()}<span class="library-download-label"><i class="fa-solid fa-download" aria-hidden="true"></i><span>Download</span><i class="fa-solid fa-chevron-down library-download-chevron" aria-hidden="true"></i></span>{/snippet}
 	{#if canManage}<header class="page-toolbar flex flex-wrap items-center justify-between gap-4"><p class="text-sm text-gray-500">Official forms library</p><Button onclick={() => openEditor()} icon="fa-solid fa-plus">Add form</Button></header>{/if}
 	<div class="library-filters"><label class="library-search"><span class="sr-only">Search forms</span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input bind:value={query} placeholder="Search forms" /></label><label class="library-category-filter"><span class="sr-only">Filter by category</span><select bind:value={category}>{#each categories as item}<option>{item}</option>{/each}</select></label></div>
 	{#if loading}<div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3" aria-live="polite">{#each [1, 2, 3, 4] as _}<Card><Skeleton variant="text" lines={3} label="Loading form" /></Card>{/each}</div>
@@ -242,17 +234,13 @@
 	{:else}<div class="library-grid grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">{#each filtered as form (form.form_id)}
 		<Card class="form-library-card" hover>
 			<div class="library-card-heading"><span class="library-category">{form.category}</span>{#if form.code}<span class="library-code">{form.code}</span>{/if}</div>
-			<h3 class="library-title">{form.title}</h3><p class="library-description">{form.description}</p>{#if pdfErrorFor === form.form_id}<p role="alert" class="mt-2 text-sm text-red-700">{pdfError}</p>{/if}
-			<p class="library-meta">{hasPdfDownload(form) ? 'PDF preview available' : 'PDF preview unavailable'}</p>
+			<h3 class="library-title">{form.title}</h3><p class="library-description" title={form.description}>{form.description}</p>{#if pdfErrorFor === form.form_id}<p role="alert" class="mt-2 text-sm text-red-700">{pdfError}</p>{/if}
 			{#snippet footer()}
 				<div class="library-card-footer">
-					<div class="library-primary-actions">
-						<Button variant="secondary" onclick={() => void viewForm(form)} icon="fa-solid fa-eye" class="library-view-button">View</Button>
+					<div class="library-primary-actions" class:has-management-menu={canManage}>
+						<Button variant="secondary" ariaLabel="View PDF" onclick={() => void viewForm(form)} icon="fa-solid fa-eye" class="library-view-button">View</Button>
 						<RowMenu label={'Download options for ' + form.title} items={downloadItems(form)} triggerContent={downloadTrigger} triggerClass="library-download-trigger" loading={pdfBusy === form.form_id} disabled={downloadItems(form).length === 0} />
-					</div>
-					<div class="library-secondary-actions">
-						<div class="library-format-list" aria-label="Available file formats">{#each availableFormats(form) as format}<span class="library-file-type">{format}</span>{/each}</div>
-						{#if canManage}<RowMenu label={'Administrative actions for ' + form.title} items={[{label: 'Edit', onselect: () => openEditor(form)}, {label: 'Delete', danger: true, onselect: () => { deleting = form; deleteOpen = true; }}]} />{/if}
+						{#if canManage}<RowMenu label={'Administrative actions for ' + form.title} items={[{label: 'Edit', onselect: () => openEditor(form)}, {label: 'Delete', danger: true, onselect: () => { deleting = form; deleteOpen = true; }}]} triggerClass="library-management-trigger" />{/if}
 					</div>
 				</div>
 			{/snippet}
@@ -320,22 +308,21 @@
 	.library-grid { align-items: stretch; }
 	.library-grid > :global(.form-library-card) { min-width: 0; }
 	.library-card-heading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
-	.library-category, .library-file-type { display: inline-flex; max-width: 100%; align-items: center; overflow-wrap: anywhere; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-primary-soft); color: var(--color-primary); font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); line-height: var(--line-height); }
-	.library-code, .library-meta { color: var(--color-text-muted); font-size: var(--font-size-helper); }
+	.library-category { display: inline-flex; max-width: 100%; align-items: center; overflow-wrap: anywhere; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-primary-soft); color: var(--color-primary); font-size: var(--font-size-helper); font-weight: var(--font-weight-medium); line-height: var(--line-height); }
+	.library-code { color: var(--color-text-muted); font-size: var(--font-size-helper); }
 	.library-title { min-width: 0; margin: 0; color: var(--color-text); font-size: var(--font-size-card-title); font-weight: var(--font-weight-semibold); line-height: var(--line-height); overflow-wrap: anywhere; }
 	.library-description { display: -webkit-box; min-width: 0; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; margin: var(--space-3) 0; color: var(--color-text-muted); font-size: var(--font-size-body); line-height: var(--line-height); }
-	.library-meta { margin: 0 0 var(--space-4); }
-	.library-card-footer { display: grid; gap: var(--space-3); width: 100%; }
-	.library-primary-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); width: 100%; }
+	.library-card-footer { display: block; width: 100%; }
+	.library-primary-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; width: 100%; min-width: 0; }
+	.library-primary-actions.has-management-menu { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; }
 	.library-primary-actions :global(.button-tooltip), .library-primary-actions :global(.row-menu) { display: flex; min-width: 0; width: 100%; }
-	.library-primary-actions :global(.ui-button), .library-primary-actions :global(.row-menu-trigger) { width: 100%; height: 46px; min-width: 0; min-height: 46px; padding-inline: var(--space-2); border-radius: var(--radius-control); font-size: var(--font-size-body); white-space: nowrap; }
+	.library-primary-actions :global(.ui-button), .library-primary-actions :global(.row-menu-trigger) { box-sizing: border-box; width: 100%; height: 44px; min-width: 0; min-height: 44px; padding-inline: var(--space-2); border-radius: var(--radius-control); font-size: var(--font-size-body); white-space: nowrap; }
 	.library-primary-actions :global(.library-download-trigger) { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-surface); }
 	.library-primary-actions :global(.library-download-trigger:hover:not(:disabled)) { border-color: var(--color-primary-hover); background: var(--color-primary-hover); }
 	.library-download-label { display: flex; min-width: 0; align-items: center; justify-content: center; gap: var(--space-2); }
-	.library-download-chevron { margin-left: auto; font-size: 0.7em; }
-	.library-secondary-actions { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--space-2); }
-	.library-format-list { display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-1); }
-	.library-file-type { padding-block: 0; background: var(--color-bg); color: var(--color-text-muted); }
+	.library-download-label > span { min-width: 0; }
+	.library-download-chevron { font-size: 0.7em; }
+	.library-primary-actions :global(.library-management-trigger) { width: 44px; min-width: 44px; padding-inline: 0; }
 	.library-preview-content { display: grid; min-width: 0; gap: var(--space-3); }
 	.library-preview-content > p { flex: 0 0 auto; }
 	.library-preview-content :global(.pdf-viewer) { flex: 1 1 auto; width: 100%; height: clamp(320px, 62dvh, 760px); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
@@ -376,8 +363,10 @@
 	}
 	@media (max-width: 380px) {
 		:global(.form-library-card.ui-card) { padding: var(--space-4); }
-		.library-primary-actions { gap: var(--space-2); }
-		.library-primary-actions :global(.ui-button), .library-primary-actions :global(.row-menu-trigger) { padding-inline: var(--space-1); font-size: var(--font-size-helper); }
+		.library-primary-actions :global(.library-view-button .button-label) { font-size: 0; }
+		.library-primary-actions :global(.library-view-button .button-label i) { font-size: var(--font-size-body); }
+		.library-download-label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+		.library-download-label { gap: var(--space-2); }
 	}
 	@media (max-width: 599px) {
 		.library-filters { grid-template-columns: minmax(0, 1fr); }

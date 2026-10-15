@@ -17,6 +17,7 @@
 	let pageObserver: IntersectionObserver | null = null;
 	let resizeObserver: ResizeObserver | null = null;
 	let observedWidth = 0;
+	const visiblePages = new Set<number>();
 	const renderTasks = new Map<number, RenderTask>();
 	const renderedWidths = new Map<number, number>();
 
@@ -44,6 +45,7 @@
 		for (const task of renderTasks.values()) task.cancel();
 		renderTasks.clear();
 		renderedWidths.clear();
+		visiblePages.clear();
 		const task = loadingTask;
 		loadingTask = null;
 		pdf = null;
@@ -59,10 +61,12 @@
 		const root = viewer;
 		const slot = root?.querySelector<HTMLElement>(`[data-pdf-page="${pageNumber}"]`);
 		if (!documentProxy || !root || !slot || current !== generation || renderTasks.has(pageNumber)) return;
-		const availableWidth = Math.max(1, root.clientWidth - 20);
+		const availableWidth = Math.floor(root.clientWidth - 20);
+		if (availableWidth < 80) return;
 		if (renderedWidths.get(pageNumber) === availableWidth && slot.querySelector('canvas')) return;
 
 		let page: PDFPageProxy | null = null;
+		let activeRenderTask: RenderTask | null = null;
 		try {
 			page = await documentProxy.getPage(pageNumber);
 			if (current !== generation || !slot.isConnected) return;
@@ -89,6 +93,7 @@
 				canvasContext: context,
 				viewport: page.getViewport({ scale: scale * outputScale })
 			});
+			activeRenderTask = renderTask;
 			renderTasks.set(pageNumber, renderTask);
 			await renderTask.promise;
 			if (current === generation && slot.isConnected) renderedWidths.set(pageNumber, availableWidth);
@@ -98,7 +103,7 @@
 			}
 		} finally {
 			page?.cleanup();
-			renderTasks.delete(pageNumber);
+			if (renderTasks.get(pageNumber) === activeRenderTask) renderTasks.delete(pageNumber);
 		}
 	}
 
@@ -110,23 +115,34 @@
 				for (const entry of entries) {
 					const slot = entry.target as HTMLElement;
 					const pageNumber = Number(slot.dataset.pdfPage);
-					if (entry.isIntersecting) void renderPage(pageNumber, current);
-					else releasePage(pageNumber, slot);
+					if (entry.isIntersecting) {
+						visiblePages.add(pageNumber);
+						void renderPage(pageNumber, current);
+					} else {
+						visiblePages.delete(pageNumber);
+						releasePage(pageNumber, slot);
+					}
 				}
 			}, { root: viewer, rootMargin: '1000px 0px' });
 			viewer.querySelectorAll<HTMLElement>('[data-pdf-page]').forEach((slot) => pageObserver?.observe(slot));
+			if (pages.length) {
+				visiblePages.add(1);
+				void renderPage(1, current);
+			}
 		} else {
 			for (const pageNumber of pages) void renderPage(pageNumber, current);
 		}
 		resizeObserver?.disconnect();
 		resizeObserver = new ResizeObserver((entries) => {
 			if (!entries.length || current !== generation) return;
-			const width = Math.floor(entries[0].contentRect.width);
-			if (observedWidth && Math.abs(width - observedWidth) > 2) {
+			const width = Math.floor((viewer?.clientWidth ?? entries[0].contentRect.width) - 20);
+			if (Math.abs(width - observedWidth) > 2) {
 				observedWidth = width;
-				for (const pageNumber of renderedWidths.keys()) {
+				for (const pageNumber of visiblePages) {
 					const slot = viewer?.querySelector<HTMLElement>(`[data-pdf-page="${pageNumber}"]`);
-					if (slot) {
+					if (!slot) continue;
+					if (width < 80) releasePage(pageNumber, slot);
+					else if (renderedWidths.get(pageNumber) !== width) {
 						releasePage(pageNumber, slot);
 						void renderPage(pageNumber, current);
 					}
@@ -173,7 +189,7 @@
 	});
 </script>
 
-<div class="pdf-viewer" bind:this={viewer} role="region" aria-label="PDF preview pages" aria-busy={loading} tabindex="0">
+<div class="pdf-viewer" bind:this={viewer} role="region" aria-label="PDF preview pages" aria-busy={loading}>
 	{#if loading}
 		<p class="pdf-viewer-state" role="status">Loading PDF preview...</p>
 	{:else if error}
@@ -189,8 +205,8 @@
 </div>
 
 <style>
-	.pdf-viewer { display: grid; min-width: 0; min-height: 0; align-content: start; justify-items: center; gap: var(--space-3); overflow: auto; overscroll-behavior: contain; padding: var(--space-2); background: var(--color-bg); scrollbar-gutter: stable; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
-	.pdf-page { width: 100%; max-width: 100%; aspect-ratio: 0.773 / 1; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); box-shadow: var(--shadow-card); }
+	.pdf-viewer { display: flex; min-width: 0; min-height: 0; flex-direction: column; align-items: center; gap: var(--space-3); overflow: auto; overscroll-behavior: contain; padding: var(--space-2); background: var(--color-bg); scrollbar-gutter: stable; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+	.pdf-page { position: relative; flex: 0 0 auto; width: 100%; max-width: 100%; aspect-ratio: 0.773 / 1; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); box-shadow: var(--shadow-card); }
 	.pdf-page canvas { display: block; max-width: 100%; height: auto !important; margin-inline: auto; }
 	.pdf-viewer-state, .pdf-viewer-error { margin: auto; color: var(--color-text-muted); text-align: center; }
 	.pdf-viewer-error { display: grid; justify-items: center; gap: var(--space-3); }
