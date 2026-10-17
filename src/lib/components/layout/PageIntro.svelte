@@ -9,6 +9,7 @@
 		'/student/request': 'Choose your documents. We will guide you through the requirements.',
 		'/student/forms': 'Preview official forms before downloading, completing and submitting them with your request.',
 		'/student/notifications': 'Stay up to date with decisions and messages from the office.',
+		'/student/help': 'A practical guide to requesting documents, uploading requirements and tracking updates.',
 		'/student/profile': 'Keep your personal and academic information up to date.',
 		'/staff/dashboard': 'See what needs attention and keep document requests moving.',
 		'/staff/requests': 'Review requirements, follow up on corrections and record when documents are released.',
@@ -23,9 +24,11 @@
 	};
 	const description = $derived(descriptions[$page.url.pathname] ?? 'Review the details, requirements and request history.');
 	const isStudentDocuments = $derived(role === 'student' && $page.url.pathname === '/student/documents');
+	const isStudentHelp = $derived(role === 'student' && $page.url.pathname === '/student/help');
 	const headerIcon = $derived(
 		$page.url.pathname.includes('reports') ? 'fa-solid fa-chart-simple'
 		: $page.url.pathname.includes('notifications') ? 'fa-regular fa-bell'
+		: $page.url.pathname.includes('help') ? 'fa-solid fa-circle-question'
 		: $page.url.pathname.includes('profile') ? 'fa-solid fa-user-gear'
 		: $page.url.pathname === '/staff/staff' ? 'fa-solid fa-user-tie'
 		: $page.url.pathname.includes('students') ? 'fa-solid fa-user-graduate'
@@ -36,7 +39,7 @@
 		: 'fa-solid fa-chart-line'
 	);
 	const headerVariant = $derived(
-		$page.url.pathname.endsWith('/dashboard') || isStudentDocuments ? 'dashboard' : 'default'
+		$page.url.pathname.endsWith('/dashboard') || isStudentDocuments || isStudentHelp ? 'dashboard' : 'default'
 	);
 </script>
 

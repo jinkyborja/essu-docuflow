@@ -5,6 +5,7 @@
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import TopBar from '$lib/components/layout/TopBar.svelte';
 	import PageIntro from '$lib/components/layout/PageIntro.svelte';
+	import StudentTutorial from '$lib/components/student/StudentTutorial.svelte';
 	import { page, navigating } from '$app/stores';
 	import LoadingState from '$lib/components/ui/LoadingState.svelte';
 	import { sidebarCollapsed, sidebarMobileOpen } from '$lib/stores/sidebar';
@@ -28,6 +29,7 @@
 		{ label: 'Request Document', icon: 'fa-solid fa-file-circle-plus', href: '/student/request', locked: data.layoutUser.idStatus !== 'verified', lockedReason: 'Available after your ID is verified' },
 		{ label: 'Forms',            icon: 'fa-solid fa-file-lines',       href: '/student/forms' },
 		{ label: 'Notifications',    icon: 'fa-regular fa-bell',           href: '/student/notifications', badge: unread },
+		{ label: 'Tutorial & Help',  icon: 'fa-solid fa-circle-question',  href: '/student/help' },
 		{ label: 'My Profile',       icon: 'fa-solid fa-circle-user',      href: '/student/profile' }
 	]);
 
@@ -37,6 +39,7 @@
 		'/student/request': 'Request Document',
 		'/student/forms': 'Forms',
 		'/student/notifications': 'Notifications',
+		'/student/help': 'Tutorial & Help',
 		'/student/profile': 'My Profile'
 	};
 
@@ -68,3 +71,4 @@
 		</main>
 	</div>
 </div>
+<StudentTutorial userId={data.userId} />

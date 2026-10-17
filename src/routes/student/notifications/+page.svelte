@@ -129,7 +129,7 @@
 	const notificationGroups = $derived([{ label: 'Today', items: paginated.filter(notif => todayIds.has(notif.id)) }, { label: 'Earlier', items: paginated.filter(notif => !todayIds.has(notif.id)) }]);
 </script>
 
-<div class="student-notifications">
+<div class="student-notifications" data-student-tour="student-notifications" tabindex="-1">
 	<div class="notification-toolbar">
 		<div class="notification-filters" aria-label="Notification types">{#each filterOptions as opt}<Button variant="secondary" ariaPressed={activeFilter === opt} class={activeFilter === opt ? 'notification-filter selected' : 'notification-filter'} onclick={() => { activeFilter = opt; currentPage = 1; }}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</Button>{/each}</div>
 		<div class="notification-controls"><span class="notification-total"><i class="fa-regular fa-bell" aria-hidden="true"></i>{notifications.length} total{#if unreadCount > 0} · {unreadCount} unread{/if}</span><label class="notification-search"><span class="sr-only">Search notifications</span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" bind:value={search} placeholder="Search notifications…" oninput={() => currentPage = 1} /></label>{#if unreadCount > 0}<Button variant="secondary" icon="fa-solid fa-check-double" onclick={() => void markAllNotificationsRead()}>Mark all as read</Button>{/if}</div>

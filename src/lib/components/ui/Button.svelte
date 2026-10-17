@@ -17,6 +17,7 @@
 		ariaExpanded?: boolean;
 		ariaPressed?: boolean;
 		ariaControls?: string;
+		dataTour?: string;
 		icon?: string;
 		iconRight?: boolean;
 		class?: string;
@@ -27,7 +28,7 @@
 	const {
 		variant = 'primary', size = 'md', type = 'button', disabled = false,
 		loading = false, loadingLabel, disabledReason = '', href, form, id, title,
-		ariaLabel, ariaExpanded, ariaPressed, ariaControls, icon, iconRight = false, class: extraClass = '', onclick, children
+		ariaLabel, ariaExpanded, ariaPressed, ariaControls, dataTour, icon, iconRight = false, class: extraClass = '', onclick, children
 	}: Props = $props();
 	const tooltipId = $props.id();
 </script>
@@ -51,9 +52,9 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex (The wrapper makes a disabled reason available to keyboard users.) -->
 <span class="button-tooltip" role={disabled && disabledReason ? 'group' : undefined} aria-label={disabled && disabledReason ? disabledReason : undefined} tabindex={disabled && disabledReason ? 0 : undefined} aria-describedby={disabled && disabledReason ? tooltipId : undefined} title={disabled && disabledReason ? disabledReason : undefined}>
 	{#if href}
-		<a {id} href={disabled || loading ? undefined : href} role={disabled || loading ? 'link' : undefined} tabindex={disabled || loading ? -1 : undefined} aria-disabled={disabled || loading} aria-busy={loading} aria-label={ariaLabel} aria-expanded={ariaExpanded} aria-pressed={ariaPressed} aria-controls={ariaControls} title={title ?? ariaLabel} onclick={(event) => { if (disabled || loading) event.preventDefault(); else onclick?.(event); }} class="ui-button variant-{variant} size-{size} {extraClass}">{@render content()}</a>
+		<a {id} data-student-tour={dataTour} href={disabled || loading ? undefined : href} role={disabled || loading ? 'link' : undefined} tabindex={disabled || loading ? -1 : undefined} aria-disabled={disabled || loading} aria-busy={loading} aria-label={ariaLabel} aria-expanded={ariaExpanded} aria-pressed={ariaPressed} aria-controls={ariaControls} title={title ?? ariaLabel} onclick={(event) => { if (disabled || loading) event.preventDefault(); else onclick?.(event); }} class="ui-button variant-{variant} size-{size} {extraClass}">{@render content()}</a>
 	{:else}
-		<button {id} {type} {form} disabled={disabled || loading} aria-busy={loading} aria-label={ariaLabel} aria-expanded={ariaExpanded} aria-pressed={ariaPressed} aria-controls={ariaControls} title={disabled && disabledReason ? disabledReason : title ?? ariaLabel} {onclick} class="ui-button variant-{variant} size-{size} {extraClass}">{@render content()}</button>
+		<button {id} data-student-tour={dataTour} {type} {form} disabled={disabled || loading} aria-busy={loading} aria-label={ariaLabel} aria-expanded={ariaExpanded} aria-pressed={ariaPressed} aria-controls={ariaControls} title={disabled && disabledReason ? disabledReason : title ?? ariaLabel} {onclick} class="ui-button variant-{variant} size-{size} {extraClass}">{@render content()}</button>
 	{/if}
 	{#if disabled && disabledReason}<span id={tooltipId} role="tooltip" class="reason-tooltip">{disabledReason}</span>{/if}
 </span>

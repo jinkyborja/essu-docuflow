@@ -101,7 +101,7 @@
 	</div>
 {/snippet}
 
-<div class="space-y-6">
+<div class="space-y-6" data-student-tour="student-documents" tabindex="-1">
 	{#if catalogLoading && requests.length}<LoadingState label="Loading document details…" />{/if}
 	{#if refreshError}<div role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800"><p>Your files were saved. {refreshError} Refresh the list to see the latest status.</p><Button variant="secondary" onclick={refreshRequests}>Refresh requests</Button></div>{/if}
 	{#if catalogError}<LoadError message="We couldn’t load document details. Your request requirements are listed below." onretry={loadCatalog} />{/if}

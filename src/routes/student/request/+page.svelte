@@ -10,14 +10,14 @@
 	import RequirementFilePicker from '$lib/components/ui/RequirementFilePicker.svelte';
 	import FilePreview from '$lib/components/ui/FilePreview.svelte';
 	import StatusChip from '$lib/components/ui/StatusChip.svelte';
-	import { goto } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { requestPurposes } from '$lib/data/purposes';
 	import type { PageData } from './$types';
 	const { data }: { data: PageData } = $props();
 	type Requirement = { form_id?: number | null; needs_signature?: boolean | null; signature_note?: string | null; form_title?: string | null; form_files?: Array<{ public_url: string; name: string; page_no: number }>; name: string; description: string; in_person: boolean };
 	type DocOption = { document_id: number; name: string; template_path: string | null; template_name: string | null; requirements: Requirement[] };
 	const documents = data.documents as DocOption[];
-	const steps = [{ label: 'Select Document', icon: 'fa-solid fa-file' }, { label: 'Submit Requirements', icon: 'fa-solid fa-upload' }, { label: 'Review & Submit', icon: 'fa-solid fa-eye' }];
+	const steps = [{ label: 'Select Document', icon: 'fa-solid fa-file', tourTarget: 'request-select-document' }, { label: 'Submit Requirements', icon: 'fa-solid fa-upload', tourTarget: 'request-requirements-step' }, { label: 'Review & Submit', icon: 'fa-solid fa-eye', tourTarget: 'request-review-step' }];
 	const maxDocuments = 5;
 	let currentStep = $state(1);
 	let selectedDocs = $state<DocOption[]>([]);
@@ -26,6 +26,7 @@
 	let submitting = $state(false);
 	let submitError = $state('');
 	let successOpen = $state(false);
+	let submitConfirmOpen = $state(false);
 	let submittedId = $state('');
 	let templatePreviewOpen = $state(false);
 	let templatePreviewPath = $state('');
@@ -52,6 +53,15 @@
 	const selectionProgress = $derived(requiredFileCount ? Math.round((selectedFileCount / requiredFileCount) * 100) : 0);
 	const nextReason = $derived(currentStep === 1 ? 'Select at least one document' : `Upload ${missingCount} more ${pluralize(missingCount, 'file')}`);
 	const canProceed = $derived(currentStep === 1 ? selectedDocs.length > 0 : currentStep === 2 ? missingCount === 0 : !!purpose.trim() && missingCount === 0);
+	const hasUnsavedProgress = $derived(selectedDocs.length > 0 || Object.values(files).some(Boolean) || !!purpose.trim());
+	function guardUnsavedUnload(event: BeforeUnloadEvent) {
+		if (!hasUnsavedProgress || submitting || successOpen) return;
+		event.preventDefault();
+		event.returnValue = '';
+	}
+	beforeNavigate(({ cancel }) => {
+		if (hasUnsavedProgress && !submitting && !successOpen && !window.confirm('Your request details and selected files are not saved yet. Leave this page and discard them?')) cancel();
+	});
 	function toggleDoc(doc: DocOption, checkbox: HTMLInputElement) {
 		const selected = selectedDocs.some(item => item.document_id === doc.document_id);
 		if (submitting || (!selected && selectedDocs.length >= maxDocuments)) {
@@ -63,8 +73,13 @@
 	}
 	function next() { if (canProceed && !submitting && currentStep < 3) currentStep++; }
 	function prev() { if (!submitting && currentStep > 1) currentStep--; }
+	function requestSubmissionConfirmation() {
+		if (submitting || successOpen || submitConfirmOpen || currentStep !== 3 || !canProceed || !selectedDocs.length) return;
+		submitConfirmOpen = true;
+	}
 	async function submitRequest() {
 		if (submitting || successOpen || currentStep !== 3 || !canProceed || !selectedDocs.length) return;
+		submitConfirmOpen = false;
 		submitting = true;
 		submitError = '';
 		try {
@@ -88,8 +103,10 @@
 			showToast(submitError, 'error');
 		} finally { submitting = false; }
 	}
-	function reset() { currentStep = 1; selectedDocs = []; purpose = ''; files = {}; submitError = ''; successOpen = false; submittedId = ''; }
+	function reset() { currentStep = 1; selectedDocs = []; purpose = ''; files = {}; submitError = ''; successOpen = false; submitConfirmOpen = false; submittedId = ''; }
 </script>
+
+<svelte:window onbeforeunload={guardUnsavedUnload} />
 
 <div class="request-workspace w-full min-w-0 space-y-4">
 	{#if data.idStatus !== 'verified'}
@@ -99,7 +116,7 @@
 		<Card class="wizard-step-card">
 			{#if currentStep === 1}
 				<h2 class="mb-1 text-xl font-semibold text-gray-800">Select Document</h2>
-				<p class="document-step-description">Choose up to {maxDocuments} documents. Requirements are shown under each document.</p>
+				<p class="document-step-description">Choose up to {maxDocuments} documents. Requirements are shown under each document. If a requirement is shared by selected documents, upload it once.</p>
 				{#if documents.length === 0}<div class="py-10 text-center"><p class="mb-4 text-sm text-gray-600">No documents available yet. You can browse forms meanwhile.</p><Button variant="secondary" href="/student/forms">Browse forms</Button></div>{:else}
 					<div class="document-list-heading"><span>Available documents</span><span class="document-selection-count" aria-live="polite">{selectedDocs.length} of {maxDocuments} selected</span></div>
 					<div class="document-option-grid">
@@ -128,7 +145,7 @@
 				{/if}
 			{:else if currentStep === 2}
 				<h2 class="mb-1 text-xl font-semibold text-gray-800">Submit Requirements</h2>
-				<p class="wizard-step-description">Choose one file for each requirement. Shared requirements only need one file.</p>
+				<p class="wizard-step-description">Choose one file for each online requirement. Shared requirements only need one file; items marked in person do not need an upload.</p>
 				<div class="wizard-requirements">
 					{#each requirements as req}
 						<section class="wizard-requirement" aria-label={req.name}>
@@ -147,7 +164,7 @@
 				</div>
 			{:else}
 				<h2 class="mb-1 text-xl font-semibold text-gray-800">Review &amp; Submit</h2><p class="mb-6 text-sm text-gray-500">Check your documents and files before submitting.</p>
-				<label for="request-purpose" class="mb-2 block text-sm font-medium text-gray-700">Purpose (required)</label><select id="request-purpose" bind:value={purpose} disabled={submitting} class="mb-6 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="" disabled>Select a purpose...</option>{#each requestPurposes as item}<option value={item}>{item}</option>{/each}</select>
+				<label for="request-purpose" class="mb-2 block text-sm font-medium text-gray-700">Purpose <span aria-hidden="true">(required)</span><span class="sr-only">required</span></label><select id="request-purpose" bind:value={purpose} required disabled={submitting} class="mb-6 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-essu-green/30"><option value="" disabled>Select a purpose...</option>{#each requestPurposes as item}<option value={item}>{item}</option>{/each}</select>
 				<div class="space-y-4 rounded-xl border border-essu-green/20 bg-essu-green/5 p-4">
 					<div class="flex items-center justify-between gap-3"><h3 class="text-sm font-semibold text-gray-800">Documents</h3><Button variant="ghost" size="sm" disabled={submitting} onclick={() => currentStep = 1}>Edit documents</Button></div><ul class="list-disc space-y-1 pl-5 text-sm text-gray-800">{#each selectedDocs as doc}<li>{doc.name}</li>{/each}</ul>
 					<div class="flex items-center justify-between gap-3"><h3 class="text-sm font-semibold text-gray-800">Files</h3><Button variant="ghost" size="sm" disabled={submitting} onclick={() => currentStep = 2}>Edit files</Button></div>
@@ -171,11 +188,12 @@
 				{/if}
 			</div>
 			<Button variant="secondary" class="wizard-back-button" onclick={prev} disabled={currentStep === 1 || submitting} icon="fa-solid fa-chevron-left">Back</Button>
-			{#if currentStep < 3}<Button class="wizard-next-button" onclick={next} disabled={!canProceed || submitting} icon="fa-solid fa-chevron-right" iconRight>Next</Button>{:else}<Button class="wizard-next-button" onclick={submitRequest} loading={submitting} loadingLabel="Submitting…" disabled={!canProceed} icon="fa-solid fa-paper-plane">Submit request</Button>{/if}
+			{#if currentStep < 3}<Button class="wizard-next-button" onclick={next} disabled={!canProceed || submitting} icon="fa-solid fa-chevron-right" iconRight>Next</Button>{:else}<Button class="wizard-next-button" onclick={requestSubmissionConfirmation} loading={submitting} loadingLabel="Submitting…" disabled={!canProceed || submitting} disabledReason={!canProceed ? currentStep === 3 && !purpose.trim() ? 'Select a purpose to submit' : nextReason : undefined} icon="fa-solid fa-paper-plane">Submit request</Button>{/if}
 		</div>
 		{#if submitting}<p class="sr-only" role="status">Submitting…</p>{/if}
 	{/if}
 </div>
+<ConfirmDialog open={submitConfirmOpen} title="Confirm document request" message="Review the documents, purpose and uploaded requirements above. Confirming will submit this request to the Graduate School office." variant="primary" confirmLabel="Confirm submission" cancelLabel="Review again" onclose={() => submitConfirmOpen = false} onconfirm={submitRequest} />
 <ConfirmDialog open={successOpen} title="Request submitted" message="Your document request has been submitted. You can track its progress in My Documents." variant="primary" confirmLabel="View my request" cancelLabel="New request" onclose={reset} onconfirm={() => goto('/student/documents#' + encodeURIComponent(submittedId), { invalidateAll: true })}>{#snippet details()}<p class="text-sm text-gray-600">Request ID</p><p class="break-all font-mono text-xl font-semibold text-essu-green">{submittedId}</p>{/snippet}</ConfirmDialog>
 <FilePreview open={templatePreviewOpen} path={templatePreviewPath} name={templatePreviewName} bucket="templates" onclose={() => templatePreviewOpen = false} />
 

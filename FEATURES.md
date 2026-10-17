@@ -22,6 +22,8 @@ documents; staff review and release them.
 - Re-upload files while pending or when corrections are asked
 - Download your document once approved
 - Notifications for every status change
+- First-time, restartable 10-step spotlight tutorial and searchable student help center
+- Safe tutorial walkthrough explains requests without selecting documents, uploading files, or submitting requests
 - Edit profile, email, and password
 
 ## Staff Portal

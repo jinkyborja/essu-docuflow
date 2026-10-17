@@ -1,13 +1,13 @@
 <script lang="ts">
 	import Button from '$lib/components/ui/Button.svelte';
-	interface Step { label: string; icon: string; }
+	interface Step { label: string; icon: string; tourTarget?: string; }
 	let { steps, currentStep, disabled = false, onstepselect }: { steps: Step[]; currentStep: number; disabled?: boolean; onstepselect?: (step: number) => void } = $props();
 </script>
 
 <ol class="ui-stepper" aria-label="Request steps">
 	{#each steps as step, i}
 		{@const stepNum = i + 1}
-		<li class:completed={stepNum < currentStep} aria-current={stepNum === currentStep ? 'step' : undefined}>
+		<li class:completed={stepNum < currentStep} data-student-tour={step.tourTarget} tabindex="-1" aria-current={stepNum === currentStep ? 'step' : undefined}>
 			{#if stepNum < currentStep && onstepselect}
 				<Button variant="ghost" icon="fa-solid fa-check" ariaLabel={`Return to ${step.label}`} title={`Return to ${step.label}`} {disabled} onclick={() => onstepselect?.(stepNum)} class="completed-step" />
 			{:else}<span class="step-number" aria-hidden="true">{#if stepNum < currentStep}<i class="fa-solid fa-check"></i>{:else}{stepNum}{/if}</span>{/if}

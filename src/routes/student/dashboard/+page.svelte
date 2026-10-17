@@ -21,12 +21,12 @@
 	})));
 </script>
 
-<div class="student-dashboard">
+<div class="student-dashboard" data-student-tour="student-dashboard" tabindex="-1">
 	{#if activeRequests.length === 0}
 		<Card class="dashboard-hero">
 			<div class="hero-icon" aria-hidden="true"><i class="fa-solid fa-file-circle-plus"></i></div>
 			<div class="hero-copy"><h2>Request a document</h2><p>Choose your documents and submit their requirements. Track updates here.</p></div>
-			<Button href="/student/request" icon={locked ? 'fa-solid fa-lock' : 'fa-solid fa-plus'} disabled={locked} disabledReason={locked ? lockReason : undefined}>Request a document</Button>
+			<Button href="/student/request" dataTour="dashboard-new-request" icon={locked ? 'fa-solid fa-lock' : 'fa-solid fa-plus'} disabled={locked} disabledReason={locked ? lockReason : undefined}>Request a document</Button>
 		</Card>
 	{:else}
 		{#each activeRequests as req (req.request_id)}
@@ -38,7 +38,7 @@
 		{/each}
 	{/if}
 	<div class="dashboard-support">
-		<Card title="Your next step"><p class="next-step-copy">{nextStep}</p></Card>
+		<Card title="Your next step"><div class="next-step-content"><p class="next-step-copy">{nextStep}</p>{#if activeRequests.length}<Button href="/student/request" dataTour="dashboard-new-request" icon={locked ? 'fa-solid fa-lock' : 'fa-solid fa-plus'} disabled={locked} disabledReason={locked ? lockReason : undefined}>Request a document</Button>{/if}</div><Button variant="ghost" href="/student/help" icon="fa-solid fa-circle-question">Tutorial & FAQs</Button></Card>
 		<Card class="recent-notifications">
 			<div class="section-heading"><h2>Recent notifications</h2><Button variant="ghost" href="/student/notifications" icon="fa-solid fa-arrow-right" iconRight>View all</Button></div>
 			{#if recentNotifs.length === 0}<p class="muted">No notifications yet. Office updates will appear here.</p>
@@ -60,6 +60,7 @@
 	.request-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-6); }
 	.dashboard-support { display: grid; gap: var(--space-6); }
 	.next-step-copy, .muted { color: var(--color-text-muted); font-size: var(--font-size-body); line-height: var(--line-height); }
+	.next-step-content { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
 	.section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
 	ul { margin: 0; padding: 0; list-style: none; }
 	li + li { border-top: 1px solid var(--color-border); }
